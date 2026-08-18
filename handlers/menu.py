@@ -26,7 +26,7 @@ from keyboards.inline import (
 router = Router()
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-BANNER_MAIN = os.path.join(BASE_DIR, "assets", "concord_banner.png")
+BANNER_MAIN = os.path.join(BASE_DIR, "assets", "main_banner.png")
 BANNER_CABINET = os.path.join(BASE_DIR, "assets", "cabinet_banner.png")
 BANNER_BALANCE = os.path.join(BASE_DIR, "assets", "balance_banner.png")
 BANNER_MARKETING = os.path.join(BASE_DIR, "assets", "marketing_banner.png")
@@ -538,7 +538,7 @@ async def cab_qr_code_handler(callback: CallbackQuery, bot: Bot):
     img.save(img_byte_arr, format='PNG')
     img_bytes = img_byte_arr.getvalue()
 
-    photo_file = BufferedInputFile(img_bytes, filename=f"concord_qr_{user.id}.png")
+    photo_file = BufferedInputFile(img_bytes, filename=f"buyukhayot_qr_{user.id}.png")
     caption = (
         "📲 <b>SIZNING SHAXSIY QR KODINGIZ</b>\n\n"
         f"👤 <b>Egasi:</b> {user.full_name}\n"

@@ -17,7 +17,7 @@ MAIN_MENU_CAPTION = (
     "qulay dastur. Ko'plab daromad manbalari va moliyaviy vositalar kapitalingizni ko'paytirishga yordam beradi."
 )
 
-BANNER_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "concord_banner.png")
+BANNER_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "main_banner.png")
 
 
 async def send_main_menu(message_or_query, bot: Bot, user_id: int):

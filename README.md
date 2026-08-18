@@ -1,24 +1,19 @@
-# 🌌 CONCORD Telegram Boti (Kuchaytirilgan Referal Tizimi)
+# 👑 BUYUK HAYOTGA YO'L Telegram Boti (Kuchaytirilgan Referal Tizimi)
 
-Ushbu Telegram bot faqat **referal havola** orqali ro'yxatdan o'tish imkoniyatiga ega bo'lib, to'liq o'zbek tilida yuqori tezlik va kengaytirilgan funksiyalar bilan ishlab chiqilgan.
+Ushbu Telegram boti **aiogram 3** asosida ishlab chiqilgan bo'lib, **faqat taklif (referal) havolasi orqali ro'yxatdan o'tish**, 6 bosqichli marketing rejasi, shaxsiy kabinet, ko'p tarmoqli jamoa statistikasi, kassa/hamyonlar integratsiyasi, **Telegram Mini App (Web App)** hamda **Render.com** veb-boshqaruv panelini taqdim etadi.
 
 ---
 
-## 📌 Asosiy Xususiyatlar va Kuchaytirilgan Funksiyalar
+## 🌟 Asosiy Xususiyatlar:
 
-1. **Faqat referal havola orqali kirish:**
-   - Yangi foydalanuvchi oddiy `/start` bosganda:
-     `⚠️ Botda ro'yxatdan o'tish faqat taklif qiluvchining referal havolasi orqali mumkin.`
-   - Taklif havolasi orqali kirganda (`t.me/bot_username?start=ref_ID`):
-     - Taklif qiluvchi (Kurator) to'liq ma'lumotlari.
-     - Yangi a'zoning o'z ma'lumotlari.
-     - `✅ RO'YXATDAN O'TISH` tasdiqlash tugmasi.
-     - Ro'yxatdan o'tgach, kuratorga real-vaqt rejimida bildirishnoma boradi.
+1. 🔒 **Qat'iy Referal Ro'yxatdan O'tish Tizimi:**
+   - Yangi a'zo botga shunchaki `/start` bossa, bot ro'yxatdan o'tkazmaydi va referal havola talab qiladi.
+   - Referal havola orqali kirilganda (`/start ref_USERID`), Taklif qiluvchi (Kurator) va foydalanuvchining ma'lumotlari kartochka shaklida ko'rsatiladi va `✅ RO'YXATDAN O'TISH` tugmasi chiqadi.
 
-2. **Asosiy Menyu:**
-   - CONCORD kosmik banner rasmi.
-   - O'zbek tilidagi tavsif matni:
-     `CONCORD — ham faol, ham passiv daromad olish uchun yuqori salohiyatga ega qulay dastur. Ko'plab daromad manbalari va moliyaviy vositalar kapitalingizni ko'paytirishga yordam beradi.`
+2. 👑 **Asosiy Menyu va Dizayn:**
+   - Rasmiy oltin shior va banner rasmi.
+   - Sarlavha:
+     `«BUYUK HAYOTGA YO'L» — ham faol, ham passiv daromad olish uchun yuqori salohiyatga ega qulay dastur. Ko'plab daromad manbalari va moliyaviy vositalar kapitalingizni ko'paytirishga yordam beradi.`
    - Tugmalar:
      - `♦️ Asosiy menyu ♦️`
      - `📊 Marketing` | `👤 Kabinet`
@@ -76,7 +71,7 @@ pip install -r requirements.txt
 ```env
 BOT_TOKEN=1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ
 ADMINS=SIZNING_TELEGRAM_ID
-DB_NAME=concord_bot.db
+DB_NAME=buyukhayot.db
 ```
 
 ### 3. Botni ishga tushirish:
