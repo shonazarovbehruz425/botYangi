@@ -1,5 +1,5 @@
-import aiosqlite
 import os
+import aiosqlite
 from datetime import datetime
 from config import DB_NAME, ADMINS
 
@@ -9,44 +9,119 @@ class Database:
 
     async def init_db(self):
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("""
+            # 1. Main Users Table
+            await db.execute(
+                """
                 CREATE TABLE IF NOT EXISTS users (
                     user_id INTEGER PRIMARY KEY,
                     first_name TEXT,
                     last_name TEXT,
                     username TEXT,
-                    referrer_id INTEGER,
+                    referrer_id INTEGER DEFAULT 0,
                     balance REAL DEFAULT 0.0,
                     total_earned REAL DEFAULT 30.0,
-                    status TEXT DEFAULT 'Boshlang''ich',
+                    status TEXT DEFAULT '🌱 Boshlang''ich',
                     current_level INTEGER DEFAULT 1,
                     wallet_bep20 TEXT DEFAULT '',
                     wallet_card TEXT DEFAULT '',
                     wallet_trc20 TEXT DEFAULT '',
                     wallet_payeer TEXT DEFAULT '',
-                    registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    registered_at TEXT,
+                    is_active INTEGER DEFAULT 1,
+                    is_banned INTEGER DEFAULT 0,
+                    visits_count INTEGER DEFAULT 1,
+                    last_active TEXT DEFAULT ''
+                )
+                """
+            )
+
+            # Ensure columns exist if table was created previously
+            try:
+                await db.execute("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0")
+            except Exception:
+                pass
+            try:
+                await db.execute("ALTER TABLE users ADD COLUMN visits_count INTEGER DEFAULT 1")
+            except Exception:
+                pass
+            try:
+                await db.execute("ALTER TABLE users ADD COLUMN last_active TEXT DEFAULT ''")
+            except Exception:
+                pass
+
+            # 2. Level Settings Table
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS level_settings (
+                    level INTEGER PRIMARY KEY,
+                    price REAL NOT NULL,
+                    name TEXT,
                     is_active INTEGER DEFAULT 1
                 )
-            """)
-            await db.commit()
+                """
+            )
 
-            # Ensure columns exist if table was already created earlier
-            columns_to_add = [
-                ("wallet_bep20", "TEXT DEFAULT ''"),
-                ("wallet_card", "TEXT DEFAULT ''"),
-                ("wallet_trc20", "TEXT DEFAULT ''"),
-                ("wallet_payeer", "TEXT DEFAULT ''"),
-                ("total_earned", "REAL DEFAULT 30.0"),
-                ("current_level", "INTEGER DEFAULT 1"),
+            # Seed default levels if empty
+            default_levels = [
+                (1, 10.0, "1-Daraja"),
+                (2, 20.0, "2-Daraja"),
+                (3, 50.0, "3-Daraja"),
+                (4, 100.0, "4-Daraja"),
+                (5, 200.0, "5-Daraja"),
+                (6, 500.0, "6-Daraja"),
             ]
-            for col_name, col_def in columns_to_add:
-                try:
-                    await db.execute(f"ALTER TABLE users ADD COLUMN {col_name} {col_def}")
-                    await db.commit()
-                except Exception:
-                    pass
+            for lvl, prc, name in default_levels:
+                await db.execute(
+                    "INSERT OR IGNORE INTO level_settings (level, price, name, is_active) VALUES (?, ?, ?, 1)",
+                    (lvl, prc, name)
+                )
 
-            # Ensure admins are auto-registered if not exists as root users
+            # 3. Broadcast History Table
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS broadcast_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    text TEXT,
+                    photo_url TEXT,
+                    button_text TEXT,
+                    button_url TEXT,
+                    target_filter TEXT DEFAULT 'all',
+                    sent_count INTEGER DEFAULT 0,
+                    fail_count INTEGER DEFAULT 0,
+                    status TEXT DEFAULT 'completed',
+                    created_at TEXT
+                )
+                """
+            )
+
+            # 4. Mini App Announcements Table
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS announcements (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT,
+                    text TEXT,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TEXT
+                )
+                """
+            )
+
+            # 5. Activity Logs Table
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS activity_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    action TEXT,
+                    details TEXT,
+                    created_at TEXT
+                )
+                """
+            )
+
+            # Ensure Admin exists
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             for admin_id in ADMINS:
                 cursor = await db.execute("SELECT user_id FROM users WHERE user_id = ?", (admin_id,))
                 user = await cursor.fetchone()
@@ -54,10 +129,10 @@ class Database:
                     await db.execute(
                         """
                         INSERT OR IGNORE INTO users 
-                        (user_id, first_name, last_name, username, referrer_id, status, current_level) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        (user_id, first_name, last_name, username, referrer_id, status, current_level, registered_at, last_active) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
-                        (admin_id, "Admin", "Buyuk Hayot", "admin", 0, "👑 Asoschi (Admin)", 6)
+                        (admin_id, "Admin", "Buyuk Hayot", "admin", 0, "👑 Asoschi (Admin)", 6, now, now)
                     )
             await db.commit()
 
@@ -75,20 +150,65 @@ class Database:
             default_level = 6 if user_id in ADMINS else 1
             await db.execute(
                 """
-                INSERT INTO users (user_id, first_name, last_name, username, referrer_id, status, current_level, registered_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO users (user_id, first_name, last_name, username, referrer_id, status, current_level, registered_at, last_active, visits_count)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
                 ON CONFLICT(user_id) DO UPDATE SET
                     first_name = excluded.first_name,
                     last_name = excluded.last_name,
                     username = excluded.username,
-                    referrer_id = excluded.referrer_id
+                    referrer_id = excluded.referrer_id,
+                    last_active = excluded.last_active,
+                    visits_count = users.visits_count + 1
                 """,
-                (user_id, first_name, last_name, username, referrer_id, status, default_level, now)
+                (user_id, first_name, last_name, username, referrer_id, status, default_level, now, now)
             )
             await db.commit()
             await self.update_user_rank(user_id)
             if referrer_id:
                 await self.update_user_rank(referrer_id)
+            await self.log_activity(user_id, "REGISTER", f"Ro'yxatdan o'tdi. Kurator ID: {referrer_id}")
+
+    async def update_user_full(self, user_id: int, first_name: str, last_name: str, username: str, level: int, balance: float, total_earned: float, status: str, wallet_bep20: str, wallet_card: str, wallet_trc20: str, wallet_payeer: str):
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                UPDATE users SET
+                    first_name = ?,
+                    last_name = ?,
+                    username = ?,
+                    current_level = ?,
+                    balance = ?,
+                    total_earned = ?,
+                    status = ?,
+                    wallet_bep20 = ?,
+                    wallet_card = ?,
+                    wallet_trc20 = ?,
+                    wallet_payeer = ?
+                WHERE user_id = ?
+                """,
+                (first_name, last_name, username, level, balance, total_earned, status, wallet_bep20, wallet_card, wallet_trc20, wallet_payeer, user_id)
+            )
+            await db.commit()
+            await self.log_activity(user_id, "ADMIN_EDIT", f"Profil admin tomonidan tahrirlandi: Level {level}, Balans ${balance}")
+
+    async def set_user_ban_status(self, user_id: int, is_banned: int):
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("UPDATE users SET is_banned = ? WHERE user_id = ?", (is_banned, user_id))
+            await db.commit()
+            action = "BAN" if is_banned else "UNBAN"
+            await self.log_activity(user_id, action, f"Foydalanuvchi {'bloklandi' if is_banned else 'blokdan chiqarildi'}")
+
+    async def change_user_referrer(self, user_id: int, new_referrer_id: int):
+        async with aiosqlite.connect(self.db_path) as db:
+            old_user = await self.get_user(user_id)
+            old_ref = old_user.get("referrer_id", 0) if old_user else 0
+            await db.execute("UPDATE users SET referrer_id = ? WHERE user_id = ?", (new_referrer_id, user_id))
+            await db.commit()
+            if old_ref:
+                await self.update_user_rank(old_ref)
+            if new_referrer_id:
+                await self.update_user_rank(new_referrer_id)
+            await self.log_activity(user_id, "CHANGE_REFERRER", f"Kurator o'zgartirildi: {old_ref} -> {new_referrer_id}")
 
     async def update_wallet(self, user_id: int, wallet_type: str, wallet_value: str):
         allowed = ["wallet_bep20", "wallet_card", "wallet_trc20", "wallet_payeer"]
@@ -120,25 +240,25 @@ class Database:
 
     async def get_referral_count(self, user_id: int) -> int:
         async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ?", (user_id,))
+            cursor = await db.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ? AND is_banned = 0", (user_id,))
             row = await cursor.fetchone()
             return row[0] if row else 0
 
     async def get_multi_tier_stats(self, user_id: int) -> dict:
         async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute("SELECT user_id FROM users WHERE referrer_id = ?", (user_id,))
+            cursor = await db.execute("SELECT user_id FROM users WHERE referrer_id = ? AND is_banned = 0", (user_id,))
             l1_ids = [row[0] for row in await cursor.fetchall()]
             
             l2_ids = []
             if l1_ids:
                 placeholders = ",".join("?" for _ in l1_ids)
-                cursor = await db.execute(f"SELECT user_id FROM users WHERE referrer_id IN ({placeholders})", l1_ids)
+                cursor = await db.execute(f"SELECT user_id FROM users WHERE referrer_id IN ({placeholders}) AND is_banned = 0", l1_ids)
                 l2_ids = [row[0] for row in await cursor.fetchall()]
 
             l3_ids = []
             if l2_ids:
                 placeholders = ",".join("?" for _ in l2_ids)
-                cursor = await db.execute(f"SELECT user_id FROM users WHERE referrer_id IN ({placeholders})", l2_ids)
+                cursor = await db.execute(f"SELECT user_id FROM users WHERE referrer_id IN ({placeholders}) AND is_banned = 0", l2_ids)
                 l3_ids = [row[0] for row in await cursor.fetchall()]
 
             total_team = len(l1_ids) + len(l2_ids) + len(l3_ids)
@@ -148,6 +268,56 @@ class Database:
                 "level_3": len(l3_ids),
                 "total_team": total_team
             }
+
+    async def get_user_tree(self, user_id: int) -> dict:
+        """Returns deep 3-tier hierarchy structure for visual tree rendering."""
+        user = await self.get_user(user_id)
+        if not user:
+            return None
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            
+            # Level 1
+            cursor = await db.execute("SELECT user_id, first_name, last_name, username, current_level, status, total_earned FROM users WHERE referrer_id = ?", (user_id,))
+            l1_users = [dict(r) for r in await cursor.fetchall()]
+
+            for u1 in l1_users:
+                # Level 2
+                cursor2 = await db.execute("SELECT user_id, first_name, last_name, username, current_level, status, total_earned FROM users WHERE referrer_id = ?", (u1["user_id"],))
+                u1["children"] = [dict(r) for r in await cursor2.fetchall()]
+                
+                for u2 in u1["children"]:
+                    # Level 3
+                    cursor3 = await db.execute("SELECT user_id, first_name, last_name, username, current_level, status, total_earned FROM users WHERE referrer_id = ?", (u2["user_id"],))
+                    u2["children"] = [dict(r) for r in await cursor3.fetchall()]
+
+            return {
+                "user_id": user["user_id"],
+                "first_name": user.get("first_name", ""),
+                "last_name": user.get("last_name", ""),
+                "username": user.get("username", ""),
+                "current_level": user.get("current_level", 1),
+                "status": user.get("status", "🌱 Boshlang'ich"),
+                "children": l1_users
+            }
+
+    async def get_top_leaders(self, limit: int = 20):
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            query = """
+                SELECT u.user_id, u.first_name, u.last_name, u.username, u.status, u.current_level, u.total_earned,
+                       COUNT(r.user_id) as direct_count
+                FROM users u
+                LEFT JOIN users r ON r.referrer_id = u.user_id AND r.is_banned = 0
+                WHERE u.is_banned = 0
+                GROUP BY u.user_id
+                ORDER BY direct_count DESC, u.total_earned DESC
+                LIMIT ?
+            """
+            cursor = await db.execute(query, (limit,))
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
 
     async def update_user_rank(self, user_id: int):
         if user_id in ADMINS:
@@ -173,6 +343,90 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("SELECT * FROM users ORDER BY registered_at DESC")
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
+
+    async def get_filtered_user_ids(self, filter_type: str = "all") -> list[int]:
+        async with aiosqlite.connect(self.db_path) as db:
+            if filter_type == "lvl1":
+                cursor = await db.execute("SELECT user_id FROM users WHERE current_level = 1 AND is_banned = 0")
+            elif filter_type == "lvl2_plus":
+                cursor = await db.execute("SELECT user_id FROM users WHERE current_level >= 2 AND is_banned = 0")
+            elif filter_type == "admins":
+                cursor = await db.execute("SELECT user_id FROM users WHERE status LIKE '%Admin%'")
+            elif filter_type == "inactive":
+                cursor = await db.execute("SELECT user_id FROM users WHERE visits_count <= 1 AND is_banned = 0")
+            else:
+                cursor = await db.execute("SELECT user_id FROM users WHERE is_banned = 0")
+            rows = await cursor.fetchall()
+            return [r[0] for r in rows]
+
+    async def get_level_settings(self):
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM level_settings ORDER BY level ASC")
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
+
+    async def update_level_price(self, level: int, price: float, name: str = None):
+        async with aiosqlite.connect(self.db_path) as db:
+            if name:
+                await db.execute("UPDATE level_settings SET price = ?, name = ? WHERE level = ?", (price, name, level))
+            else:
+                await db.execute("UPDATE level_settings SET price = ? WHERE level = ?", (price, level))
+            await db.commit()
+
+    async def get_active_announcement(self):
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM announcements WHERE is_active = 1 ORDER BY id DESC LIMIT 1")
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
+    async def set_active_announcement(self, title: str, text: str):
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("UPDATE announcements SET is_active = 0")
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            await db.execute("INSERT INTO announcements (title, text, is_active, created_at) VALUES (?, ?, 1, ?)", (title, text, now))
+            await db.commit()
+
+    async def delete_announcements(self):
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("UPDATE announcements SET is_active = 0")
+            await db.commit()
+
+    async def log_activity(self, user_id: int, action: str, details: str):
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                await db.execute("INSERT INTO activity_logs (user_id, action, details, created_at) VALUES (?, ?, ?, ?)", (user_id, action, details, now))
+                await db.commit()
+        except Exception:
+            pass
+
+    async def get_recent_logs(self, limit: int = 50):
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM activity_logs ORDER BY id DESC LIMIT ?", (limit,))
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
+
+    async def save_broadcast(self, text: str, photo_url: str, button_text: str, button_url: str, target_filter: str, sent_count: int, fail_count: int):
+        async with aiosqlite.connect(self.db_path) as db:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            await db.execute(
+                """
+                INSERT INTO broadcast_history (text, photo_url, button_text, button_url, target_filter, sent_count, fail_count, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (text, photo_url, button_text, button_url, target_filter, sent_count, fail_count, now)
+            )
+            await db.commit()
+
+    async def get_broadcast_history(self, limit: int = 20):
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM broadcast_history ORDER BY id DESC LIMIT ?", (limit,))
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
 

@@ -63,6 +63,11 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
     args = command.args
     existing_user = await db.get_user(user.id)
 
+    # If user is banned, block access
+    if existing_user and existing_user.get("is_banned"):
+        await message.answer("⛔️ <b>Sizning hisobingiz qoidabuzarlik sababli bloklangan.</b>", parse_mode="HTML")
+        return
+
     # If user is already registered, take them straight to the main menu
     if existing_user:
         await send_main_menu(message)

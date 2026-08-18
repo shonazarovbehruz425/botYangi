@@ -39,9 +39,9 @@ async def main():
     # Setup Routers
     setup_routers(dp)
 
-    # Start WebApp Static Server
+    # Start WebApp Static Server & Admin APIs
     from server import start_webapp_server
-    webapp_runner = await start_webapp_server()
+    webapp_runner = await start_webapp_server(bot=bot)
 
     logger.info("🚀 Bot ishga tushmoqda...")
     try:

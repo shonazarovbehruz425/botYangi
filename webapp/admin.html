@@ -3,18 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BUYUK HAYOTGA YO'L — Boshqaruv Paneli</title>
+  <title>BUYUK HAYOTGA YO'L — Super Admin Paneli</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #07170e;
-      --panel-bg: rgba(14, 43, 27, 0.85);
-      --border-color: rgba(234, 179, 8, 0.25);
-      --gold: #facc15;
-      --gold-gradient: linear-gradient(135deg, #facc15, #ca8a04);
+      --bg-dark: #050705;
+      --panel-bg: rgba(18, 14, 6, 0.9);
+      --border-gold: rgba(234, 179, 8, 0.3);
+      --gold-primary: #facc15;
+      --gold-light: #fef08a;
+      --gold-metallic: linear-gradient(135deg, #fef08a 0%, #eab308 50%, #854d0e 100%);
       --green: #22c55e;
+      --red: #ef4444;
+      --blue: #38bdf8;
       --text: #f8fafc;
       --text-muted: #94a3b8;
     }
@@ -23,196 +26,203 @@
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
       background: var(--bg-dark);
-      background-image: radial-gradient(circle at top right, #113821 0%, #06150c 100%);
+      background-image: radial-gradient(circle at 50% 0%, #291a04 0%, #0c0f0d 50%, #030403 100%);
+      background-attachment: fixed;
       color: var(--text);
       min-height: 100vh;
-      padding: 20px;
+      padding: 20px 16px;
     }
 
-    .container { max-width: 1200px; margin: 0 auto; }
+    .container { max-width: 1280px; margin: 0 auto; }
 
     /* Header */
     .admin-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 20px 24px;
+      padding: 18px 24px;
       background: var(--panel-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 18px;
-      margin-bottom: 24px;
-      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-gold);
+      border-radius: 20px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      flex-wrap: wrap;
+      gap: 16px;
     }
 
     .brand-title {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 800;
-      color: var(--gold);
+      color: var(--gold-light);
       display: flex;
       align-items: center;
       gap: 10px;
     }
 
-    .header-actions {
+    .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* Navigation Tabs */
+    .admin-tabs {
       display: flex;
-      gap: 12px;
+      gap: 8px;
+      margin-bottom: 24px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+
+    .tab-btn {
+      padding: 11px 18px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-gold);
+      color: #cbd5e1;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tab-btn:hover, .tab-btn.active {
+      background: var(--gold-metallic);
+      color: #000;
+      border-color: var(--gold-primary);
+      box-shadow: 0 0 15px rgba(250, 204, 21, 0.3);
     }
 
     /* Buttons */
     .btn {
-      padding: 10px 18px;
+      padding: 9px 16px;
       border-radius: 10px;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 700;
       cursor: pointer;
       border: none;
       transition: all 0.2s ease;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      text-decoration: none;
     }
 
-    .btn-gold {
-      background: var(--gold-gradient);
-      color: #000;
-    }
-
+    .btn-gold { background: var(--gold-metallic); color: #000; }
     .btn-gold:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn-outline { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; }
+    .btn-green { background: rgba(34, 197, 94, 0.2); border: 1px solid var(--green); color: #4ade80; }
+    .btn-red { background: rgba(239, 68, 68, 0.2); border: 1px solid var(--red); color: #f87171; }
+    .btn-blue { background: rgba(56, 189, 248, 0.2); border: 1px solid var(--blue); color: #38bdf8; }
 
-    .btn-outline {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #fff;
-    }
-
-    /* Stats Row */
+    /* Stats Grid */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
       margin-bottom: 24px;
     }
 
     .stat-box {
       background: var(--panel-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 16px;
+      border: 1px solid var(--border-gold);
+      border-radius: 18px;
       padding: 20px;
     }
 
     .stat-lbl { font-size: 13px; color: var(--text-muted); font-weight: 600; }
-    .stat-val { font-size: 30px; font-weight: 800; color: var(--gold); margin-top: 6px; }
+    .stat-val { font-size: 28px; font-weight: 800; color: var(--gold-light); margin-top: 4px; }
 
-    /* Table Section */
-    .table-section {
+    /* Tab Content Panels */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    .card-section {
       background: var(--panel-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 18px;
+      border: 1px solid var(--border-gold);
+      border-radius: 20px;
       padding: 24px;
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(14px);
+      margin-bottom: 24px;
     }
 
-    .table-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-      gap: 14px;
-    }
+    .section-title { font-size: 18px; font-weight: 800; color: var(--gold-light); margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 
-    .search-input {
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid var(--border-color);
+    /* Tables */
+    .table-responsive { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+    th { padding: 13px 14px; background: rgba(0, 0, 0, 0.4); color: var(--gold-light); font-weight: 700; border-bottom: 1px solid var(--border-gold); }
+    td { padding: 13px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #e2e8f0; }
+    tr:hover td { background: rgba(255, 255, 255, 0.03); }
+
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+    .badge-gold { background: rgba(250, 204, 21, 0.15); color: var(--gold-primary); border: 1px solid var(--border-gold); }
+    .badge-banned { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .badge-active { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); }
+
+    /* Forms & Inputs */
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
+    .form-control {
+      width: 100%;
+      padding: 11px 14px;
       border-radius: 10px;
-      padding: 10px 16px;
+      border: 1px solid var(--border-gold);
+      background: rgba(0, 0, 0, 0.4);
       color: #fff;
       font-size: 14px;
-      width: 320px;
-      max-width: 100%;
     }
+    .form-control:focus { outline: none; border-color: var(--gold-primary); }
 
-    .search-input:focus { outline: none; border-color: var(--gold); }
-
-    .table-responsive {
-      overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13.5px;
-      text-align: left;
-    }
-
-    th {
-      padding: 14px 16px;
-      background: rgba(0, 0, 0, 0.25);
-      color: var(--gold);
-      font-weight: 700;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    td {
-      padding: 14px 16px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      color: #e2e8f0;
-    }
-
-    tr:hover td {
-      background: rgba(255, 255, 255, 0.03);
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .badge-level { background: rgba(234, 179, 8, 0.2); color: var(--gold); border: 1px solid var(--border-color); }
-    .badge-admin { background: rgba(34, 197, 94, 0.2); color: var(--green); }
-
-    /* Login Modal */
-    .login-overlay {
+    /* Modals */
+    .modal-overlay {
       position: fixed;
       inset: 0;
       background: rgba(0, 0, 0, 0.85);
-      backdrop-filter: blur(10px);
-      display: flex;
+      backdrop-filter: blur(8px);
+      display: none;
       align-items: center;
       justify-content: center;
       z-index: 9999;
+      padding: 16px;
     }
 
-    .login-card {
-      background: #0d281a;
-      border: 1px solid var(--gold);
+    .modal-overlay.active { display: flex; }
+
+    .modal-card {
+      background: #110e05;
+      border: 1px solid var(--gold-primary);
       border-radius: 20px;
-      padding: 36px 30px;
-      width: 380px;
-      max-width: 90vw;
-      text-align: center;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+      padding: 26px;
+      width: 560px;
+      max-width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
     }
 
-    .login-card h2 { color: var(--gold); font-size: 22px; margin-bottom: 8px; }
-    .login-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
-    .login-card input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); color: #fff; font-size: 16px; text-align: center; margin-bottom: 18px; }
-    .login-card input:focus { outline: none; border-color: var(--gold); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    .modal-header h3 { color: var(--gold-light); font-size: 18px; }
+    .close-modal { background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; }
+
+    /* Visual Tree Graph */
+    .tree-node { margin-left: 20px; border-left: 2px dashed rgba(234, 179, 8, 0.3); padding-left: 14px; margin-top: 8px; }
+    .tree-box { background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-gold); padding: 8px 14px; border-radius: 10px; display: inline-flex; align-items: center; gap: 10px; }
   </style>
 </head>
 <body>
 
   <!-- Password Login Overlay -->
-  <div class="login-overlay" id="login-overlay">
-    <div class="login-card">
-      <h2>👑 Boshqaruv Paneli</h2>
-      <p>BUYUK HAYOTGA YO'L — Xavfsiz kirish</p>
-      <input type="password" id="admin-pass" placeholder="Admin parolini kiriting...">
+  <div class="modal-overlay active" id="login-overlay">
+    <div class="modal-card" style="width: 380px; text-align: center;">
+      <h2 style="color: var(--gold-light); margin-bottom: 6px;">👑 BUYUK HAYOT</h2>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Super Boshqaruv Paneliga Kirish</p>
+      <input type="password" id="admin-pass" class="form-control" placeholder="Admin parolini kiriting..." style="text-align: center; margin-bottom: 14px;">
       <button class="btn btn-gold" style="width: 100%; justify-content: center;" onclick="checkPassword()">Kirish</button>
-      <div id="login-err" style="color: #ef4444; font-size: 13px; margin-top: 10px; display: none;">Parol noto'g'ri!</div>
+      <div id="login-err" style="color: var(--red); font-size: 13px; margin-top: 10px; display: none;">Parol noto'g'ri!</div>
     </div>
   </div>
 
@@ -220,60 +230,318 @@
     <!-- Header -->
     <header class="admin-header">
       <div class="brand-title">
-        <span>👑 BUYUK HAYOTGA YO'L — Boshqaruv Paneli</span>
+        <span>👑 BUYUK HAYOTGA YO'L — Boshqaruv Markazi</span>
       </div>
       <div class="header-actions">
-        <a href="/api/admin/backup/download" class="btn btn-gold" download>
-          📦 Database .js Yuklab olish
-        </a>
-        <button class="btn btn-outline" onclick="location.reload()">🔄 Yangilash</button>
+        <a href="/api/admin/backup/download" class="btn btn-gold" download>📦 .js Backup Yuklab olish</a>
+        <button class="btn btn-outline" onclick="loadAllData()">🔄 Yangilash</button>
+        <button class="btn btn-red" onclick="logout()">Chiqish</button>
       </div>
     </header>
 
-    <!-- Stats -->
-    <div class="stats-grid">
-      <div class="stat-box">
-        <div class="stat-lbl">Jami Foydalanuvchilar</div>
-        <div class="stat-val" id="stat-total-users">0</div>
+    <!-- Navigation Tabs -->
+    <div class="admin-tabs">
+      <button class="tab-btn active" onclick="switchTab('tab-overview')">📊 Statistika</button>
+      <button class="tab-btn" onclick="switchTab('tab-users')">👥 Foydalanuvchilar</button>
+      <button class="tab-btn" onclick="switchTab('tab-leaders')">🏆 Top Liderlar</button>
+      <button class="tab-btn" onclick="switchTab('tab-broadcast')">📢 Ommaviy Xabar (Broadcast)</button>
+      <button class="tab-btn" onclick="switchTab('tab-levels')">⚙️ Marketing Narxlari</button>
+      <button class="tab-btn" onclick="switchTab('tab-announcements')">📣 E'lonlar & Kanalga Post</button>
+      <button class="tab-btn" onclick="switchTab('tab-logs')">📜 Faollik Jurnali</button>
+    </div>
+
+    <!-- TAB 1: OVERVIEW -->
+    <div class="tab-content active" id="tab-overview">
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-lbl">Jami Foydalanuvchilar</div>
+          <div class="stat-val" id="ov-total-users">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-lbl">Faol Darajalar</div>
+          <div class="stat-val">1 - 6 Bosqich</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-lbl">Hisoblangan Jami Aylanma</div>
+          <div class="stat-val" id="ov-total-volume">$0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-lbl">Rasmiy Bot</div>
+          <div class="stat-val" style="font-size: 20px; color: var(--blue);">@Buyukhayot_bot</div>
+        </div>
       </div>
-      <div class="stat-box">
-        <div class="stat-lbl">Faol Darajalar</div>
-        <div class="stat-val" id="stat-active-levels">1 - 6</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-lbl">Jami Aylanma (Hisoblangan)</div>
-        <div class="stat-val" id="stat-total-volume">$0</div>
+
+      <div class="card-section">
+        <div class="section-title">
+          <span>⚡️ Tezkor Amallar</span>
+        </div>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <button class="btn btn-gold" onclick="switchTab('tab-broadcast')">📢 Barchaga Xabar Yuborish</button>
+          <button class="btn btn-green" onclick="postStatsToChannel()">🚀 Kanalga Kunlik Hisobot Postini Chiqarish</button>
+          <button class="btn btn-blue" onclick="switchTab('tab-levels')">⚙️ Marketing Narxlarini Sozlash</button>
+        </div>
       </div>
     </div>
 
-    <!-- Table Section -->
-    <div class="table-section">
-      <div class="table-toolbar">
-        <h3>👥 Foydalanuvchilar Ro'yxati</h3>
-        <input type="text" class="search-input" id="user-search" placeholder="Qidiruv (Ism, Username, ID)..." oninput="filterUsers()">
+    <!-- TAB 2: USERS MANAGEMENT -->
+    <div class="tab-content" id="tab-users">
+      <div class="card-section">
+        <div class="section-title">
+          <span>👥 Barcha Foydalanuvchilar Ro'yxati</span>
+          <input type="text" class="form-control" id="user-search" placeholder="Qidiruv (Ism, Username, ID)..." style="width: 280px;" oninput="filterUsers()">
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Ism & Familiya</th>
+                <th>Username</th>
+                <th>Kurator</th>
+                <th>Daraja</th>
+                <th>Balans</th>
+                <th>Holat</th>
+                <th>Amallar</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: LEADERBOARD -->
+    <div class="tab-content" id="tab-leaders">
+      <div class="card-section">
+        <div class="section-title">
+          <span>🏆 Eng Kuchli Liderlar Reytingi</span>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>O'rin</th>
+                <th>ID</th>
+                <th>Lider Ismi</th>
+                <th>Username</th>
+                <th>Taklif Qilgan A'zolari</th>
+                <th>Daraja</th>
+                <th>Umumiy Daromad</th>
+              </tr>
+            </thead>
+            <tbody id="leaders-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: BROADCAST CENTER -->
+    <div class="tab-content" id="tab-broadcast">
+      <div class="card-section">
+        <div class="section-title">
+          <span>📢 Rasm, Video va Tugmali Broadcast Yuborish</span>
+        </div>
+
+        <div class="form-group">
+          <label>Segmentatsiya (Kimlarga yuborilsin?):</label>
+          <select id="bc-filter" class="form-control">
+            <option value="all">Barcha foydalanuvchilarga (All)</option>
+            <option value="lvl1">Faqat 1-Darajadagi a'zolarga</option>
+            <option value="lvl2_plus">2 va undan yuqori darajadagilarga</option>
+            <option value="inactive">Faol bo'lmaganlarga (Visits <= 1)</option>
+            <option value="admins">Faqat Adminlarga</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Rasm / Banner Havolasi (URL - ixtiyoriy):</label>
+          <input type="text" id="bc-photo-url" class="form-control" placeholder="https://... rasm havolasi">
+        </div>
+
+        <div class="form-group">
+          <label>Xabar Matni (HTML format qo'llab-quvvatlanadi):</label>
+          <textarea id="bc-text" class="form-control" rows="5" placeholder="<b>Diqqat e'lon!</b> Yangi imkoniyatlar..."></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div class="form-group">
+            <label>Inline Tugma Matni (ixtiyoriy):</label>
+            <input type="text" id="bc-btn-text" class="form-control" placeholder="Masalan: Mini Appni Ochish">
+          </div>
+          <div class="form-group">
+            <label>Inline Tugma Havolasi (URL):</label>
+            <input type="text" id="bc-btn-url" class="form-control" placeholder="https://botyangi.onrender.com">
+          </div>
+        </div>
+
+        <button class="btn btn-gold" style="width: 100%; justify-content: center; padding: 12px;" onclick="sendBroadcast()">🚀 Xabarni Yuborish</button>
+        <div id="bc-result" style="margin-top: 14px; font-weight: 700;"></div>
       </div>
 
-      <div class="table-responsive">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Ism & Familiya</th>
-              <th>Username</th>
-              <th>Kurator (ID)</th>
-              <th>Daraja</th>
-              <th>Maqom</th>
-              <th>Ro'yxatdan o'tgan</th>
-              <th>Hamyon (BEP20 / Card)</th>
-            </tr>
-          </thead>
-          <tbody id="users-table-body">
-            <tr>
-              <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Yuklanmoqda...</td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- History -->
+      <div class="card-section">
+        <div class="section-title"><span>📜 Yuborilgan Xabarlar Tarixi</span></div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Vaqt</th>
+                <th>Segment</th>
+                <th>Xabar Matni</th>
+                <th>Yuborildi</th>
+                <th>Xato</th>
+              </tr>
+            </thead>
+            <tbody id="bc-history-body"></tbody>
+          </table>
+        </div>
       </div>
+    </div>
+
+    <!-- TAB 5: MARKETING LEVELS PRICING -->
+    <div class="tab-content" id="tab-levels">
+      <div class="card-section">
+        <div class="section-title">
+          <span>⚙️ Marketing Darajalari Narxlarini Boshqarish</span>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Daraja</th>
+                <th>Nomi</th>
+                <th>Joriy Narx ($)</th>
+                <th>Yangi Narx ($)</th>
+                <th>Amal</th>
+              </tr>
+            </thead>
+            <tbody id="levels-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 6: ANNOUNCEMENTS & CHANNEL POST -->
+    <div class="tab-content" id="tab-announcements">
+      <div class="card-section">
+        <div class="section-title"><span>📣 Mini App Push Bildirishnomasi (Banner)</span></div>
+        <div class="form-group">
+          <label>E'lon Sarlavhasi:</label>
+          <input type="text" id="ann-title" class="form-control" placeholder="⚡️ Katta Yangilik!">
+        </div>
+        <div class="form-group">
+          <label>E'lon Matni:</label>
+          <textarea id="ann-text" class="form-control" rows="3" placeholder="Mini App a'zolari uchun maxsus xabar..."></textarea>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-gold" onclick="saveAnnouncement()">✅ Mini Appda Ko'rsatish</button>
+          <button class="btn btn-red" onclick="clearAnnouncement()">❌ E'lonni O'chirish</button>
+        </div>
+      </div>
+
+      <div class="card-section">
+        <div class="section-title"><span>🚀 Telegram Kanalga Kunlik Hisobot Posti</span></div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
+          Ushbu tugma orqali rasmiy Telegram kanalingizga oltin rasmli va kunlik statistika hisoboti joylanadi.
+        </p>
+        <button class="btn btn-green" onclick="postStatsToChannel()">📢 Kanalga Post Chiqarish</button>
+      </div>
+    </div>
+
+    <!-- TAB 7: ACTIVITY LOGS -->
+    <div class="tab-content" id="tab-logs">
+      <div class="card-section">
+        <div class="section-title"><span>📜 Oxirgi Tizim Faolligi va Audit Jurnali</span></div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Vaqt</th>
+                <th>Foydalanuvchi (ID)</th>
+                <th>Amal (Action)</th>
+                <th>Tafsilotlar</th>
+              </tr>
+            </thead>
+            <tbody id="logs-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MODAL: EDIT USER -->
+  <div class="modal-overlay" id="edit-user-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>✏️ Foydalanuvchini Tahrirlash</h3>
+        <button class="close-modal" onclick="closeModal('edit-user-modal')">&times;</button>
+      </div>
+      <input type="hidden" id="edit-uid">
+      <div class="form-group">
+        <label>Ism:</label>
+        <input type="text" id="edit-fname" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>Familiya:</label>
+        <input type="text" id="edit-lname" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>Username:</label>
+        <input type="text" id="edit-uname" class="form-control">
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="form-group">
+          <label>Daraja (1 - 6):</label>
+          <input type="number" id="edit-level" class="form-control" min="1" max="6">
+        </div>
+        <div class="form-group">
+          <label>Balans ($):</label>
+          <input type="number" id="edit-balance" class="form-control" step="0.1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Maqom (Status):</label>
+        <input type="text" id="edit-status" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>Karta (UzCard/Humo):</label>
+        <input type="text" id="edit-card" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>USDT (BEP20):</label>
+        <input type="text" id="edit-bep20" class="form-control">
+      </div>
+      <button class="btn btn-gold" style="width: 100%; justify-content: center; margin-top: 10px;" onclick="saveUserEdit()">Saqlash</button>
+    </div>
+  </div>
+
+  <!-- MODAL: CHANGE REFERRER -->
+  <div class="modal-overlay" id="ref-modal">
+    <div class="modal-card" style="width: 400px;">
+      <div class="modal-header">
+        <h3>🔄 Kuratorni O'zgartirish</h3>
+        <button class="close-modal" onclick="closeModal('ref-modal')">&times;</button>
+      </div>
+      <input type="hidden" id="ref-uid">
+      <p id="ref-user-info" style="font-size: 13.5px; margin-bottom: 14px; color: var(--gold-light);"></p>
+      <div class="form-group">
+        <label>Yangi Kurator ID raqami:</label>
+        <input type="number" id="new-ref-id" class="form-control" placeholder="Masalan: 123456789">
+      </div>
+      <button class="btn btn-gold" style="width: 100%; justify-content: center;" onclick="saveReferrerChange()">Biriktirish</button>
+    </div>
+  </div>
+
+  <!-- MODAL: VISUAL TREE GRAPH -->
+  <div class="modal-overlay" id="tree-modal">
+    <div class="modal-card" style="width: 650px;">
+      <div class="modal-header">
+        <h3 id="tree-title">🌳 Jamoa Daraxti</h3>
+        <button class="close-modal" onclick="closeModal('tree-modal')">&times;</button>
+      </div>
+      <div id="tree-content" style="font-size: 13.5px;">Yuklanmoqda...</div>
     </div>
   </div>
 
@@ -291,9 +559,9 @@
       .then(data => {
         if (data.success) {
           sessionStorage.setItem('admin_token', pass);
-          document.getElementById('login-overlay').style.display = 'none';
+          document.getElementById('login-overlay').classList.remove('active');
           document.getElementById('panel-content').style.display = 'block';
-          loadAdminData();
+          loadAllData();
         } else {
           document.getElementById('login-err').style.display = 'block';
         }
@@ -303,20 +571,42 @@
       });
     }
 
-    // Auto login from session
     if (sessionStorage.getItem('admin_token')) {
       document.getElementById('admin-pass').value = sessionStorage.getItem('admin_token');
       checkPassword();
     }
 
-    function loadAdminData() {
+    function logout() {
+      sessionStorage.removeItem('admin_token');
+      location.reload();
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick')?.includes(tabId));
+      if (btn) btn.classList.add('active');
+      const target = document.getElementById(tabId);
+      if (target) target.classList.add('active');
+    }
+
+    function loadAllData() {
+      loadUsers();
+      loadLeaders();
+      loadLevels();
+      loadBroadcastHistory();
+      loadLogs();
+    }
+
+    function loadUsers() {
       fetch('/api/admin/users')
         .then(res => res.json())
         .then(data => {
           allUsers = data.users || [];
-          document.getElementById('stat-total-users').innerText = allUsers.length;
+          document.getElementById('ov-total-users').innerText = allUsers.length;
           let volume = allUsers.reduce((sum, u) => sum + (u.total_earned || 30), 0);
-          document.getElementById('stat-total-volume').innerText = `$${volume}`;
+          document.getElementById('ov-total-volume').innerText = `$${volume}`;
           renderUsersTable(allUsers);
         });
     }
@@ -324,37 +614,345 @@
     function renderUsersTable(users) {
       const tbody = document.getElementById('users-table-body');
       if (!users.length) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Foydalanuvchilar topilmadi</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">Foydalanuvchilar topilmadi</td></tr>';
         return;
       }
       tbody.innerHTML = users.map(u => {
         const name = `${u.first_name || ''} ${u.last_name || ''}`.trim() || '-';
         const uname = u.username ? `@${u.username}` : '-';
         const ref = u.referrer_id ? `ID: ${u.referrer_id}` : 'Bosh Admin';
-        const lvl = u.current_level || 1;
-        const wallet = u.wallet_bep20 || u.wallet_card || u.wallet_trc20 || 'Kiritilmagan';
+        const isBanned = u.is_banned === 1;
+        const banBadge = isBanned ? '<span class="badge badge-banned">Bloklangan</span>' : '<span class="badge badge-active">Faol</span>';
+        
         return `
           <tr>
             <td><code>${u.user_id}</code></td>
             <td><b>${name}</b></td>
-            <td><span style="color: #38bdf8;">${uname}</span></td>
+            <td><span style="color: var(--blue);">${uname}</span></td>
             <td>${ref}</td>
-            <td><span class="badge badge-level">${lvl}-Daraja</span></td>
-            <td><span class="badge ${u.referrer_id === 0 ? 'badge-admin' : 'badge-level'}">${u.status || 'Hamkor'}</span></td>
-            <td>${u.registered_at || '-'}</td>
-            <td style="font-family: monospace; font-size: 11px;">${wallet.substring(0, 24)}...</td>
+            <td><span class="badge badge-gold">${u.current_level || 1}-Daraja</span></td>
+            <td><b>$${u.balance || 0}</b></td>
+            <td>${banBadge}</td>
+            <td>
+              <div style="display: flex; gap: 6px;">
+                <button class="btn btn-outline" style="padding: 4px 8px;" onclick="openEditModal(${u.user_id})">✏️</button>
+                <button class="btn btn-blue" style="padding: 4px 8px;" onclick="openTreeModal(${u.user_id}, '${name}')">🌳</button>
+                <button class="btn btn-gold" style="padding: 4px 8px;" onclick="openRefModal(${u.user_id}, '${name}', ${u.referrer_id || 0})">🔄</button>
+                <button class="btn ${isBanned ? 'btn-green' : 'btn-red'}" style="padding: 4px 8px;" onclick="toggleBan(${u.user_id}, ${isBanned ? 0 : 1})">
+                  ${isBanned ? '✅' : '🚫'}
+                </button>
+              </div>
+            </td>
           </tr>
         `;
       }).join('');
     }
 
     function filterUsers() {
-      const query = document.getElementById('user-search').value.toLowerCase();
+      const q = document.getElementById('user-search').value.toLowerCase();
       const filtered = allUsers.filter(u => {
         const str = `${u.user_id} ${u.first_name} ${u.last_name} ${u.username}`.toLowerCase();
-        return str.includes(query);
+        return str.includes(q);
       });
       renderUsersTable(filtered);
+    }
+
+    function openEditModal(uid) {
+      const u = allUsers.find(x => x.user_id === uid);
+      if (!u) return;
+      document.getElementById('edit-uid').value = u.user_id;
+      document.getElementById('edit-fname').value = u.first_name || '';
+      document.getElementById('edit-lname').value = u.last_name || '';
+      document.getElementById('edit-uname').value = u.username || '';
+      document.getElementById('edit-level').value = u.current_level || 1;
+      document.getElementById('edit-balance').value = u.balance || 0;
+      document.getElementById('edit-status').value = u.status || '🌱 Boshlang\'ich';
+      document.getElementById('edit-card').value = u.wallet_card || '';
+      document.getElementById('edit-bep20').value = u.wallet_bep20 || '';
+      document.getElementById('edit-user-modal').classList.add('active');
+    }
+
+    function saveUserEdit() {
+      const payload = {
+        user_id: document.getElementById('edit-uid').value,
+        first_name: document.getElementById('edit-fname').value,
+        last_name: document.getElementById('edit-lname').value,
+        username: document.getElementById('edit-uname').value,
+        current_level: document.getElementById('edit-level').value,
+        balance: document.getElementById('edit-balance').value,
+        status: document.getElementById('edit-status').value,
+        wallet_card: document.getElementById('edit-card').value,
+        wallet_bep20: document.getElementById('edit-bep20').value
+      };
+      fetch('/api/admin/user/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) {
+          closeModal('edit-user-modal');
+          loadUsers();
+          alert("✅ Foydalanuvchi ma'lumotlari muvaffaqiyatli saqlandi!");
+        }
+      });
+    }
+
+    function toggleBan(uid, isBanned) {
+      if (!confirm(`Haqiqatan ham bu foydalanuvchini ${isBanned ? 'bloklamoqchimisiz' : 'blokdan chiqarmoqchimisiz'}?`)) return;
+      fetch('/api/admin/user/ban', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: uid, is_banned: isBanned })
+      })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) loadUsers();
+      });
+    }
+
+    function openRefModal(uid, name, curRef) {
+      document.getElementById('ref-uid').value = uid;
+      document.getElementById('ref-user-info').innerText = `A'zo: ${name} (ID: ${uid}) | Hozirgi Kuratori: ${curRef}`;
+      document.getElementById('new-ref-id').value = curRef || '';
+      document.getElementById('ref-modal').classList.add('active');
+    }
+
+    function saveReferrerChange() {
+      const uid = document.getElementById('ref-uid').value;
+      const newRef = document.getElementById('new-ref-id').value;
+      fetch('/api/admin/user/referrer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: uid, new_referrer_id: newRef })
+      })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) {
+          closeModal('ref-modal');
+          loadUsers();
+          alert("✅ Kurator muvaffaqiyatli almashtirildi!");
+        } else {
+          alert("Xatolik: " + d.error);
+        }
+      });
+    }
+
+    function openTreeModal(uid, name) {
+      document.getElementById('tree-title').innerText = `🌳 Jamoa Daraxti: ${name} (ID: ${uid})`;
+      document.getElementById('tree-content').innerHTML = 'Yuklanmoqda...';
+      document.getElementById('tree-modal').classList.add('active');
+
+      fetch(`/api/admin/user/tree?user_id=${uid}`)
+        .then(res => res.json())
+        .then(d => {
+          if (!d.success || !d.tree) {
+            document.getElementById('tree-content').innerHTML = 'Tuzilma topilmadi';
+            return;
+          }
+          const t = d.tree;
+          let html = `<div class="tree-box">👑 <b>${t.first_name} ${t.last_name}</b> (ID: ${t.user_id}) - ${t.current_level}-Daraja</div>`;
+          
+          if (t.children && t.children.length) {
+            html += t.children.map(c1 => `
+              <div class="tree-node">
+                <div class="tree-box">🥇 <b>${c1.first_name} ${c1.last_name}</b> (ID: ${c1.user_id}) | ${c1.current_level}-Daraja</div>
+                ${c1.children && c1.children.length ? c1.children.map(c2 => `
+                  <div class="tree-node">
+                    <div class="tree-box">🥈 <b>${c2.first_name} ${c2.last_name}</b> (ID: ${c2.user_id}) | ${c2.current_level}-Daraja</div>
+                    ${c2.children && c2.children.length ? c2.children.map(c3 => `
+                      <div class="tree-node">
+                        <div class="tree-box">🥉 <b>${c3.first_name} ${c3.last_name}</b> (ID: ${c3.user_id})</div>
+                      </div>
+                    `).join('') : ''}
+                  </div>
+                `).join('') : ''}
+              </div>
+            `).join('');
+          } else {
+            html += '<div style="margin-top: 14px; color: var(--text-muted);">Ushbu a\'zoda hali taklif qilingan referallar yo\'q.</div>';
+          }
+          document.getElementById('tree-content').innerHTML = html;
+        });
+    }
+
+    function loadLeaders() {
+      fetch('/api/admin/leaders')
+        .then(res => res.json())
+        .then(d => {
+          const tbody = document.getElementById('leaders-table-body');
+          if (!d.leaders || !d.leaders.length) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Ma\'lumot yo\'q</td></tr>';
+            return;
+          }
+          tbody.innerHTML = d.leaders.map((l, i) => {
+            const medal = i === 0 ? '🥇 #1' : (i === 1 ? '🥈 #2' : (i === 2 ? '🥉 #3' : `#${i+1}`));
+            return `
+              <tr>
+                <td><b>${medal}</b></td>
+                <td><code>${l.user_id}</code></td>
+                <td><b>${l.first_name} ${l.last_name}</b></td>
+                <td><span style="color: var(--blue);">@${l.username || '-'}</span></td>
+                <td><span class="badge badge-gold" style="font-size: 13px;">${l.direct_count} ta hamkor</span></td>
+                <td>${l.current_level || 1}-Daraja</td>
+                <td><b>$${l.total_earned || 30}</b></td>
+              </tr>
+            `;
+          }).join('');
+        });
+    }
+
+    function loadLevels() {
+      fetch('/api/admin/levels')
+        .then(res => res.json())
+        .then(d => {
+          const tbody = document.getElementById('levels-table-body');
+          tbody.innerHTML = d.levels.map(lvl => `
+            <tr>
+              <td><b>${lvl.level}-Daraja</b></td>
+              <td>${lvl.name}</td>
+              <td><span class="badge badge-gold">$${lvl.price}</span></td>
+              <td><input type="number" id="lvl-p-${lvl.level}" class="form-control" value="${lvl.price}" style="width: 100px;"></td>
+              <td><button class="btn btn-gold" onclick="updateLevelPrice(${lvl.level})">Saqlash</button></td>
+            </tr>
+          `).join('');
+        });
+    }
+
+    function updateLevelPrice(level) {
+      const p = document.getElementById(`lvl-p-${level}`).value;
+      fetch('/api/admin/levels/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: level, price: p })
+      })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) {
+          alert("✅ Daraja narxi muvaffaqiyatli yangilandi!");
+          loadLevels();
+        }
+      });
+    }
+
+    function sendBroadcast() {
+      const text = document.getElementById('bc-text').value.trim();
+      if (!text) { alert("Xabar matnini kiriting!"); return; }
+      
+      const payload = {
+        filter_type: document.getElementById('bc-filter').value,
+        photo_url: document.getElementById('bc-photo-url').value.trim(),
+        text: text,
+        button_text: document.getElementById('bc-btn-text').value.trim(),
+        button_url: document.getElementById('bc-btn-url').value.trim()
+      };
+
+      document.getElementById('bc-result').innerText = "⏳ Xabar yuborilmoqda, kuting...";
+
+      fetch('/api/admin/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) {
+          document.getElementById('bc-result').innerHTML = `<span style="color: var(--green);">✅ Yuborildi: ${d.sent} ta / Xato: ${d.failed} ta (Jami: ${d.total})</span>`;
+          document.getElementById('bc-text').value = '';
+          loadBroadcastHistory();
+        } else {
+          document.getElementById('bc-result').innerHTML = `<span style="color: var(--red);">❌ Xatolik: ${d.error}</span>`;
+        }
+      });
+    }
+
+    function loadBroadcastHistory() {
+      fetch('/api/admin/broadcast/history')
+        .then(res => res.json())
+        .then(d => {
+          const tbody = document.getElementById('bc-history-body');
+          if (!d.history || !d.history.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Tarix yo\'q</td></tr>';
+            return;
+          }
+          tbody.innerHTML = d.history.map(h => `
+            <tr>
+              <td>${h.created_at || '-'}</td>
+              <td><span class="badge badge-gold">${h.target_filter}</span></td>
+              <td>${h.text.substring(0, 40)}...</td>
+              <td><span style="color: var(--green); font-weight: 700;">${h.sent_count}</span></td>
+              <td><span style="color: var(--red); font-weight: 700;">${h.fail_count}</span></td>
+            </tr>
+          `).join('');
+        });
+    }
+
+    function saveAnnouncement() {
+      const title = document.getElementById('ann-title').value.trim();
+      const text = document.getElementById('ann-text').value.trim();
+      if (!text) { alert("E'lon matnini kiriting!"); return; }
+
+      fetch('/api/admin/announcement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title, text: text })
+      })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) alert("✅ E'lon Mini Appda faollashtirildi!");
+      });
+    }
+
+    function clearAnnouncement() {
+      fetch('/api/admin/announcement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '', text: '' })
+      })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) alert("✅ E'lon o'chirildi!");
+      });
+    }
+
+    function postStatsToChannel() {
+      if (!confirm("Telegram kanalga rasmiy hisobot postini chiqarishni tasdiqlaysizmi?")) return;
+      fetch('/api/admin/channel/post', {
+        method: 'POST'
+      })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) {
+          alert("✅ Rasmiy post Telegram kanalga muvaffaqiyatli yuborildi!");
+        } else {
+          alert("Xatolik: " + d.error);
+        }
+      });
+    }
+
+    function loadLogs() {
+      fetch('/api/admin/logs')
+        .then(res => res.json())
+        .then(d => {
+          const tbody = document.getElementById('logs-table-body');
+          if (!d.logs || !d.logs.length) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Jurnal bo\'sh</td></tr>';
+            return;
+          }
+          tbody.innerHTML = d.logs.map(l => `
+            <tr>
+              <td>${l.created_at || '-'}</td>
+              <td><code>${l.user_id}</code></td>
+              <td><span class="badge badge-gold">${l.action}</span></td>
+              <td>${l.details}</td>
+            </tr>
+          `).join('');
+        });
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
     }
   </script>
 </body>

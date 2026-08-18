@@ -56,6 +56,17 @@ function fetchLiveUserData() {
         userState.referrerName = u.referrer_name || "Bosh Admin (Tizim)";
         userState.multiTier = u.multi_tier || userState.multiTier;
         userState.wallets = u.wallets || userState.wallets;
+
+        // Check if user is banned
+        if (u.is_banned === 1) {
+          document.body.innerHTML = `
+            <div style="padding: 40px 20px; text-align: center; color: #fff; font-family: sans-serif;">
+              <h2 style="color: #ef4444; margin-bottom: 12px;">⛔️ Hisobingiz Bloklangan</h2>
+              <p style="color: #94a3b8; font-size: 14px;">Qoidabuzarlik sababli sizning profil cheklangan. Adminga murojaat qiling.</p>
+            </div>
+          `;
+          return;
+        }
       }
       updateUI();
     })
@@ -63,6 +74,21 @@ function fetchLiveUserData() {
       console.warn("Could not fetch live profile from API:", err);
       updateUI();
     });
+
+  // Fetch Announcement
+  fetch('/api/announcements/active')
+    .then(res => res.json())
+    .then(d => {
+      if (d.success && d.announcement) {
+        const box = document.getElementById('app-announcement');
+        if (box) {
+          document.getElementById('ann-title-disp').innerText = d.announcement.title || '⚡️ E\'lon';
+          document.getElementById('ann-text-disp').innerText = d.announcement.text;
+          box.style.display = 'block';
+        }
+      }
+    })
+    .catch(() => {});
 }
 
 function getRefLink() {
