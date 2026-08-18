@@ -224,6 +224,20 @@ class Database:
             await db.execute("UPDATE users SET current_level = ? WHERE user_id = ?", (level, user_id))
             await db.commit()
 
+    async def add_user_earnings(self, user_id: int, amount: float):
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                UPDATE users SET
+                    balance = balance + ?,
+                    total_earned = total_earned + ?
+                WHERE user_id = ?
+                """,
+                (amount, amount, user_id)
+            )
+            await db.commit()
+            await self.log_activity(user_id, "EARN", f"Daromad tushdi: +{amount} so'm")
+
     async def get_referrals(self, user_id: int, offset: int = 0, limit: int = 100):
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row

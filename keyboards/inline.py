@@ -82,16 +82,64 @@ def get_all_levels_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def get_level_locked_keyboard(level: int, cur_refs: int, req_refs: int, from_all: bool = False) -> InlineKeyboardMarkup:
+def get_payment_request_keyboard(level: int, curator_id: int, curator_username: str = "", from_all: bool = False) -> InlineKeyboardMarkup:
     back_target = "mkt_all_levels" if from_all else "menu_marketing"
+    
+    clean_username = (curator_username or "").replace("@", "").strip()
+    if clean_username and clean_username != "-" and not clean_username.startswith("ID:"):
+        contact_url = f"https://t.me/{clean_username}"
+    else:
+        contact_url = f"tg://user?id={curator_id}"
+
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text=f"🔒 {cur_refs}/{req_refs} ta referal to'plandi", callback_data="cab_ref_link")
+                InlineKeyboardButton(text="Я оплатил", callback_data=f"mkt_paid:{level}:{curator_id}"),
+                InlineKeyboardButton(text="Написать", url=contact_url)
             ],
             [
-                InlineKeyboardButton(text="🔗 Referal havolani olish", callback_data="cab_ref_link")
+                InlineKeyboardButton(text="Orqaga", callback_data=back_target)
+            ]
+        ]
+    )
+
+
+def get_payment_sent_keyboard(curator_id: int, curator_username: str = "") -> InlineKeyboardMarkup:
+    clean_username = (curator_username or "").replace("@", "").strip()
+    if clean_username and clean_username != "-" and not clean_username.startswith("ID:"):
+        contact_url = f"https://t.me/{clean_username}"
+    else:
+        contact_url = f"tg://user?id={curator_id}"
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Написать", url=contact_url)
             ],
+            [
+                InlineKeyboardButton(text="♦️ Asosiy menyu ♦️", callback_data="back_to_main_menu")
+            ]
+        ]
+    )
+
+
+def get_curator_approval_keyboard(buyer_id: int, level: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ To'lovni tasdiqlash", callback_data=f"approve_lvl:{buyer_id}:{level}")
+            ],
+            [
+                InlineKeyboardButton(text="💬 Foydalanuvchiga yozish", url=f"tg://user?id={buyer_id}")
+            ]
+        ]
+    )
+
+
+def get_level_locked_keyboard(level: int, cur_refs: int = 0, req_refs: int = 0, from_all: bool = False) -> InlineKeyboardMarkup:
+    back_target = "mkt_all_levels" if from_all else "menu_marketing"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
             [
                 InlineKeyboardButton(text="Orqaga", callback_data=back_target)
             ]
@@ -103,9 +151,6 @@ def get_level_unlock_ready_keyboard(level: int, from_all: bool = False) -> Inlin
     back_target = "mkt_all_levels" if from_all else "menu_marketing"
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(text=f"🎉 {level}-Bosqichni Faollashtirish", callback_data=f"mkt_pay_level:{level}")
-            ],
             [
                 InlineKeyboardButton(text="Orqaga", callback_data=back_target)
             ]
@@ -125,7 +170,17 @@ def get_level_back_keyboard(from_all: bool = False) -> InlineKeyboardMarkup:
 
 
 def get_level_activate_keyboard(level: int, price: int = 0, from_all: bool = False) -> InlineKeyboardMarkup:
-    return get_level_unlock_ready_keyboard(level, from_all=from_all)
+    back_target = "mkt_all_levels" if from_all else "menu_marketing"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=f"💳 {level}-Darajani faollashtirish", callback_data=f"mkt_lvl:{level}")
+            ],
+            [
+                InlineKeyboardButton(text="Orqaga", callback_data=back_target)
+            ]
+        ]
+    )
 
 
 # ==================== KABINET KEYBOARDS ====================

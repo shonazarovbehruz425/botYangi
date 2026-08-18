@@ -60,18 +60,14 @@ class WalletStates(StatesGroup):
     waiting_for_wallet_value = State()
 
 
-# ==================== MARKETING SECTION ====================
+# ==================== MARKETING SECTION (PAYMENT TO CURATOR) ====================
 
 MARKETING_CAPTION = (
-    "👑 <b>«BUYUK HAYOTGA INTIILISH» — MARKETING TIZIMI</b>\n\n"
-    "Bu yerda darajalar pul bilan emas, <b>taklif qilingan faol a'zolar (referallar)</b> soniga qarab faollashadi:\n\n"
-    "🥇 <b>1-Bosqich:</b> 3 ta referal\n"
-    "🥈 <b>2-Bosqich:</b> 9 ta referal\n"
-    "🥉 <b>3-Bosqich:</b> 27 ta referal\n"
-    "💎 <b>4-Bosqich:</b> 81 ta referal\n"
-    "👑 <b>5-Bosqich:</b> 243 ta referal\n\n"
-    "✨ <i>Ният – Ишонч – Ҳаракат – Натижа!</i>\n\n"
-    "Darajangizni ochish uchun quyidagi tugmani bosing 👇"
+    "👑 <b>«BUYUK HAYOTGA INTIILISH» — MARKETING</b>\n\n"
+    "⚪️ Dasturga kirish <b>300 000 so'm</b> turadi — bu 1-daraja uchun to'lov.\n"
+    "⚪️ Siz ketma-ket 5 tagacha darajalarni faollashtirishingiz mumkin.\n"
+    "⚪️ 100% shaffof va to'g'ridan-to'g'ri insondan-insonga daromad modeli!\n\n"
+    "1-Darajani to'lash uchun pastdagi tugmani bosing 👇."
 )
 
 @router.callback_query(F.data == "menu_marketing")
@@ -109,7 +105,7 @@ async def marketing_main_handler(callback: CallbackQuery, bot: Bot):
 @router.callback_query(F.data == "mkt_all_levels")
 async def marketing_all_levels_handler(callback: CallbackQuery, bot: Bot):
     await callback.answer()
-    caption = "👑 <b>Barcha Marketing Bosqichlari (1 - 5)</b>\nOchmoqchi bo'lgan bosqichingizni tanlang:"
+    caption = "👑 <b>Barcha darajalar (1 - 5 Bosqichlar)</b>\nFaollashtirmoqchi bo'lgan darajangizni tanlang:"
     keyboard = get_all_levels_keyboard()
 
     if os.path.exists(BANNER_ALL_LEVELS):
@@ -149,13 +145,11 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
     user = callback.from_user
     user_data = await db.get_user(user.id)
     cur_lvl = user_data.get("current_level", 0) if user_data else 0
-    cur_refs = await db.get_referral_count(user.id)
-    req_refs = LEVEL_REQUIRED_REFS.get(level, 3)
 
     # Case 1: Already activated
     if level <= cur_lvl:
-        caption = f"✅ <b>Siz {level}-Bosqichni allaqachon muvaffaqiyatli faollashtirgansiz!</b>"
-        keyboard = get_level_locked_keyboard(level, cur_refs, req_refs, from_all=from_all)
+        caption = "✅ <b>Siz bu darajani allaqachon faollashtirgansiz</b>"
+        keyboard = get_level_back_keyboard(from_all=from_all)
         if os.path.exists(BANNER_MARKETING):
             try:
                 await callback.message.delete()
@@ -177,8 +171,8 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
 
     # Case 2: Skipped previous level
     if level > cur_lvl + 1:
-        caption = f"🔒 <b>Avval oldingi {cur_lvl + 1}-Bosqichni oching!</b>"
-        keyboard = get_level_locked_keyboard(level, cur_refs, req_refs, from_all=from_all)
+        caption = f"🔒 <b>Avval oldingi {cur_lvl + 1}-darajani to'lang</b>"
+        keyboard = get_level_back_keyboard(from_all=from_all)
         if os.path.exists(BANNER_MARKETING):
             try:
                 await callback.message.delete()
@@ -198,25 +192,46 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
                 await callback.message.edit_text(text=caption, reply_markup=keyboard, parse_mode="HTML")
         return
 
-    # Case 3: Next level - check referral requirement
-    if cur_refs < req_refs:
-        remaining = req_refs - cur_refs
-        caption = (
-            f"🔒 <b>{level}-BOSQICHNI FAOLLASHTIRISH</b>\n\n"
-            f"👥 <b>Talab qilinadigan referallar:</b> {req_refs} ta\n"
-            f"📊 <b>Siz taklif qilgan a'zolar:</b> {cur_refs} ta\n"
-            f"⚡️ <b>Yetishmayotgan referallar:</b> <b>{remaining} ta</b>\n\n"
-            "💡 <i>Ushbu darajani ochish uchun do'stlaringizga referal havolangizni ulashing va jamoangizni kengaytiring!</i>"
-        )
-        keyboard = get_level_locked_keyboard(level, cur_refs, req_refs, from_all=from_all)
-    else:
-        caption = (
-            f"🎉 <b>TABRIKLAYMIZ! Siz {level}-bosqich shartini bajardingiz!</b>\n\n"
-            f"👥 <b>Talab qilingan:</b> {req_refs} ta referal\n"
-            f"📊 <b>Sizning referallaringiz:</b> {cur_refs} ta\n\n"
-            "Bosqichni faollashtirish uchun quyidagi tugmani bosing 👇"
-        )
-        keyboard = get_level_unlock_ready_keyboard(level, from_all=from_all)
+    # Case 3: Payment details formatted exactly like screenshot
+    curator_id = user_data.get("referrer_id", 0) if user_data else 0
+    if not curator_id or curator_id == 0:
+        curator_id = ADMINS[0] if ADMINS else user.id
+
+    curator_data = await db.get_user(curator_id)
+    if not curator_data:
+        try:
+            chat_obj = await bot.get_chat(curator_id)
+            curator_data = {
+                "first_name": chat_obj.first_name or "Admin",
+                "last_name": chat_obj.last_name or "",
+                "username": chat_obj.username or "Buyukhayot_bot"
+            }
+        except Exception:
+            curator_data = {"first_name": "Admin", "last_name": "", "username": "Buyukhayot_bot"}
+
+    karta = curator_data.get("wallet_card") or "8600 **** **** **** (UzCard / Humo)"
+    bep20 = curator_data.get("wallet_bep20") or "0x... (USDT BEP20)"
+    trc20 = curator_data.get("wallet_trc20") or "T... (USDT TRC20)"
+    payeer = curator_data.get("wallet_payeer") or "P... (PAYEER)"
+
+    curator_username = curator_data.get("username", "")
+    curator_tag = f"@{curator_username}" if curator_username else f"ID: {curator_id}"
+    price_label = LEVEL_LABELS.get(level, f"{LEVEL_PRICES.get(level, 300000):,} so'm")
+
+    caption = (
+        f"Вам необходимо оплатить <b>{price_label}</b> на один из указаных кошельков:\n\n"
+        f"💳 <b>KARTA BANKA (UzCard / Humo):</b>\n<code>{karta}</code>\n\n"
+        f"💎 <b>USDT BEP20:</b>\n<code>{bep20}</code>\n\n"
+        f"💎 <b>USDT TRC20:</b>\n<code>{trc20}</code>\n\n"
+        f"🅿️ <b>PAYEER:</b>\n<code>{payeer}</code>\n\n"
+        f"пользователю <b>{curator_tag}</b>\n"
+        "После перевода нажмите кнопку <b>'я оплатил'</b> и свяжитесь с пользователем по кнопке <b>'Написать'</b>\n\n"
+        "────────────────────\n"
+        f"<i>(Siz ko'rsatilgan hamyonlardan biriga <b>{price_label}</b> to'lov qilishingiz kerak. "
+        "O'tkazmani amalga oshirgandan so'ng 'Я оплатил' tugmasini bosing va 'Написать' tugmasi orqali foydalanuvchining lichkasiga yozing.)</i>"
+    )
+
+    keyboard = get_payment_request_keyboard(level, curator_id, curator_username, from_all=from_all)
 
     if os.path.exists(BANNER_MARKETING):
         try:
@@ -237,41 +252,89 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
             await callback.message.edit_text(text=caption, reply_markup=keyboard, parse_mode="HTML")
 
 
-@router.callback_query(F.data.startswith("mkt_pay_level:"))
-async def marketing_pay_level_handler(callback: CallbackQuery, bot: Bot):
+@router.callback_query(F.data.startswith("mkt_paid:"))
+async def marketing_paid_click_handler(callback: CallbackQuery, bot: Bot):
     parts = callback.data.split(":")
     level = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1
+    curator_id = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
 
-    user_refs = await db.get_referral_count(callback.from_user.id)
-    req_refs = LEVEL_REQUIRED_REFS.get(level, 3)
+    user = callback.from_user
+    user_uname = f"@{user.username}" if user.username else f"ID: {user.id}"
+    price_label = LEVEL_LABELS.get(level, f"{LEVEL_PRICES.get(level, 300000):,} so'm")
 
-    if user_refs < req_refs and callback.from_user.id not in ADMINS:
-        await callback.answer(f"🔒 Sizda hali {req_refs} ta referal to'planmagan!", show_alert=True)
-        return
+    # Fetch curator info for button
+    curator_data = await db.get_user(curator_id)
+    curator_username = curator_data.get("username", "") if curator_data else ""
 
-    await db.set_user_level(callback.from_user.id, level)
-    await callback.answer(f"🎉 {level}-Bosqich muvaffaqiyatli faollashtirildi!", show_alert=True)
+    await callback.answer("✅ Запрос отправлен!", show_alert=False)
 
-    caption = f"✅ <b>{level}-Bosqich muvaffaqiyatli faollashtirildi!</b>\nKelgusi marralar sari olg'a!"
-    keyboard = get_level_locked_keyboard(level, user_refs, req_refs, from_all=True)
+    caption = (
+        "Запрос отправлен, при необходимости свяжитесь с пользователем в том же разделе\n\n"
+        "<i>(So'rov yuborildi, zarurat bo'lsa 'Написать' tugmasi orqali kuratoringiz bilan bog'laning)</i>"
+    )
+    keyboard = get_payment_sent_keyboard(curator_id, curator_username)
 
-    if os.path.exists(BANNER_MARKETING):
+    try:
+        await callback.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode="HTML")
+    except Exception:
+        await callback.message.edit_text(text=caption, reply_markup=keyboard, parse_mode="HTML")
+
+    # Notify curator
+    if curator_id and curator_id != user.id:
         try:
-            await callback.message.delete()
+            curator_notify_text = (
+                "🔔 <b>YANGI TO'LOV BILDIRISHNOMASI!</b>\n\n"
+                f"👤 <b>Foydalanuvchi:</b> {user.full_name} ({user_uname})\n"
+                f"🆔 <b>ID:</b> <code>{user.id}</code>\n"
+                f"⚡️ <b>Daraja:</b> {level}-Bosqich\n"
+                f"💰 <b>Summa:</b> {price_label}\n\n"
+                "Foydalanuvchi sizning hamyoningizga to'lov o'tkazganini bildirdi. "
+                "Hamyoningizga pul tushganini tekshirib, darajani tasdiqlang 👇"
+            )
+            approval_keyboard = get_curator_approval_keyboard(user.id, level)
+            await bot.send_message(
+                chat_id=curator_id,
+                text=curator_notify_text,
+                reply_markup=approval_keyboard,
+                parse_mode="HTML"
+            )
         except Exception:
             pass
-        await bot.send_photo(
-            chat_id=callback.message.chat.id,
-            photo=FSInputFile(BANNER_MARKETING),
-            caption=caption,
-            reply_markup=keyboard,
+
+
+@router.callback_query(F.data.startswith("approve_lvl:"))
+async def approve_level_handler(callback: CallbackQuery, bot: Bot):
+    parts = callback.data.split(":")
+    buyer_id = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+    level = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 1
+
+    await db.set_user_level(buyer_id, level)
+    
+    price_val = LEVEL_PRICES.get(level, 300000)
+    await db.add_user_earnings(callback.from_user.id, price_val)
+
+    await callback.answer(f"✅ {level}-Daraja muvaffaqiyatli tasdiqlandi!", show_alert=True)
+    try:
+        await callback.message.edit_text(
+            f"✅ <b>To'lov tasdiqlandi!</b>\nFoydalanuvchiga (ID: <code>{buyer_id}</code>) <b>{level}-Bosqich</b> berildi.",
             parse_mode="HTML"
         )
-    else:
-        try:
-            await callback.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode="HTML")
-        except Exception:
-            await callback.message.edit_text(text=caption, reply_markup=keyboard, parse_mode="HTML")
+    except Exception:
+        pass
+
+    # Notify buyer
+    try:
+        await bot.send_message(
+            chat_id=buyer_id,
+            text=(
+                f"🎉 <b>TABRIKLAYMIZ!</b>\n\n"
+                f"Sizning <b>{level}-Bosqich</b> uchun to'lovingiz kuratoringiz tomonidan tasdiqlandi!\n"
+                f"Yangi darajangiz: <b>{level}-Daraja</b> ✅"
+            ),
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
 
 
 # ==================== KABINET SECTION (4 SCREENSHOTS) ====================
