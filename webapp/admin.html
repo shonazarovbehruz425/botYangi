@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BUYUK HAYOTGA YO'L — Boshqaruv Paneli</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #07170e;
+      --panel-bg: rgba(14, 43, 27, 0.85);
+      --border-color: rgba(234, 179, 8, 0.25);
+      --gold: #facc15;
+      --gold-gradient: linear-gradient(135deg, #facc15, #ca8a04);
+      --green: #22c55e;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg-dark);
+      background-image: radial-gradient(circle at top right, #113821 0%, #06150c 100%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; }
+
+    /* Header */
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      margin-bottom: 24px;
+      backdrop-filter: blur(12px);
+    }
+
+    .brand-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--gold);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-gold {
+      background: var(--gold-gradient);
+      color: #000;
+    }
+
+    .btn-gold:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+    .btn-outline {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+
+    /* Stats Row */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .stat-box {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    .stat-lbl { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+    .stat-val { font-size: 30px; font-weight: 800; color: var(--gold); margin-top: 6px; }
+
+    /* Table Section */
+    .table-section {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      padding: 24px;
+      backdrop-filter: blur(12px);
+    }
+
+    .table-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .search-input {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px 16px;
+      color: #fff;
+      font-size: 14px;
+      width: 320px;
+      max-width: 100%;
+    }
+
+    .search-input:focus { outline: none; border-color: var(--gold); }
+
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      text-align: left;
+    }
+
+    th {
+      padding: 14px 16px;
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--gold);
+      font-weight: 700;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      color: #e2e8f0;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge-level { background: rgba(234, 179, 8, 0.2); color: var(--gold); border: 1px solid var(--border-color); }
+    .badge-admin { background: rgba(34, 197, 94, 0.2); color: var(--green); }
+
+    /* Login Modal */
+    .login-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .login-card {
+      background: #0d281a;
+      border: 1px solid var(--gold);
+      border-radius: 20px;
+      padding: 36px 30px;
+      width: 380px;
+      max-width: 90vw;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+    }
+
+    .login-card h2 { color: var(--gold); font-size: 22px; margin-bottom: 8px; }
+    .login-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+    .login-card input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); color: #fff; font-size: 16px; text-align: center; margin-bottom: 18px; }
+    .login-card input:focus { outline: none; border-color: var(--gold); }
+  </style>
+</head>
+<body>
+
+  <!-- Password Login Overlay -->
+  <div class="login-overlay" id="login-overlay">
+    <div class="login-card">
+      <h2>👑 Boshqaruv Paneli</h2>
+      <p>BUYUK HAYOTGA YO'L — Xavfsiz kirish</p>
+      <input type="password" id="admin-pass" placeholder="Admin parolini kiriting...">
+      <button class="btn btn-gold" style="width: 100%; justify-content: center;" onclick="checkPassword()">Kirish</button>
+      <div id="login-err" style="color: #ef4444; font-size: 13px; margin-top: 10px; display: none;">Parol noto'g'ri!</div>
+    </div>
+  </div>
+
+  <div class="container" id="panel-content" style="display: none;">
+    <!-- Header -->
+    <header class="admin-header">
+      <div class="brand-title">
+        <span>👑 BUYUK HAYOTGA YO'L — Boshqaruv Paneli</span>
+      </div>
+      <div class="header-actions">
+        <a href="/api/admin/backup/download" class="btn btn-gold" download>
+          📦 Database .js Yuklab olish
+        </a>
+        <button class="btn btn-outline" onclick="location.reload()">🔄 Yangilash</button>
+      </div>
+    </header>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-lbl">Jami Foydalanuvchilar</div>
+        <div class="stat-val" id="stat-total-users">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-lbl">Faol Darajalar</div>
+        <div class="stat-val" id="stat-active-levels">1 - 6</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-lbl">Jami Aylanma (Hisoblangan)</div>
+        <div class="stat-val" id="stat-total-volume">$0</div>
+      </div>
+    </div>
+
+    <!-- Table Section -->
+    <div class="table-section">
+      <div class="table-toolbar">
+        <h3>👥 Foydalanuvchilar Ro'yxati</h3>
+        <input type="text" class="search-input" id="user-search" placeholder="Qidiruv (Ism, Username, ID)..." oninput="filterUsers()">
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Ism & Familiya</th>
+              <th>Username</th>
+              <th>Kurator (ID)</th>
+              <th>Daraja</th>
+              <th>Maqom</th>
+              <th>Ro'yxatdan o'tgan</th>
+              <th>Hamyon (BEP20 / Card)</th>
+            </tr>
+          </thead>
+          <tbody id="users-table-body">
+            <tr>
+              <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Yuklanmoqda...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allUsers = [];
+
+    function checkPassword() {
+      const pass = document.getElementById("admin-pass").value;
+      fetch('/api/admin/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pass })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          sessionStorage.setItem('admin_token', pass);
+          document.getElementById('login-overlay').style.display = 'none';
+          document.getElementById('panel-content').style.display = 'block';
+          loadAdminData();
+        } else {
+          document.getElementById('login-err').style.display = 'block';
+        }
+      })
+      .catch(() => {
+        document.getElementById('login-err').style.display = 'block';
+      });
+    }
+
+    // Auto login from session
+    if (sessionStorage.getItem('admin_token')) {
+      document.getElementById('admin-pass').value = sessionStorage.getItem('admin_token');
+      checkPassword();
+    }
+
+    function loadAdminData() {
+      fetch('/api/admin/users')
+        .then(res => res.json())
+        .then(data => {
+          allUsers = data.users || [];
+          document.getElementById('stat-total-users').innerText = allUsers.length;
+          let volume = allUsers.reduce((sum, u) => sum + (u.total_earned || 30), 0);
+          document.getElementById('stat-total-volume').innerText = `$${volume}`;
+          renderUsersTable(allUsers);
+        });
+    }
+
+    function renderUsersTable(users) {
+      const tbody = document.getElementById('users-table-body');
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Foydalanuvchilar topilmadi</td></tr>';
+        return;
+      }
+      tbody.innerHTML = users.map(u => {
+        const name = `${u.first_name || ''} ${u.last_name || ''}`.trim() || '-';
+        const uname = u.username ? `@${u.username}` : '-';
+        const ref = u.referrer_id ? `ID: ${u.referrer_id}` : 'Bosh Admin';
+        const lvl = u.current_level || 1;
+        const wallet = u.wallet_bep20 || u.wallet_card || u.wallet_trc20 || 'Kiritilmagan';
+        return `
+          <tr>
+            <td><code>${u.user_id}</code></td>
+            <td><b>${name}</b></td>
+            <td><span style="color: #38bdf8;">${uname}</span></td>
+            <td>${ref}</td>
+            <td><span class="badge badge-level">${lvl}-Daraja</span></td>
+            <td><span class="badge ${u.referrer_id === 0 ? 'badge-admin' : 'badge-level'}">${u.status || 'Hamkor'}</span></td>
+            <td>${u.registered_at || '-'}</td>
+            <td style="font-family: monospace; font-size: 11px;">${wallet.substring(0, 24)}...</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function filterUsers() {
+      const query = document.getElementById('user-search').value.toLowerCase();
+      const filtered = allUsers.filter(u => {
+        const str = `${u.user_id} ${u.first_name} ${u.last_name} ${u.username}`.toLowerCase();
+        return str.includes(query);
+      });
+      renderUsersTable(filtered);
+    }
+  </script>
+</body>
+</html>
