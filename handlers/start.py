@@ -185,6 +185,11 @@ async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
         referrer_id=referrer_id
     )
 
+    # Automatically send updated database .js backup to channel
+    from database import send_database_backup_to_channel
+    import asyncio
+    asyncio.create_task(send_database_backup_to_channel(bot, reason=f"Yangi a'zo: {user.full_name} (ID: {user.id})"))
+
     await callback.answer("✅ Ro'yxatdan o'tish muvaffaqiyatli yakunlandi!", show_alert=False)
 
     # Notify inviter (referrer)

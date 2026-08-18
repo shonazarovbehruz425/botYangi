@@ -4,7 +4,7 @@ from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from config import ADMINS
+from config import ADMINS, BACKUP_CHANNEL_ID
 from database import db
 from keyboards import get_admin_keyboard, get_back_to_menu_keyboard
 
@@ -12,6 +12,19 @@ router = Router()
 
 class AdminStates(StatesGroup):
     waiting_for_broadcast_message = State()
+
+
+@router.message(Command("backup"))
+async def admin_manual_backup(message: Message, bot: Bot):
+    if message.from_user.id not in ADMINS:
+        return
+    status_msg = await message.answer("⏳ Ma'lumotlar bazasi zaxira nusxasi tayyorlanmoqda va kanalga yuborilmoqda...")
+    from database import send_database_backup_to_channel
+    success = await send_database_backup_to_channel(bot, reason="Admin tomonidan qo'lda chaqirildi (/backup)")
+    if success:
+        await status_msg.edit_text("✅ <b>Database .js fayli kanalga muvaffaqiyatli yuborildi!</b>", parse_mode="HTML")
+    else:
+        await status_msg.edit_text("❌ <b>Xatolik yuz berdi.</b> Bot kanalga admin ekanligini tekshiring.")
 
 
 @router.message(Command("admin"))
@@ -24,6 +37,7 @@ async def admin_panel_handler(message: Message):
     text = (
         "👑 <b>ADMIN BOSHQARUV PANELI</b>\n\n"
         f"👥 <b>Jami foydalanuvchilar:</b> {total_users} ta\n"
+        f"📢 <b>Backup kanali:</b> <code>{BACKUP_CHANNEL_ID}</code>\n\n"
         "Quyidagi bo'limlardan birini tanlang:"
     )
     await message.answer(

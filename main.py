@@ -65,6 +65,18 @@ async def main():
             except Exception as btn_err:
                 logger.warning(f"Menyu tugmasini o'rnatishda ogohlantirish: {btn_err}")
 
+        # Initial backup & periodic backup background loop
+        from database import send_database_backup_to_channel
+
+        async def periodic_backup():
+            await asyncio.sleep(5)  # Initial backup 5 seconds after startup
+            await send_database_backup_to_channel(bot, reason="Bot ishga tushirildi (Start)")
+            while True:
+                await asyncio.sleep(3600 * 2)  # Every 2 hours
+                await send_database_backup_to_channel(bot, reason="Rejali avtomat zaxiralash (2 soatlik)")
+
+        asyncio.create_task(periodic_backup())
+
         await dp.start_polling(bot)
     except Exception as e:
         logger.error(f"Xatolik yuz berdi: {e}")
