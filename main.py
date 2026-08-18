@@ -65,12 +65,16 @@ async def main():
             except Exception as btn_err:
                 logger.warning(f"Menyu tugmasini o'rnatishda ogohlantirish: {btn_err}")
 
-        # Initial backup & periodic backup background loop
-        from database import send_database_backup_to_channel
+        # Restore database from channel backup if available
+        from database.backup import restore_database_from_channel, send_database_backup_to_channel
+        restored_count = await restore_database_from_channel(bot)
+        if restored_count > 0:
+            logger.info(f"🔄 Kanaldan {restored_count} ta foydalanuvchi bazaga tiklandi!")
 
+        # Initial backup & periodic backup background loop
         async def periodic_backup():
-            await asyncio.sleep(5)  # Initial backup 5 seconds after startup
-            await send_database_backup_to_channel(bot, reason="Bot ishga tushirildi (Start)")
+            await asyncio.sleep(8)  # Initial backup 8 seconds after startup
+            await send_database_backup_to_channel(bot, reason="Bot ishga tushirildi (Start & Sync)")
             while True:
                 await asyncio.sleep(3600 * 2)  # Every 2 hours
                 await send_database_backup_to_channel(bot, reason="Rejali avtomat zaxiralash (2 soatlik)")

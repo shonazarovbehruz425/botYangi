@@ -22,9 +22,22 @@ async def admin_manual_backup(message: Message, bot: Bot):
     from database import send_database_backup_to_channel
     success = await send_database_backup_to_channel(bot, reason="Admin tomonidan qo'lda chaqirildi (/backup)")
     if success:
-        await status_msg.edit_text("✅ <b>Database .js fayli kanalga muvaffaqiyatli yuborildi!</b>", parse_mode="HTML")
+        await status_msg.edit_text("✅ <b>Database .js fayli kanalga muvaffaqiyatli yuborildi va qadaldi!</b>", parse_mode="HTML")
     else:
         await status_msg.edit_text("❌ <b>Xatolik yuz berdi.</b> Bot kanalga admin ekanligini tekshiring.")
+
+
+@router.message(Command("restore"))
+async def admin_manual_restore(message: Message, bot: Bot):
+    if message.from_user.id not in ADMINS:
+        return
+    status_msg = await message.answer("⏳ Kanaldan oxirgi zaxira nusxasi yuklanmoqda va bazaga tiklanmoqda...")
+    from database.backup import restore_database_from_channel
+    count = await restore_database_from_channel(bot)
+    if count > 0:
+        await status_msg.edit_text(f"✅ <b>Baza muvaffaqiyatli tiklandi!</b>\n👥 Jami tiklangan a'zolar: <b>{count}</b> ta", parse_mode="HTML")
+    else:
+        await status_msg.edit_text("⚠️ <b>Tiklash amalga oshmadi.</b> Kanaldagi oxirgi qadalgan .js zaxira faylini tekshiring.")
 
 
 @router.message(Command("admin"))

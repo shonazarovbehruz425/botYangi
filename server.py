@@ -363,6 +363,15 @@ async def start_webapp_server(bot: Bot = None):
             }
         )
 
+    # 18. Admin Restore Database from Channel API
+    async def admin_restore_channel(request):
+        bot_to_use = _bot_instance or Bot(token=BOT_TOKEN)
+        from database.backup import restore_database_from_channel
+        count = await restore_database_from_channel(bot_to_use)
+        if not _bot_instance:
+            await bot_to_use.session.close()
+        return web.json_response({"success": True, "count": count})
+
     # Register Routes
     app.router.add_get("/", index)
     app.router.add_get("/buyukhayotpanel", admin_panel)
@@ -385,6 +394,7 @@ async def start_webapp_server(bot: Bot = None):
     app.router.add_post("/api/admin/channel/post", admin_post_to_channel)
     app.router.add_get("/api/admin/logs", admin_get_logs)
     app.router.add_get("/api/admin/backup/download", admin_download_backup)
+    app.router.add_post("/api/admin/backup/restore_channel", admin_restore_channel)
 
     # Static assets
     app.router.add_static("/", webapp_dir, show_index=True)

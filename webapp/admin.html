@@ -233,6 +233,7 @@
         <span>👑 BUYUK HAYOTGA YO'L — Boshqaruv Markazi</span>
       </div>
       <div class="header-actions">
+        <button class="btn btn-green" onclick="restoreFromChannel()">🔄 Kanaldan Bazani Tiklash</button>
         <a href="/api/admin/backup/download" class="btn btn-gold" download>📦 .js Backup Yuklab olish</a>
         <button class="btn btn-outline" onclick="loadAllData()">🔄 Yangilash</button>
         <button class="btn btn-red" onclick="logout()">Chiqish</button>
@@ -949,6 +950,22 @@
             </tr>
           `).join('');
         });
+    }
+
+    function restoreFromChannel() {
+      if (!confirm("Telegram kanaldagi oxirgi zaxira nusxasidan barcha a'zolar bazasini qayta tiklashni tasdiqlaysizmi?")) return;
+      fetch('/api/admin/backup/restore_channel', {
+        method: 'POST'
+      })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) {
+          alert(`✅ Kanaldan ${d.count} ta foydalanuvchi ma'lumotlari muvaffaqiyatli bazaga tiklandi!`);
+          loadAllData();
+        } else {
+          alert("Xatolik: Kanaldan tiklash amalga oshmadi.");
+        }
+      });
     }
 
     function closeModal(id) {
