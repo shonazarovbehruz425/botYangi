@@ -33,7 +33,7 @@ BANNER_MARKETING = os.path.join(BASE_DIR, "assets", "marketing_banner.png")
 BANNER_ALL_LEVELS = os.path.join(BASE_DIR, "assets", "all_levels_banner.png")
 
 LEVEL_PRICES = {
-    1: 300000,
+    1: 200000,
     2: 2700000,
     3: 35000000,
     4: 1377000000,
@@ -41,7 +41,7 @@ LEVEL_PRICES = {
 }
 
 LEVEL_LABELS = {
-    1: "300 000 so'm (300 ming so'm)",
+    1: "200 000 so'm (200 ming so'm)",
     2: "2 700 000 so'm (2 mln 700 ming so'm)",
     3: "35 000 000 so'm (35 mln so'm)",
     4: "1 377 000 000 so'm (1 mlrd 377 mln so'm)",
@@ -64,7 +64,7 @@ class WalletStates(StatesGroup):
 
 MARKETING_CAPTION = (
     "👑 <b>«BUYUK HAYOTGA INTIILISH» — MARKETING</b>\n\n"
-    "⚪️ Dasturga kirish <b>300 000 so'm</b> turadi — bu 1-daraja uchun to'lov.\n"
+    "⚪️ Dasturga kirish <b>200 000 so'm</b> turadi — bu 1-daraja uchun to'lov.\n"
     "⚪️ Siz ketma-ket 5 tagacha darajalarni faollashtirishingiz mumkin.\n"
     "⚪️ 100% shaffof va to'g'ridan-to'g'ri insondan-insonga daromad modeli!\n\n"
     "1-Darajani to'lash uchun pastdagi tugmani bosing 👇."
@@ -216,7 +216,7 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
 
     curator_username = curator_data.get("username", "")
     curator_tag = f"@{curator_username}" if curator_username else f"ID: {curator_id}"
-    price_label = LEVEL_LABELS.get(level, f"{LEVEL_PRICES.get(level, 300000):,} so'm")
+    price_label = LEVEL_LABELS.get(level, f"{LEVEL_PRICES.get(level, 200000):,} so'm")
 
     caption = (
         f"Вам необходимо оплатить <b>{price_label}</b> на один из указаных кошельков:\n\n"
@@ -260,7 +260,7 @@ async def marketing_paid_click_handler(callback: CallbackQuery, bot: Bot):
 
     user = callback.from_user
     user_uname = f"@{user.username}" if user.username else f"ID: {user.id}"
-    price_label = LEVEL_LABELS.get(level, f"{LEVEL_PRICES.get(level, 300000):,} so'm")
+    price_label = LEVEL_LABELS.get(level, f"{LEVEL_PRICES.get(level, 200000):,} so'm")
 
     # Fetch curator info for button
     curator_data = await db.get_user(curator_id)
@@ -310,7 +310,7 @@ async def approve_level_handler(callback: CallbackQuery, bot: Bot):
 
     await db.set_user_level(buyer_id, level)
     
-    price_val = LEVEL_PRICES.get(level, 300000)
+    price_val = LEVEL_PRICES.get(level, 200000)
     await db.add_user_earnings(callback.from_user.id, price_val)
 
     await callback.answer(f"✅ {level}-Daraja muvaffaqiyatli tasdiqlandi!", show_alert=True)
