@@ -20,59 +20,41 @@ MAIN_MENU_CAPTION = (
 BANNER_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "main_banner.png")
 
 
-async def send_main_menu(message_or_query, bot: Bot, user_id: int):
+async def send_main_menu(target, bot: Bot = None, user_id: int = None, **kwargs):
     """Sends or edits the main menu card with photo banner."""
     keyboard = get_main_menu_keyboard()
-    is_admin = user_id in ADMINS
+    caption = f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}"
+    photo = FSInputFile(BANNER_PATH) if os.path.exists(BANNER_PATH) else None
 
-    if isinstance(message_or_query, CallbackQuery):
-        call = message_or_query
+    if isinstance(target, CallbackQuery):
         try:
-            if os.path.exists(BANNER_PATH):
-                await call.message.edit_media(
-                    media=InputMediaPhoto(
-                        media=FSInputFile(BANNER_PATH),
-                        caption=f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}",
-                        parse_mode="HTML"
-                    ),
+            if photo:
+                await target.message.edit_media(
+                    media=InputMediaPhoto(media=photo, caption=caption, parse_mode="HTML"),
                     reply_markup=keyboard
                 )
             else:
-                await call.message.edit_text(
-                    text=f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}",
-                    reply_markup=keyboard,
-                    parse_mode="HTML"
-                )
+                await target.message.edit_text(text=caption, reply_markup=keyboard, parse_mode="HTML")
         except Exception:
-            if os.path.exists(BANNER_PATH):
-                await call.message.answer_photo(
-                    photo=FSInputFile(BANNER_PATH),
-                    caption=f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}",
-                    reply_markup=keyboard,
-                    parse_mode="HTML"
-                )
+            if photo:
+                await target.message.answer_photo(photo=photo, caption=caption, reply_markup=keyboard, parse_mode="HTML")
             else:
-                await call.message.answer(
-                    text=f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}",
-                    reply_markup=keyboard,
-                    parse_mode="HTML"
-                )
-        await call.answer()
-    else:
-        msg = message_or_query
-        if os.path.exists(BANNER_PATH):
-            await msg.answer_photo(
-                photo=FSInputFile(BANNER_PATH),
-                caption=f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}",
-                reply_markup=keyboard,
-                parse_mode="HTML"
-            )
+                await target.message.answer(text=caption, reply_markup=keyboard, parse_mode="HTML")
+        try:
+            await target.answer()
+        except Exception:
+            pass
+    elif isinstance(target, Message):
+        if photo:
+            await target.answer_photo(photo=photo, caption=caption, reply_markup=keyboard, parse_mode="HTML")
         else:
-            await msg.answer(
-                text=f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}",
-                reply_markup=keyboard,
-                parse_mode="HTML"
-            )
+            await target.answer(text=caption, reply_markup=keyboard, parse_mode="HTML")
+    elif isinstance(target, Bot) and (isinstance(bot, int) or isinstance(user_id, int)):
+        chat_id = bot if isinstance(bot, int) else user_id
+        if photo:
+            await target.send_photo(chat_id=chat_id, photo=photo, caption=caption, reply_markup=keyboard, parse_mode="HTML")
+        else:
+            await target.send_message(chat_id=chat_id, text=caption, reply_markup=keyboard, parse_mode="HTML")
 
 
 @router.message(CommandStart())
@@ -83,7 +65,7 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
 
     # If user is already registered, take them straight to the main menu
     if existing_user:
-        await send_main_menu(bot, message.chat.id)
+        await send_main_menu(message)
         return
 
     # User is not registered. Check if referral parameter is provided
@@ -98,7 +80,7 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
                 referrer_id=0
             )
             await message.answer("👑 <b>Admin sifatida ro'yxatdan o'tdingiz!</b>", parse_mode="HTML")
-            await send_main_menu(bot, message.chat.id)
+            await send_main_menu(message)
             return
 
         # Regular user without referral link -> strictly deny access as requested
@@ -226,13 +208,12 @@ async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
             pass
 
     # Send Main Menu
-    await send_main_menu(bot, callback.message.chat.id, message_id_to_edit=callback.message.message_id)
+    await send_main_menu(callback)
 
 
 @router.callback_query(F.data == "back_to_main_menu")
-async def back_to_main_menu_handler(callback: CallbackQuery, bot: Bot):
-    await callback.answer()
-    await send_main_menu(bot, callback.message.chat.id, message_id_to_edit=callback.message.message_id)
+async def back_to_main_menu_handler(callback: CallbackQuery):
+    await send_main_menu(callback)
 
 
 @router.callback_query(F.data == "menu_header")
