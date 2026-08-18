@@ -7,6 +7,7 @@ from aiogram.types import CallbackQuery, Message, BufferedInputFile, FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from database import db
+from config import ADMINS
 from keyboards.inline import (
     get_main_menu_keyboard,
     get_marketing_menu_keyboard,
@@ -20,7 +21,10 @@ from keyboards.inline import (
     get_partners_keyboard,
     get_wallet_edit_keyboard,
     get_referrals_pagination_keyboard,
-    get_back_to_menu_keyboard
+    get_back_to_menu_keyboard,
+    get_payment_request_keyboard,
+    get_payment_sent_keyboard,
+    get_curator_approval_keyboard
 )
 
 router = Router()
