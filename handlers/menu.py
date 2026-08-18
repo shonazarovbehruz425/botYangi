@@ -594,16 +594,11 @@ async def partners_handler(callback: CallbackQuery, bot: Bot):
     user = callback.from_user
     bot_me = await bot.get_me()
     ref_count = await db.get_referral_count(user.id)
-    multi_tier = await db.get_multi_tier_stats(user.id)
     ref_link = f"https://t.me/{bot_me.username}?start=ref_{user.id}"
 
     text = (
         "👥 <b>HAMKORLAR VA REFERAL TIZIMI</b>\n\n"
-        f"🥇 <b>1-Daraja (To'g'ridan-to'g'ri):</b> <b>{ref_count}</b> ta hamkor\n"
-        f"🥈 <b>2-Daraja (Bilvosita):</b> <b>{multi_tier['level_2']}</b> ta hamkor\n"
-        f"🥉 <b>3-Daraja (Chuqur jamoa):</b> <b>{multi_tier['level_3']}</b> ta hamkor\n"
-        "────────────────────\n"
-        f"🌐 <b>JAMI JAMOA:</b> <b>{multi_tier['total_team']}</b> ta hamkor\n\n"
+        f"👤 <b>Sizning hamkorlaringiz:</b> <b>{ref_count}</b> ta\n\n"
         f"🔗 <b>Sizning taklif havolangiz:</b>\n<code>{ref_link}</code>"
     )
     keyboard = get_partners_keyboard(bot_me.username, user.id)

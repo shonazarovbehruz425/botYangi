@@ -306,12 +306,7 @@ def get_partners_keyboard(bot_username: str, user_id: int) -> InlineKeyboardMark
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="🔗 Referal havola", callback_data="cab_ref_link"),
-                InlineKeyboardButton(text="📲 QR Kod", callback_data="cab_qr_code")
-            ],
-            [
-                InlineKeyboardButton(text="👥 Referallarim ro'yxati", callback_data="cab_team_page:1"),
-                InlineKeyboardButton(text="🌳 3-Darajali jamoa", callback_data="cab_multi_tier")
+                InlineKeyboardButton(text="🔗 Referal havola", callback_data="cab_ref_link")
             ],
             [
                 InlineKeyboardButton(text="📤 Do'stlarga ulashish", url=share_url)
