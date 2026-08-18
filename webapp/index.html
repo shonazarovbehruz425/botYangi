@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CONCORD — Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Decorative Header Strip -->
+  <div class="top-garland">🌸🌷🌸🌺🌼🌸🌷🌺🌼🌸🌷🌺🌼🌸</div>
+
+  <!-- Main App Header -->
+  <header class="app-header">
+    <button class="icon-btn" id="menu-toggle" aria-label="Menyu">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    </button>
+
+    <div class="brand-logo" id="logo-btn">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#52e080" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+      <span>CONCORD</span>
+    </div>
+
+    <div class="user-pill" id="user-profile-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+      <span id="header-user-name">Foydalanuvchi</span>
+    </div>
+
+    <button class="icon-btn" id="settings-btn" aria-label="Sozlamalar">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+    </button>
+  </header>
+
+  <!-- Sidebar Overlay Backdrop -->
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <!-- Sidebar Navigation Drawer (matching Screenshots 4 & 5) -->
+  <aside class="sidebar-drawer" id="sidebar">
+    <div class="sidebar-nav">
+      <button class="nav-item active" data-page="home">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span>Bosh sahifa (Главная)</span>
+      </button>
+
+      <button class="nav-item" data-page="finance">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        <span>Moliya (Финансы)</span>
+      </button>
+
+      <button class="nav-item" data-page="partners">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <span>Hamkorlar (Партнеры)</span>
+      </button>
+
+      <button class="nav-item" data-page="structure">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        <span>Tuzilma (Структура)</span>
+      </button>
+
+      <button class="nav-item" data-page="marketing">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+        <span>Marketing (Маркетинг)</span>
+      </button>
+
+      <button class="nav-item disabled" data-page="tools">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+        <span>Bizning Asboblar</span>
+        <span class="badge-tag">🚧</span>
+      </button>
+
+      <button class="nav-item" data-page="presentations">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        <span>Taqdimotlar (Презентации)</span>
+      </button>
+
+      <button class="nav-item" data-page="documents">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="11" y2="17"></line></svg>
+        <span>Hujjatlar (Документы)</span>
+      </button>
+
+      <button class="nav-item" data-page="groups">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+        <span>Guruhlar va kanallar</span>
+      </button>
+
+      <button class="nav-item" data-page="receipt">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="14" y2="12"></line><line x1="6" y1="16" x2="10" y2="16"></line></svg>
+        <span>Chek generatori (Генератор чеков)</span>
+      </button>
+
+      <button class="nav-item" data-page="card">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+        <span>Mening vizitkam (Моя визитка)</span>
+      </button>
+    </div>
+
+    <!-- Sidebar Bottom Profile Card (Screenshot 5) -->
+    <div class="sidebar-user-card">
+      <div class="avatar-circle" id="sidebar-avatar">U</div>
+      <div class="user-meta">
+        <div class="name" id="sidebar-user-name">Umida Hayitova</div>
+        <div class="handle" id="sidebar-user-handle">@Umida_Hayitova_22</div>
+      </div>
+      <div class="user-badges">
+        <div class="badge-stat green">
+          <span class="val" id="sidebar-income">$30</span>
+          <span class="lbl">Daromad</span>
+        </div>
+        <div class="badge-stat blue">
+          <span class="val" id="sidebar-team">3</span>
+          <span class="lbl">Jamoa</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Container -->
+  <main class="app-main">
+
+    <!-- 1. HOME VIEW (SCREENSHOTS 1, 2, 3) -->
+    <section class="page-view active" id="view-home">
+      <!-- Hero Greeting -->
+      <div class="hero-card">
+        <div class="hero-tag">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#22c55e"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>CHEKSIZ DAROMAD (БЕСКОНЕЧНЫЙ ДОХОД)</span>
+        </div>
+        <h1 class="hero-title">CONCORD ga<br>xush kelibsiz</h1>
+        <p class="hero-subtitle">
+          Zamonaviy marketing va sheriklik vositalari orqali faol daromad yaratish uchun sizning ishonchli platformangiz.
+        </p>
+      </div>
+
+      <!-- Stat Card 1: Total Income (Screenshot 1 bottom) -->
+      <div class="stat-card stat-income">
+        <div class="card-icon-box green">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        </div>
+        <div class="card-content">
+          <div class="card-title">Umumiy daromad (Общий доход)</div>
+          <div class="card-big-value" id="home-total-income">$30</div>
+        </div>
+      </div>
+
+      <!-- Stat Card 2: Team Members (Screenshot 2) -->
+      <div class="stat-card stat-team">
+        <div class="card-icon-box blue">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        </div>
+        <div class="card-content">
+          <div class="card-title">Jamoa a'zolari soni (Численность команды)</div>
+          <div class="card-sub-label">Umumiy tuzilma (Общая структура)</div>
+          <div class="card-big-value highlight-cyan" id="home-team-total">7</div>
+          <div class="team-sub-stats">
+            <div>To'g'ridan-to'g'ri referallar: <b id="home-direct-refs">3</b></div>
+            <div>Marketingda faol: <b id="home-active-refs">6</b></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stat Card 3: Level / Status (Screenshot 2 middle) -->
+      <div class="stat-card stat-level">
+        <div class="card-icon-box yellow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12l4 6-10 13L2 9z"></path></svg>
+        </div>
+        <div class="card-content">
+          <div class="card-title">Sizning darajangiz (Ваш уровень)</div>
+          <div class="card-sub-label">Joriy maqom (Текущий статус)</div>
+          <div class="card-big-value highlight-gold" id="home-user-level">2-Daraja (Уровень 2)</div>
+        </div>
+      </div>
+
+      <!-- Stat Card 4: Date Registered (Screenshot 2 bottom) -->
+      <div class="stat-card stat-date">
+        <div class="card-icon-box purple">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        </div>
+        <div class="card-content">
+          <div class="card-title">Loyihada (В проекте)</div>
+          <div class="card-sub-label">Ro'yxatdan o'tgan sana (Дата регистрации)</div>
+          <div class="card-big-value highlight-violet" id="home-reg-date">26.12.2025</div>
+        </div>
+      </div>
+
+      <!-- Stat Card 5: Profile Info (Screenshot 3 top) -->
+      <div class="stat-card stat-profile">
+        <div class="card-icon-box emerald">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        </div>
+        <div class="card-content">
+          <div class="card-title">Profil (Профиль)</div>
+          <div class="card-sub-label">Shaxsiy ma'lumotlar (Личная информация)</div>
+          <div class="profile-name-row" id="home-profile-fullname">Umida Hayitova</div>
+          <div class="profile-handle-row" id="home-profile-username">@Umida_Hayitova_22</div>
+        </div>
+      </div>
+
+      <!-- Stat Card 6: Referral Link (Screenshot 3 bottom) -->
+      <div class="stat-card stat-reflink">
+        <div class="card-title bold">Sizning referal havolangiz (Ваша реферальная ссылка)</div>
+        <div class="ref-link-box">
+          <div class="ref-link-text" id="home-ref-link-val">https://t.me/concord_bot?start=8534</div>
+          <button class="copy-btn" id="copy-ref-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Nusxalash (Копировать)</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. FINANCE VIEW -->
+    <section class="page-view" id="view-finance">
+      <div class="section-header">
+        <h2>Moliya va Hamyonlar</h2>
+        <p>Daromadlar, balans va hisob-kitoblar boshqaruvi</p>
+      </div>
+
+      <div class="balance-banner-card">
+        <div class="lbl">Asosiy Balans</div>
+        <div class="val" id="finance-balance">$30.00</div>
+        <div class="btns-row">
+          <button class="action-btn green-btn" onclick="openWalletModal()">Hamyonni sozlash</button>
+          <button class="action-btn outline-btn" onclick="showToast('Yechib olish so'rovi qabul qilindi!')">Mablag' yechish</button>
+        </div>
+      </div>
+
+      <div class="wallet-list-card">
+        <div class="card-title">Ulangan Hamyonlar</div>
+        <div class="wallet-item">
+          <span>USDT (BEP20)</span>
+          <span class="addr" id="addr-bep20">Hali kiritilmagan</span>
+        </div>
+        <div class="wallet-item">
+          <span>Karta (UzCard/Humo)</span>
+          <span class="addr" id="addr-card">Hali kiritilmagan</span>
+        </div>
+        <div class="wallet-item">
+          <span>USDT (TRC20)</span>
+          <span class="addr" id="addr-trc20">Hali kiritilmagan</span>
+        </div>
+        <div class="wallet-item">
+          <span>PAYEER</span>
+          <span class="addr" id="addr-payeer">Hali kiritilmagan</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. PARTNERS VIEW -->
+    <section class="page-view" id="view-partners">
+      <div class="section-header">
+        <h2>Hamkorlar va Referallar</h2>
+        <p>Sizning shaxsiy jamoangiz va takliflaringiz</p>
+      </div>
+
+      <div class="qr-share-card">
+        <div class="qr-box" id="qr-container">
+          <img id="dynamic-qr-img" src="" alt="QR Kod">
+        </div>
+        <button class="action-btn green-btn" id="share-tg-btn">Telegram orqali ulashish</button>
+      </div>
+
+      <div class="partners-list-card">
+        <div class="card-title">Hamkorlar ro'yxati (1-Daraja)</div>
+        <div class="partners-items-container" id="partners-container">
+          <div class="empty-state">Hamkorlar yuklanmoqda...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. STRUCTURE VIEW -->
+    <section class="page-view" id="view-structure">
+      <div class="section-header">
+        <h2>3-Darajali Jamoa Tuzilmasi</h2>
+        <p>Barcha chuqurlikdagi a'zolar taqsimoti</p>
+      </div>
+
+      <div class="structure-tree-card">
+        <div class="tree-tier">
+          <div class="tier-badge gold">1-Daraja (15%)</div>
+          <div class="tier-count"><span id="tree-l1">3</span> ta hamkor</div>
+        </div>
+        <div class="tree-tier">
+          <div class="tier-badge silver">2-Daraja (7%)</div>
+          <div class="tier-count"><span id="tree-l2">4</span> ta hamkor</div>
+        </div>
+        <div class="tree-tier">
+          <div class="tier-badge bronze">3-Daraja (3%)</div>
+          <div class="tier-count"><span id="tree-l3">0</span> ta hamkor</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. MARKETING VIEW -->
+    <section class="page-view" id="view-marketing">
+      <div class="section-header">
+        <h2>Marketing Darajalari</h2>
+        <p>Har bir darajaning narxi va faollashtirish imkoniyati</p>
+      </div>
+
+      <div class="levels-grid">
+        <div class="lvl-card active">
+          <div class="lvl-num">1-Daraja</div>
+          <div class="lvl-price">$10</div>
+          <div class="lvl-status">✅ Faollashtirilgan</div>
+        </div>
+        <div class="lvl-card active">
+          <div class="lvl-num">2-Daraja</div>
+          <div class="lvl-price">$20</div>
+          <div class="lvl-status">✅ Faollashtirilgan</div>
+        </div>
+        <div class="lvl-card">
+          <div class="lvl-num">3-Daraja</div>
+          <div class="lvl-price">$50</div>
+          <button class="lvl-btn" onclick="showToast('3-Darajani faollashtirish so\'rovi yuborildi!')">Faollashtirish</button>
+        </div>
+        <div class="lvl-card">
+          <div class="lvl-num">4-Daraja</div>
+          <div class="lvl-price">$100</div>
+          <button class="lvl-btn" onclick="showToast('Avval 3-darajani to\'lang!')">Qulflangan 🔒</button>
+        </div>
+        <div class="lvl-card">
+          <div class="lvl-num">5-Daraja</div>
+          <div class="lvl-price">$200</div>
+          <button class="lvl-btn" onclick="showToast('Avval oldingi darajalarni to\'lang!')">Qulflangan 🔒</button>
+        </div>
+        <div class="lvl-card">
+          <div class="lvl-num">6-Daraja</div>
+          <div class="lvl-price">$500</div>
+          <button class="lvl-btn" onclick="showToast('Avval oldingi darajalarni to\'lang!')">Qulflangan 🔒</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. PRESENTATIONS & DOCS & GROUPS VIEW -->
+    <section class="page-view" id="view-presentations">
+      <div class="section-header">
+        <h2>Taqdimotlar va Materiallar</h2>
+        <p>Loyihaning rasmiy PDF taqdimotlari va slaydlar</p>
+      </div>
+      <div class="links-list-card">
+        <a href="https://concord.link/presentation-uz.pdf" target="_blank" class="doc-link-item">
+          📄 CONCORD Rasmiy Taqdimot (O'zbekcha PDF)
+        </a>
+        <a href="https://concord.link/presentation-ru.pdf" target="_blank" class="doc-link-item">
+          📄 CONCORD Презентация (Русский PDF)
+        </a>
+        <a href="https://concord.link/marketing-plan.pdf" target="_blank" class="doc-link-item">
+          📊 Marketing Rejasi va Foizlar
+        </a>
+      </div>
+    </section>
+
+    <section class="page-view" id="view-documents">
+      <div class="section-header">
+        <h2>Hujjatlar va Qoidalar</h2>
+      </div>
+      <div class="links-list-card">
+        <div class="doc-link-item">📜 Foydalanuvchi kelishuvi (Oferta)</div>
+        <div class="doc-link-item">🔒 Maxfiylik siyosati (Privacy Policy)</div>
+        <div class="doc-link-item">⚖️ Hamkorlik etikasi va qoidalari</div>
+      </div>
+    </section>
+
+    <section class="page-view" id="view-groups">
+      <div class="section-header">
+        <h2>Rasmiy Guruhlar va Kanallar</h2>
+      </div>
+      <div class="links-list-card">
+        <a href="https://t.me/concord_komanda" target="_blank" class="doc-link-item">
+          🚀 CONCORD Asosiy Jamoa Guruhi (@concord_komanda)
+        </a>
+        <a href="https://t.me/ConcordSupport" target="_blank" class="doc-link-item">
+          🆘 24/7 Qo'llab-quvvatlash xizmati (@ConcordSupport)
+        </a>
+      </div>
+    </section>
+
+    <!-- 7. RECEIPT GENERATOR (CHEK GENERATORI) -->
+    <section class="page-view" id="view-receipt">
+      <div class="section-header">
+        <h2>Chek Generatori</h2>
+        <p>Ijtimoiy tarmoqlar uchun to'lov/daromad chekini yaratish</p>
+      </div>
+      <div class="receipt-box" id="receipt-preview">
+        <div class="r-brand">CONCORD PAY</div>
+        <div class="r-status">✅ To'lov tasdiqlandi</div>
+        <div class="r-amount" id="receipt-amount-display">+$30.00</div>
+        <div class="r-row">
+          <span>Qabul qiluvchi:</span>
+          <b id="receipt-user-display">Umida Hayitova</b>
+        </div>
+        <div class="r-row">
+          <span>Sana:</span>
+          <b id="receipt-date-display">18.08.2026</b>
+        </div>
+        <div class="r-row">
+          <span>Tranzaksiya:</span>
+          <b>#CONC-8534-OK</b>
+        </div>
+      </div>
+      <button class="action-btn green-btn mt-4" onclick="showToast('Chek rasmi muvaffaqiyatli saqlandi!')">💾 Chekni yuklab olish</button>
+    </section>
+
+    <!-- 8. BUSINESS CARD (VIZITKA) -->
+    <section class="page-view" id="view-card">
+      <div class="section-header">
+        <h2>Mening Vizitkam</h2>
+        <p>Sizning shaxsiy raqamli brend kartangiz</p>
+      </div>
+      <div class="business-card-wrap">
+        <div class="bc-front">
+          <div class="bc-logo">CONCORD LEADER</div>
+          <div class="bc-name" id="bc-name">Umida Hayitova</div>
+          <div class="bc-title">Rasmiy Lider & Biznes Hamkor</div>
+          <div class="bc-footer">
+            <span id="bc-handle">@Umida_Hayitova_22</span>
+            <span id="bc-id">ID: 8534</span>
+          </div>
+        </div>
+      </div>
+      <button class="action-btn green-btn mt-4" onclick="shareCard()">📤 Vizitkani ulashish</button>
+    </section>
+
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
