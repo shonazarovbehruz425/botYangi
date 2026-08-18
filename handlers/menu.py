@@ -48,18 +48,30 @@ LEVEL_LABELS = {
     5: "17 100 000 000 so'm (17 mlrd 100 mln so'm)"
 }
 
+LEVEL_REQUIRED_REFS = {
+    1: 3,
+    2: 9,
+    3: 27,
+    4: 81,
+    5: 243
+}
+
 class WalletStates(StatesGroup):
     waiting_for_wallet_value = State()
 
 
-# ==================== MARKETING SECTION (4 SCREENSHOTS) ====================
+# ==================== MARKETING SECTION ====================
 
 MARKETING_CAPTION = (
-    "👑 <b>BUYUK HAYOTGA YO'L — MARKETING</b>\n\n"
-    "⚪️ Dasturga kirish <b>300 000 so'm</b> turadi — bu 1-daraja uchun to'lov.\n"
-    "⚪️ Siz ketma-ket 5 tagacha darajalarni faollashtirishingiz mumkin.\n"
-    "⚪️ 100% shaffof va to'g'ridan-to'g'ri daromad modeli!\n\n"
-    "1-Darajani to'lash uchun pastdagi tugmani bosing 👇."
+    "👑 <b>«BUYUK HAYOTGA INTIILISH» — MARKETING TIZIMI</b>\n\n"
+    "Bu yerda darajalar pul bilan emas, <b>taklif qilingan faol a'zolar (referallar)</b> soniga qarab faollashadi:\n\n"
+    "🥇 <b>1-Bosqich:</b> 3 ta referal\n"
+    "🥈 <b>2-Bosqich:</b> 9 ta referal\n"
+    "🥉 <b>3-Bosqich:</b> 27 ta referal\n"
+    "💎 <b>4-Bosqich:</b> 81 ta referal\n"
+    "👑 <b>5-Bosqich:</b> 243 ta referal\n\n"
+    "✨ <i>Ният – Ишонч – Ҳаракат – Натижа!</i>\n\n"
+    "Darajangizni ochish uchun quyidagi tugmani bosing 👇"
 )
 
 @router.callback_query(F.data == "menu_marketing")
@@ -76,7 +88,8 @@ async def marketing_main_handler(callback: CallbackQuery, bot: Bot):
             chat_id=callback.message.chat.id,
             photo=FSInputFile(BANNER_MARKETING),
             caption=MARKETING_CAPTION,
-            reply_markup=keyboard
+            reply_markup=keyboard,
+            parse_mode="HTML"
         )
     else:
         try:
@@ -96,7 +109,7 @@ async def marketing_main_handler(callback: CallbackQuery, bot: Bot):
 @router.callback_query(F.data == "mkt_all_levels")
 async def marketing_all_levels_handler(callback: CallbackQuery, bot: Bot):
     await callback.answer()
-    caption = "Barcha darajalar"
+    caption = "👑 <b>Barcha Marketing Bosqichlari (1 - 5)</b>\nOchmoqchi bo'lgan bosqichingizni tanlang:"
     keyboard = get_all_levels_keyboard()
 
     if os.path.exists(BANNER_ALL_LEVELS):
@@ -108,7 +121,8 @@ async def marketing_all_levels_handler(callback: CallbackQuery, bot: Bot):
             chat_id=callback.message.chat.id,
             photo=FSInputFile(BANNER_ALL_LEVELS),
             caption=caption,
-            reply_markup=keyboard
+            reply_markup=keyboard,
+            parse_mode="HTML"
         )
     else:
         try:
@@ -134,12 +148,14 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
 
     user = callback.from_user
     user_data = await db.get_user(user.id)
-    cur_lvl = user_data.get("current_level", 1) if user_data else 1
+    cur_lvl = user_data.get("current_level", 0) if user_data else 0
+    cur_refs = await db.get_referral_count(user.id)
+    req_refs = LEVEL_REQUIRED_REFS.get(level, 3)
 
-    # Case 1: Already activated (Screenshot 2)
+    # Case 1: Already activated
     if level <= cur_lvl:
-        caption = "Siz bu darajani allaqachon faollashtirgansiz"
-        keyboard = get_level_back_keyboard(from_all=from_all)
+        caption = f"✅ <b>Siz {level}-Bosqichni allaqachon muvaffaqiyatli faollashtirgansiz!</b>"
+        keyboard = get_level_locked_keyboard(level, cur_refs, req_refs, from_all=from_all)
         if os.path.exists(BANNER_MARKETING):
             try:
                 await callback.message.delete()
@@ -149,19 +165,20 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
                 chat_id=callback.message.chat.id,
                 photo=FSInputFile(BANNER_MARKETING),
                 caption=caption,
-                reply_markup=keyboard
+                reply_markup=keyboard,
+                parse_mode="HTML"
             )
         else:
             try:
-                await callback.message.edit_caption(caption=caption, reply_markup=keyboard)
+                await callback.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode="HTML")
             except Exception:
-                await callback.message.edit_text(text=caption, reply_markup=keyboard)
+                await callback.message.edit_text(text=caption, reply_markup=keyboard, parse_mode="HTML")
         return
 
-    # Case 2: Skipped previous level (Screenshot 4)
+    # Case 2: Skipped previous level
     if level > cur_lvl + 1:
-        caption = "Avval oldingi darajani to'lang"
-        keyboard = get_level_back_keyboard(from_all=from_all)
+        caption = f"🔒 <b>Avval oldingi {cur_lvl + 1}-Bosqichni oching!</b>"
+        keyboard = get_level_locked_keyboard(level, cur_refs, req_refs, from_all=from_all)
         if os.path.exists(BANNER_MARKETING):
             try:
                 await callback.message.delete()
@@ -171,24 +188,36 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
                 chat_id=callback.message.chat.id,
                 photo=FSInputFile(BANNER_MARKETING),
                 caption=caption,
-                reply_markup=keyboard
+                reply_markup=keyboard,
+                parse_mode="HTML"
             )
         else:
             try:
-                await callback.message.edit_caption(caption=caption, reply_markup=keyboard)
+                await callback.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode="HTML")
             except Exception:
-                await callback.message.edit_text(text=caption, reply_markup=keyboard)
+                await callback.message.edit_text(text=caption, reply_markup=keyboard, parse_mode="HTML")
         return
 
-    # Case 3: Ready to activate next level
-    price_val = LEVEL_PRICES.get(level, 300000)
-    price_label = LEVEL_LABELS.get(level, f"{price_val:,} so'm")
-    caption = (
-        f"💳 <b>{level}-Darajani faollashtirish</b>\n\n"
-        f"💰 <b>Narxi:</b> {price_label}\n\n"
-        "To'lovni amalga oshirish va darajani ochish uchun quyidagi tugmani bosing:"
-    )
-    keyboard = get_level_activate_keyboard(level, price_val, from_all=from_all)
+    # Case 3: Next level - check referral requirement
+    if cur_refs < req_refs:
+        remaining = req_refs - cur_refs
+        caption = (
+            f"🔒 <b>{level}-BOSQICHNI FAOLLASHTIRISH</b>\n\n"
+            f"👥 <b>Talab qilinadigan referallar:</b> {req_refs} ta\n"
+            f"📊 <b>Siz taklif qilgan a'zolar:</b> {cur_refs} ta\n"
+            f"⚡️ <b>Yetishmayotgan referallar:</b> <b>{remaining} ta</b>\n\n"
+            "💡 <i>Ushbu darajani ochish uchun do'stlaringizga referal havolangizni ulashing va jamoangizni kengaytiring!</i>"
+        )
+        keyboard = get_level_locked_keyboard(level, cur_refs, req_refs, from_all=from_all)
+    else:
+        caption = (
+            f"🎉 <b>TABRIKLAYMIZ! Siz {level}-bosqich shartini bajardingiz!</b>\n\n"
+            f"👥 <b>Talab qilingan:</b> {req_refs} ta referal\n"
+            f"📊 <b>Sizning referallaringiz:</b> {cur_refs} ta\n\n"
+            "Bosqichni faollashtirish uchun quyidagi tugmani bosing 👇"
+        )
+        keyboard = get_level_unlock_ready_keyboard(level, from_all=from_all)
+
     if os.path.exists(BANNER_MARKETING):
         try:
             await callback.message.delete()
@@ -213,11 +242,18 @@ async def marketing_pay_level_handler(callback: CallbackQuery, bot: Bot):
     parts = callback.data.split(":")
     level = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1
 
-    await db.set_user_level(callback.from_user.id, level)
-    await callback.answer(f"🎉 {level}-Daraja muvaffaqiyatli faollashtirildi!", show_alert=True)
+    user_refs = await db.get_referral_count(callback.from_user.id)
+    req_refs = LEVEL_REQUIRED_REFS.get(level, 3)
 
-    caption = f"✅ <b>{level}-Daraja muvaffaqiyatli faollashtirildi!</b>"
-    keyboard = get_level_back_keyboard(from_all=True)
+    if user_refs < req_refs and callback.from_user.id not in ADMINS:
+        await callback.answer(f"🔒 Sizda hali {req_refs} ta referal to'planmagan!", show_alert=True)
+        return
+
+    await db.set_user_level(callback.from_user.id, level)
+    await callback.answer(f"🎉 {level}-Bosqich muvaffaqiyatli faollashtirildi!", show_alert=True)
+
+    caption = f"✅ <b>{level}-Bosqich muvaffaqiyatli faollashtirildi!</b>\nKelgusi marralar sari olg'a!"
+    keyboard = get_level_locked_keyboard(level, user_refs, req_refs, from_all=True)
 
     if os.path.exists(BANNER_MARKETING):
         try:

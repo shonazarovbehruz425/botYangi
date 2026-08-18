@@ -82,10 +82,16 @@ def get_all_levels_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def get_level_back_keyboard(from_all: bool = False) -> InlineKeyboardMarkup:
+def get_level_locked_keyboard(level: int, cur_refs: int, req_refs: int, from_all: bool = False) -> InlineKeyboardMarkup:
     back_target = "mkt_all_levels" if from_all else "menu_marketing"
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [
+                InlineKeyboardButton(text=f"🔒 {cur_refs}/{req_refs} ta referal to'plandi", callback_data="cab_ref_link")
+            ],
+            [
+                InlineKeyboardButton(text="🔗 Referal havolani olish", callback_data="cab_ref_link")
+            ],
             [
                 InlineKeyboardButton(text="Orqaga", callback_data=back_target)
             ]
@@ -93,12 +99,12 @@ def get_level_back_keyboard(from_all: bool = False) -> InlineKeyboardMarkup:
     )
 
 
-def get_level_activate_keyboard(level: int, price: int, from_all: bool = False) -> InlineKeyboardMarkup:
+def get_level_unlock_ready_keyboard(level: int, from_all: bool = False) -> InlineKeyboardMarkup:
     back_target = "mkt_all_levels" if from_all else "menu_marketing"
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text=f"💳 {level}-Darajani faollashtirish (${price})", callback_data=f"mkt_pay_level:{level}")
+                InlineKeyboardButton(text=f"🎉 {level}-Bosqichni Faollashtirish", callback_data=f"mkt_pay_level:{level}")
             ],
             [
                 InlineKeyboardButton(text="Orqaga", callback_data=back_target)
