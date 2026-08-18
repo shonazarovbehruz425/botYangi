@@ -13,7 +13,7 @@
 <body>
 
   <!-- Top Decorative Header Strip -->
-  <div class="top-garland">✨ BUYUK HAYOTGA YO'L — OLTIN KELAJAK SARI ✨</div>
+  <div class="top-garland">👑 БУ ЮЛ — ОДДИЙ ЙЎЛ ЭМАС, БУ ЮЛ — БУЮК ҲАЁТГА ЙЎЛ! 👑</div>
 
   <!-- Main App Header -->
   <header class="app-header">
@@ -21,12 +21,12 @@
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
     </button>
 
-    <div class="brand-logo" id="logo-btn">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+    <div class="brand-logo" id="logo-btn" onclick="navigateTo('home')">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
       <span>BUYUK HAYOT</span>
     </div>
 
-    <div class="user-pill" id="user-profile-btn">
+    <div class="user-pill" id="user-profile-btn" onclick="navigateTo('home')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
       <span id="header-user-name">Foydalanuvchi</span>
     </div>
@@ -108,7 +108,7 @@
       </div>
       <div class="user-badges">
         <div class="badge-stat green">
-          <span class="val" id="sidebar-income">$0</span>
+          <span class="val" id="sidebar-income">$30</span>
           <span class="lbl">Daromad</span>
         </div>
         <div class="badge-stat blue">
@@ -124,22 +124,22 @@
 
     <!-- 1. HOME VIEW -->
     <section class="page-view active" id="view-home">
-      <!-- Hero Greeting -->
-      <div class="hero-card">
-        <div class="hero-tag">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="#facc15"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-          <span>CHEKSIZ DAROMAD VA IMKONIYATLAR</span>
-        </div>
-        <h1 class="hero-title">BUYUK HAYOTGA<br>XUSH KELIBSIZ</h1>
-        <p class="hero-subtitle">
-          Zamonaviy marketing va sheriklik vositalari orqali faol daromad yaratish uchun sizning ishonchli platformangiz.
-        </p>
+      
+      <!-- Luxury Gold Banner Artwork Card -->
+      <div class="hero-artwork-card">
+        <img src="banner.jpg" alt="BUYUK HAYOTGA YO'L" class="hero-artwork-img">
+      </div>
+
+      <!-- Golden Motto Ribbon -->
+      <div class="hero-quote-ribbon">
+        <div class="motto-main">✨ НИЯТ – ИШОНЧ – ҲАРАКАТ – НАТИЖА! ✨</div>
+        <div class="motto-sub">Кичик қадам бос — эртанги келажагингни ярат!</div>
       </div>
 
       <!-- Stat Card 1: Total Income -->
       <div class="stat-card stat-income">
-        <div class="card-icon-box green">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        <div class="card-icon-box gold">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
         </div>
         <div class="card-content">
           <div class="card-title">Umumiy daromad</div>
@@ -165,7 +165,7 @@
 
       <!-- Stat Card 3: Level / Status -->
       <div class="stat-card stat-level">
-        <div class="card-icon-box yellow">
+        <div class="card-icon-box gold">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12l4 6-10 13L2 9z"></path></svg>
         </div>
         <div class="card-content">
@@ -189,12 +189,12 @@
 
       <!-- Stat Card 5: Profile Info -->
       <div class="stat-card stat-profile">
-        <div class="card-icon-box emerald">
+        <div class="card-icon-box green">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
         </div>
         <div class="card-content">
-          <div class="card-title">Profil</div>
-          <div class="card-sub-label">Shaxsiy ma'lumotlar</div>
+          <div class="card-title">Profil va Kurator</div>
+          <div class="card-sub-label" id="home-profile-curator">Kurator: Bosh Admin</div>
           <div class="profile-name-row" id="home-profile-fullname">Foydalanuvchi</div>
           <div class="profile-handle-row" id="home-profile-username">@username</div>
         </div>
@@ -224,13 +224,13 @@
         <div class="lbl">Asosiy Balans</div>
         <div class="val" id="finance-balance">$30.00</div>
         <div class="btns-row">
-          <button class="action-btn green-btn" onclick="showToast('Hamyon sozlamalari botda saqlanadi!')">Hamyonni sozlash</button>
+          <button class="action-btn gold-btn" onclick="showToast('Hamyon sozlamalari botda mavjud!')">Hamyonni sozlash</button>
           <button class="action-btn outline-btn" onclick="showToast('Mablag\' yechish so\'rovi qabul qilindi!')">Mablag' yechish</button>
         </div>
       </div>
 
       <div class="wallet-list-card">
-        <div class="card-title">Ulangan Hamyonlar</div>
+        <div class="card-title bold">Ulangan Hamyonlar</div>
         <div class="wallet-item">
           <span>USDT (BEP20)</span>
           <span class="addr" id="addr-bep20">Faol</span>
@@ -261,7 +261,7 @@
         <div class="qr-box" id="qr-container">
           <img id="dynamic-qr-img" src="" alt="QR Kod">
         </div>
-        <button class="action-btn green-btn" id="share-tg-btn">Telegram orqali do'stlarga ulashish</button>
+        <button class="action-btn gold-btn" id="share-tg-btn">Telegram orqali do'stlarga ulashish</button>
       </div>
     </section>
 
@@ -275,11 +275,11 @@
       <div class="structure-tree-card">
         <div class="tree-tier">
           <div class="tier-badge gold">1-Daraja (15%)</div>
-          <div class="tier-count"><span id="tree-l1">3</span> ta hamkor</div>
+          <div class="tier-count"><span id="tree-l1">0</span> ta hamkor</div>
         </div>
         <div class="tree-tier">
           <div class="tier-badge silver">2-Daraja (7%)</div>
-          <div class="tier-count"><span id="tree-l2">4</span> ta hamkor</div>
+          <div class="tier-count"><span id="tree-l2">0</span> ta hamkor</div>
         </div>
         <div class="tree-tier">
           <div class="tier-badge bronze">3-Daraja (3%)</div>
@@ -301,20 +301,20 @@
           <div class="lvl-price">$10</div>
           <div class="lvl-status">✅ Faollashtirilgan</div>
         </div>
-        <div class="lvl-card active">
+        <div class="lvl-card">
           <div class="lvl-num">2-Daraja</div>
           <div class="lvl-price">$20</div>
-          <div class="lvl-status">✅ Faollashtirilgan</div>
+          <button class="lvl-btn" onclick="showToast('2-Darajani faollashtirish so\'rovi botga yuborildi!')">Faollashtirish</button>
         </div>
         <div class="lvl-card">
           <div class="lvl-num">3-Daraja</div>
           <div class="lvl-price">$50</div>
-          <button class="lvl-btn" onclick="showToast('3-Darajani faollashtirish so\'rovi yuborildi!')">Faollashtirish</button>
+          <button class="lvl-btn" onclick="showToast('Avval 2-darajani to\'lang!')">Qulflangan 🔒</button>
         </div>
         <div class="lvl-card">
           <div class="lvl-num">4-Daraja</div>
           <div class="lvl-price">$100</div>
-          <button class="lvl-btn" onclick="showToast('Avval 3-darajani to\'lang!')">Qulflangan 🔒</button>
+          <button class="lvl-btn" onclick="showToast('Avval oldingi darajalarni to\'lang!')">Qulflangan 🔒</button>
         </div>
         <div class="lvl-card">
           <div class="lvl-num">5-Daraja</div>
@@ -393,7 +393,7 @@
           <b>#BH-PAY-OK</b>
         </div>
       </div>
-      <button class="action-btn green-btn mt-4" onclick="showToast('Chek rasmi muvaffaqiyatli saqlandi!')">💾 Chekni yuklab olish</button>
+      <button class="action-btn gold-btn mt-4" onclick="showToast('Chek rasmi muvaffaqiyatli saqlandi!')">💾 Chekni yuklab olish</button>
     </section>
 
     <!-- 8. BUSINESS CARD -->
@@ -413,7 +413,7 @@
           </div>
         </div>
       </div>
-      <button class="action-btn green-btn mt-4" onclick="shareCard()">📤 Vizitkani ulashish</button>
+      <button class="action-btn gold-btn mt-4" onclick="shareCard()">📤 Vizitkani ulashish</button>
     </section>
 
   </main>

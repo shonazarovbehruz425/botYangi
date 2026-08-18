@@ -5,10 +5,10 @@ if (tg) {
   tg.expand();
 }
 
-// User state
-const userState = {
+// User state defaults
+let userState = {
   id: 0,
-  first_name: "Hamkor",
+  first_name: "Foydalanuvchi",
   last_name: "",
   username: "",
   income: 30,
@@ -16,48 +16,133 @@ const userState = {
   directRefs: 0,
   activeRefs: 0,
   level: 1,
-  regDate: new Date().toLocaleDateString('ru-RU'),
-  botUsername: "botyangi"
+  regDate: "-",
+  referrerName: "Bosh Admin (Tizim)",
+  multiTier: { level_1: 0, level_2: 0, level_3: 0, total_team: 0 },
+  wallets: { bep20: "", card: "", trc20: "", payeer: "" },
+  botUsername: "Buyukhayot_bot"
 };
 
-// Check if launched from Telegram with actual user data
+// Check if launched from Telegram
 if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
   const tgUser = tg.initDataUnsafe.user;
   userState.id = tgUser.id || 0;
-  userState.first_name = tgUser.first_name || "Hamkor";
+  userState.first_name = tgUser.first_name || "Foydalanuvchi";
   userState.last_name = tgUser.last_name || "";
   userState.username = tgUser.username || "";
 }
 
-// Format referral link
-const refLink = userState.id ? `https://t.me/concord_bot?start=ref_${userState.id}` : `https://t.me/concord_bot`;
+// Fetch Real Live Data from Server for this User
+function fetchLiveUserData() {
+  if (!userState.id) {
+    updateUI();
+    return;
+  }
+
+  fetch(`/api/user/profile?user_id=${userState.id}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.user) {
+        const u = data.user;
+        userState.first_name = u.first_name || userState.first_name;
+        userState.last_name = u.last_name || userState.last_name;
+        userState.username = u.username || userState.username;
+        userState.income = u.total_earned || 30;
+        userState.teamTotal = u.team_total || 0;
+        userState.directRefs = u.direct_referrals || 0;
+        userState.activeRefs = u.active_in_marketing || 0;
+        userState.level = u.current_level || 1;
+        userState.regDate = u.registered_at || "-";
+        userState.referrerName = u.referrer_name || "Bosh Admin (Tizim)";
+        userState.multiTier = u.multi_tier || userState.multiTier;
+        userState.wallets = u.wallets || userState.wallets;
+      }
+      updateUI();
+    })
+    .catch(err => {
+      console.warn("Could not fetch live profile from API:", err);
+      updateUI();
+    });
+}
+
+function getRefLink() {
+  return userState.id ? `https://t.me/${userState.botUsername}?start=ref_${userState.id}` : `https://t.me/${userState.botUsername}`;
+}
 
 // Render Data to UI
 function updateUI() {
-  const fullName = `${userState.first_name} ${userState.last_name}`.trim();
+  const fullName = `${userState.first_name} ${userState.last_name}`.trim() || "Foydalanuvchi";
   const handle = userState.username ? `@${userState.username}` : (userState.id ? `ID: ${userState.id}` : "-");
+  const refLink = getRefLink();
 
   // Header & Sidebar
-  document.getElementById("header-user-name").innerText = userState.first_name;
-  document.getElementById("sidebar-user-name").innerText = fullName;
-  document.getElementById("sidebar-user-handle").innerText = handle;
-  document.getElementById("sidebar-income").innerText = `$${userState.income}`;
-  document.getElementById("sidebar-team").innerText = userState.directRefs;
-  document.getElementById("sidebar-avatar").innerText = userState.first_name.charAt(0).toUpperCase();
+  const headerName = document.getElementById("header-user-name");
+  if (headerName) headerName.innerText = userState.first_name;
+
+  const sideName = document.getElementById("sidebar-user-name");
+  if (sideName) sideName.innerText = fullName;
+
+  const sideHandle = document.getElementById("sidebar-user-handle");
+  if (sideHandle) sideHandle.innerText = handle;
+
+  const sideIncome = document.getElementById("sidebar-income");
+  if (sideIncome) sideIncome.innerText = `$${userState.income}`;
+
+  const sideTeam = document.getElementById("sidebar-team");
+  if (sideTeam) sideTeam.innerText = userState.directRefs;
+
+  const sideAvatar = document.getElementById("sidebar-avatar");
+  if (sideAvatar) sideAvatar.innerText = userState.first_name.charAt(0).toUpperCase();
 
   // Home Stats
-  document.getElementById("home-total-income").innerText = `$${userState.income}`;
-  document.getElementById("home-team-total").innerText = userState.teamTotal;
-  document.getElementById("home-direct-refs").innerText = userState.directRefs;
-  document.getElementById("home-active-refs").innerText = userState.activeRefs;
-  document.getElementById("home-user-level").innerText = `${userState.level}-Daraja`;
-  document.getElementById("home-reg-date").innerText = userState.regDate;
-  document.getElementById("home-profile-fullname").innerText = fullName;
-  document.getElementById("home-profile-username").innerText = handle;
-  document.getElementById("home-ref-link-val").innerText = refLink;
+  const homeIncome = document.getElementById("home-total-income");
+  if (homeIncome) homeIncome.innerText = `$${userState.income}`;
+
+  const homeTeamTotal = document.getElementById("home-team-total");
+  if (homeTeamTotal) homeTeamTotal.innerText = userState.teamTotal;
+
+  const homeDirect = document.getElementById("home-direct-refs");
+  if (homeDirect) homeDirect.innerText = userState.directRefs;
+
+  const homeActive = document.getElementById("home-active-refs");
+  if (homeActive) homeActive.innerText = userState.activeRefs;
+
+  const homeLevel = document.getElementById("home-user-level");
+  if (homeLevel) homeLevel.innerText = `${userState.level}-Daraja`;
+
+  const homeRegDate = document.getElementById("home-reg-date");
+  if (homeRegDate) homeRegDate.innerText = userState.regDate;
+
+  const homeCurator = document.getElementById("home-profile-curator");
+  if (homeCurator) homeCurator.innerText = `Kurator: ${userState.referrerName}`;
+
+  const homeProfileName = document.getElementById("home-profile-fullname");
+  if (homeProfileName) homeProfileName.innerText = fullName;
+
+  const homeProfileUser = document.getElementById("home-profile-username");
+  if (homeProfileUser) homeProfileUser.innerText = handle;
+
+  const homeRefLink = document.getElementById("home-ref-link-val");
+  if (homeRefLink) homeRefLink.innerText = refLink;
 
   // Finance
-  document.getElementById("finance-balance").innerText = `$${userState.income}.00`;
+  const finBalance = document.getElementById("finance-balance");
+  if (finBalance) finBalance.innerText = `$${userState.income}.00`;
+
+  // Wallets
+  if (userState.wallets) {
+    if (document.getElementById("addr-bep20")) document.getElementById("addr-bep20").innerText = userState.wallets.bep20 || "Kiritilmagan";
+    if (document.getElementById("addr-card")) document.getElementById("addr-card").innerText = userState.wallets.card || "Kiritilmagan";
+    if (document.getElementById("addr-trc20")) document.getElementById("addr-trc20").innerText = userState.wallets.trc20 || "Kiritilmagan";
+    if (document.getElementById("addr-payeer")) document.getElementById("addr-payeer").innerText = userState.wallets.payeer || "Kiritilmagan";
+  }
+
+  // Tree stats
+  if (userState.multiTier) {
+    if (document.getElementById("tree-l1")) document.getElementById("tree-l1").innerText = userState.multiTier.level_1 || 0;
+    if (document.getElementById("tree-l2")) document.getElementById("tree-l2").innerText = userState.multiTier.level_2 || 0;
+    if (document.getElementById("tree-l3")) document.getElementById("tree-l3").innerText = userState.multiTier.level_3 || 0;
+  }
 
   // QR Code
   const qrImg = document.getElementById("dynamic-qr-img");
@@ -66,10 +151,10 @@ function updateUI() {
   }
 
   // Receipt & Business Card
-  document.getElementById("receipt-user-display").innerText = fullName;
-  document.getElementById("bc-name").innerText = fullName;
-  document.getElementById("bc-handle").innerText = handle;
-  document.getElementById("bc-id").innerText = userState.id ? `ID: ${userState.id}` : "";
+  if (document.getElementById("receipt-user-display")) document.getElementById("receipt-user-display").innerText = fullName;
+  if (document.getElementById("bc-name")) document.getElementById("bc-name").innerText = fullName;
+  if (document.getElementById("bc-handle")) document.getElementById("bc-handle").innerText = handle;
+  if (document.getElementById("bc-id")) document.getElementById("bc-id").innerText = userState.id ? `ID: ${userState.id}` : "";
 }
 
 // Navigation & Sidebar
@@ -87,8 +172,8 @@ function closeSidebar() {
   backdrop.classList.remove("active");
 }
 
-menuToggle.addEventListener("click", openSidebar);
-backdrop.addEventListener("click", closeSidebar);
+if (menuToggle) menuToggle.addEventListener("click", openSidebar);
+if (backdrop) backdrop.addEventListener("click", closeSidebar);
 
 // Page Routing
 const navItems = document.querySelectorAll(".nav-item[data-page]");
@@ -121,17 +206,21 @@ function navigateTo(pageId) {
 
 // Copy Referral Link
 const copyRefBtn = document.getElementById("copy-ref-btn");
-copyRefBtn.addEventListener("click", () => {
-  navigator.clipboard.writeText(refLink).then(() => {
-    showToast("✅ Referal havola nusxalandi!");
-  }).catch(() => {
-    showToast("Havola: " + refLink);
+if (copyRefBtn) {
+  copyRefBtn.addEventListener("click", () => {
+    const link = getRefLink();
+    navigator.clipboard.writeText(link).then(() => {
+      showToast("✅ Referal havola nusxalandi!");
+    }).catch(() => {
+      showToast("Havola: " + link);
+    });
   });
-});
+}
 
 // Toast notification
 function showToast(msg) {
   const toast = document.getElementById("toast");
+  if (!toast) return;
   toast.innerText = msg;
   toast.classList.add("show");
   setTimeout(() => {
@@ -143,8 +232,9 @@ function showToast(msg) {
 const shareTgBtn = document.getElementById("share-tg-btn");
 if (shareTgBtn) {
   shareTgBtn.addEventListener("click", () => {
-    const text = `Salom! BUYUK HAYOTGA YO'L dasturi orqali daromad olish imkoniyati. Havola orqali qo'shiling: ${refLink}`;
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent(text)}`;
+    const link = getRefLink();
+    const text = `Salom! BUYUK HAYOTGA YO'L dasturi orqali daromad olish imkoniyati. Havola orqali qo'shiling: ${link}`;
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
     if (tg && tg.openTelegramLink) {
       tg.openTelegramLink(shareUrl);
     } else {
@@ -154,12 +244,13 @@ if (shareTgBtn) {
 }
 
 function shareCard() {
-  const text = `Men BUYUK HAYOTGA YO'L tizimida faoliyat yuritaman! Jamoamizga qo'shiling: ${refLink}`;
-  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent(text)}`;
+  const link = getRefLink();
+  const text = `Men BUYUK HAYOTGA YO'L tizimida faoliyat yuritaman! Jamoamizga qo'shiling: ${link}`;
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
   window.open(shareUrl, "_blank");
 }
 
 // Init
 document.addEventListener("DOMContentLoaded", () => {
-  updateUI();
+  fetchLiveUserData();
 });
