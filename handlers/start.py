@@ -13,50 +13,66 @@ from config import ADMINS
 router = Router()
 
 MAIN_MENU_CAPTION = (
-    "CONCORD — ham faol, ham passiv daromad olish uchun yuqori salohiyatga ega "
-    "qulay dastur. Ko'plab daromad manbalari va moliyaviy vositalar "
-    "kapitalingizni ko'paytirishga yordam beradi."
+    "«BUYUK HAYOTGA YO'L» — ham faol, ham passiv daromad olish uchun yuqori salohiyatga ega "
+    "qulay dastur. Ko'plab daromad manbalari va moliyaviy vositalar kapitalingizni ko'paytirishga yordam beradi."
 )
 
 BANNER_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "concord_banner.png")
 
 
-async def send_main_menu(bot: Bot, chat_id: int, message_id_to_edit: int = None):
-    """Sends or edits the main menu message with banner and buttons."""
+async def send_main_menu(message_or_query, bot: Bot, user_id: int):
+    """Sends or edits the main menu card with photo banner."""
     keyboard = get_main_menu_keyboard()
-    
-    if os.path.exists(BANNER_PATH):
-        photo = FSInputFile(BANNER_PATH)
-        if message_id_to_edit:
-            try:
-                await bot.delete_message(chat_id=chat_id, message_id=message_id_to_edit)
-            except Exception:
-                pass
-        await bot.send_photo(
-            chat_id=chat_id,
-            photo=photo,
-            caption=MAIN_MENU_CAPTION,
-            reply_markup=keyboard
-        )
-    else:
-        if message_id_to_edit:
-            try:
-                await bot.edit_message_text(
-                    chat_id=chat_id,
-                    message_id=message_id_to_edit,
-                    text=f"🌌 <b>CONCORD</b>\n\n{MAIN_MENU_CAPTION}",
+    is_admin = user_id in ADMINS
+
+    if isinstance(message_or_query, CallbackQuery):
+        call = message_or_query
+        try:
+            if os.path.exists(BANNER_PATH):
+                await call.message.edit_media(
+                    media=InputMediaPhoto(
+                        media=FSInputFile(BANNER_PATH),
+                        caption=f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}",
+                        parse_mode="HTML"
+                    ),
+                    reply_markup=keyboard
+                )
+            else:
+                await call.message.edit_text(
+                    text=f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}",
                     reply_markup=keyboard,
                     parse_mode="HTML"
                 )
-                return
-            except Exception:
-                pass
-        await bot.send_message(
-            chat_id=chat_id,
-            text=f"🌌 <b>CONCORD</b>\n\n{MAIN_MENU_CAPTION}",
-            reply_markup=keyboard,
-            parse_mode="HTML"
-        )
+        except Exception:
+            if os.path.exists(BANNER_PATH):
+                await call.message.answer_photo(
+                    photo=FSInputFile(BANNER_PATH),
+                    caption=f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}",
+                    reply_markup=keyboard,
+                    parse_mode="HTML"
+                )
+            else:
+                await call.message.answer(
+                    text=f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}",
+                    reply_markup=keyboard,
+                    parse_mode="HTML"
+                )
+        await call.answer()
+    else:
+        msg = message_or_query
+        if os.path.exists(BANNER_PATH):
+            await msg.answer_photo(
+                photo=FSInputFile(BANNER_PATH),
+                caption=f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}",
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+        else:
+            await msg.answer(
+                text=f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}",
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
 
 
 @router.message(CommandStart())
@@ -134,8 +150,8 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
             if referrer_id in ADMINS:
                 referrer_info = {
                     "first_name": "Admin",
-                    "last_name": "Concord",
-                    "username": "concord_admin"
+                    "last_name": "Buyuk Hayot",
+                    "username": "Buyukhayot_bot"
                 }
 
     if not referrer_info:
@@ -146,7 +162,7 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
         )
         return
 
-    # Format Curator (Inviter) & User info card in Uzbek (matching reference/Screenshot_5.png)
+    # Format Curator (Inviter) & User info card in Uzbek
     curator_username_display = f"@{referrer_info['username']}" if referrer_info['username'] != "-" else "Mavjud emas"
     user_username_display = f"@{user.username}" if user.username else "Mavjud emas"
 
@@ -221,4 +237,4 @@ async def back_to_main_menu_handler(callback: CallbackQuery, bot: Bot):
 
 @router.callback_query(F.data == "menu_header")
 async def menu_header_handler(callback: CallbackQuery):
-    await callback.answer("♦️ CONCORD — Asosiy Menyu ♦️", show_alert=False)
+    await callback.answer("👑 BUYUK HAYOTGA YO'L — Asosiy Menyu", show_alert=False)

@@ -17,7 +17,7 @@ async def export_database_to_js_bytes() -> tuple[bytes, str, int]:
 
     # Build multi-tier structures and full database dict
     db_export = {
-        "project": "CONCORD / BUYUK HAYOTGA YO'L",
+        "project": "BUYUK HAYOTGA YO'L",
         "exported_at": now_str,
         "total_users": len(users),
         "users": users
@@ -26,18 +26,18 @@ async def export_database_to_js_bytes() -> tuple[bytes, str, int]:
     # Format as JavaScript file
     js_content = (
         f"// ==========================================\n"
-        f"// CONCORD DATABASE BACKUP\n"
+        f"// BUYUK HAYOTGA YO'L DATABASE BACKUP\n"
         f"// Exported at: {now_str}\n"
         f"// Total Users: {len(users)}\n"
         f"// Channel ID: {BACKUP_CHANNEL_ID}\n"
         f"// ==========================================\n\n"
-        f"const CONCORD_DATABASE = {json.dumps(db_export, indent=2, ensure_ascii=False)};\n\n"
+        f"const BUYUK_HAYOT_DATABASE = {json.dumps(db_export, indent=2, ensure_ascii=False)};\n\n"
         f"// CommonJS & ES Module Export Support\n"
         f"if (typeof module !== 'undefined' && module.exports) {{\n"
-        f"  module.exports = CONCORD_DATABASE;\n"
+        f"  module.exports = BUYUK_HAYOT_DATABASE;\n"
         f"}}\n"
         f"if (typeof window !== 'undefined') {{\n"
-        f"  window.CONCORD_DATABASE = CONCORD_DATABASE;\n"
+        f"  window.BUYUK_HAYOT_DATABASE = BUYUK_HAYOT_DATABASE;\n"
         f"}}\n"
     )
 

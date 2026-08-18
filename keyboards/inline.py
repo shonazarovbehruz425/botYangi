@@ -36,7 +36,7 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
     ]
     if WEBAPP_URL.startswith("https://"):
         buttons.append([
-            InlineKeyboardButton(text="📱 Mini App (CONCORD)", web_app=WebAppInfo(url=WEBAPP_URL))
+            InlineKeyboardButton(text="📱 Mini App", web_app=WebAppInfo(url=WEBAPP_URL))
         ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -137,7 +137,7 @@ def get_cabinet_menu_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def get_account_keyboard(chat_link: str = "https://t.me/concord_komanda") -> InlineKeyboardMarkup:
+def get_account_keyboard(chat_link: str = "https://t.me/Buyukhayot_bot") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -167,7 +167,7 @@ def get_account_keyboard(chat_link: str = "https://t.me/concord_komanda") -> Inl
     )
 
 
-def get_team_chat_keyboard(chat_link: str = "https://t.me/concord_komanda") -> InlineKeyboardMarkup:
+def get_team_chat_keyboard(chat_link: str = "https://t.me/Buyukhayot_bot") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -225,7 +225,7 @@ def get_balance_keyboard() -> InlineKeyboardMarkup:
 
 def get_partners_keyboard(bot_username: str, user_id: int) -> InlineKeyboardMarkup:
     ref_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
-    share_text = f"Salom! CONCORD orqali daromad olish imkoniyati. Havola orqali ro'yxatdan o'ting: {ref_link}"
+    share_text = f"Salom! BUYUK HAYOTGA YO'L dasturi orqali daromad olish imkoniyati. Havola orqali ro'yxatdan o'ting: {ref_link}"
     share_url = f"https://t.me/share/url?url={urllib.parse.quote(ref_link)}&text={urllib.parse.quote(share_text)}"
 
     return InlineKeyboardMarkup(

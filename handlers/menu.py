@@ -272,16 +272,13 @@ async def cab_account_handler(callback: CallbackQuery):
     text = (
         f"⚪️ <b>Sizning ID:</b> {user_id};\n"
         "⚪️ <b>Biz bilan bog'lanish:</b>\n"
-        "Qo'llab-quvvatlash: @ConcordSupport\n"
-        "Loyiha chati: @concord_komanda\n"
-        "Kelishuv: https://concord.link/agreement\n"
-        "Etika va qoidalar: https://concord.link/rules\n"
-        "Promomateriallar: https://concord.link/promo\n"
-        "Bizning darajalar: https://concord.link/levels\n\n"
+        "Rasmiy bot: @Buyukhayot_bot\n"
+        "Loyiha chati: @Buyukhayot_bot\n"
+        "Qo'llab-quvvatlash: @Buyukhayot_bot\n\n"
         "<b>Telegram</b>\n"
         "<b>Asosiy guruh</b>\n"
-        "<b>CONCORD 🚀</b>\n"
-        "CONCORD - yuqori daromad reytingiga ega dastur! 100% insondan insonga! Har qanday valyuta, turli xil hamyonlar!"
+        "<b>👑 BUYUK HAYOTGA YO'L</b>\n"
+        "BUYUK HAYOTGA YO'L — yuqori daromad reytingiga ega dastur! 100% insondan insonga! Har qanday valyuta, turli xil hamyonlar!"
     )
     keyboard = get_account_keyboard()
     try:
@@ -303,7 +300,7 @@ async def cab_account_handler(callback: CallbackQuery):
 @router.callback_query(F.data == "cab_team_chat")
 async def cab_team_chat_handler(callback: CallbackQuery, bot: Bot):
     await callback.answer()
-    caption = "Jamoa chatiga havola\n@concord_komanda"
+    caption = "👑 Jamoa chati va rasmiy bot:\n@Buyukhayot_bot"
     keyboard = get_team_chat_keyboard()
 
     if os.path.exists(BANNER_CABINET):

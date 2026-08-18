@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: concord-bot
+    name: buyukhayot-bot
     env: python
     region: frankfurt
     plan: free

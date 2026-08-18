@@ -57,7 +57,7 @@ class Database:
                         (user_id, first_name, last_name, username, referrer_id, status, current_level) 
                         VALUES (?, ?, ?, ?, ?, ?, ?)
                         """,
-                        (admin_id, "Admin", "Concord", "admin", 0, "👑 Asoschi (Admin)", 6)
+                        (admin_id, "Admin", "Buyuk Hayot", "admin", 0, "👑 Asoschi (Admin)", 6)
                     )
             await db.commit()
 
