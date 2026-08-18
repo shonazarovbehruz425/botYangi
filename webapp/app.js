@@ -11,7 +11,7 @@ let userState = {
   first_name: "Foydalanuvchi",
   last_name: "",
   username: "",
-  income: 30,
+  income: 0,
   teamTotal: 0,
   directRefs: 0,
   activeRefs: 0,
@@ -32,6 +32,12 @@ if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
   userState.username = tgUser.username || "";
 }
 
+// Helper to format currency
+function formatSom(amount) {
+  const n = Number(amount) || 0;
+  return n.toLocaleString('uz-UZ') + " so'm";
+}
+
 // Fetch Real Live Data from Server for this User
 function fetchLiveUserData() {
   if (!userState.id) {
@@ -47,7 +53,7 @@ function fetchLiveUserData() {
         userState.first_name = u.first_name || userState.first_name;
         userState.last_name = u.last_name || userState.last_name;
         userState.username = u.username || userState.username;
-        userState.income = u.total_earned || 30;
+        userState.income = u.total_earned || 0;
         userState.teamTotal = u.team_total || 0;
         userState.directRefs = u.direct_referrals || 0;
         userState.activeRefs = u.active_in_marketing || 0;
@@ -112,7 +118,7 @@ function updateUI() {
   if (sideHandle) sideHandle.innerText = handle;
 
   const sideIncome = document.getElementById("sidebar-income");
-  if (sideIncome) sideIncome.innerText = `$${userState.income}`;
+  if (sideIncome) sideIncome.innerText = formatSom(userState.income);
 
   const sideTeam = document.getElementById("sidebar-team");
   if (sideTeam) sideTeam.innerText = userState.directRefs;
@@ -122,7 +128,7 @@ function updateUI() {
 
   // Home Stats
   const homeIncome = document.getElementById("home-total-income");
-  if (homeIncome) homeIncome.innerText = `$${userState.income}`;
+  if (homeIncome) homeIncome.innerText = formatSom(userState.income);
 
   const homeTeamTotal = document.getElementById("home-team-total");
   if (homeTeamTotal) homeTeamTotal.innerText = userState.teamTotal;
@@ -153,7 +159,7 @@ function updateUI() {
 
   // Finance
   const finBalance = document.getElementById("finance-balance");
-  if (finBalance) finBalance.innerText = `$${userState.income}.00`;
+  if (finBalance) finBalance.innerText = formatSom(userState.income);
 
   // Wallets
   if (userState.wallets) {

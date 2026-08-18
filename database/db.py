@@ -19,7 +19,7 @@ class Database:
                     username TEXT,
                     referrer_id INTEGER DEFAULT 0,
                     balance REAL DEFAULT 0.0,
-                    total_earned REAL DEFAULT 30.0,
+                    total_earned REAL DEFAULT 0.0,
                     status TEXT DEFAULT '🌱 Boshlang''ich',
                     current_level INTEGER DEFAULT 1,
                     wallet_bep20 TEXT DEFAULT '',
@@ -49,7 +49,7 @@ class Database:
             except Exception:
                 pass
 
-            # 2. Level Settings Table
+            # 2. Level Settings Table (5 Levels in So'm)
             await db.execute(
                 """
                 CREATE TABLE IF NOT EXISTS level_settings (
@@ -61,18 +61,19 @@ class Database:
                 """
             )
 
-            # Seed default levels if empty
+            # Delete level 6 if present and seed exact 5 levels
+            await db.execute("DELETE FROM level_settings WHERE level > 5")
+
             default_levels = [
-                (1, 10.0, "1-Daraja"),
-                (2, 20.0, "2-Daraja"),
-                (3, 50.0, "3-Daraja"),
-                (4, 100.0, "4-Daraja"),
-                (5, 200.0, "5-Daraja"),
-                (6, 500.0, "6-Daraja"),
+                (1, 300000, "1-Daraja (300 ming so'm)"),
+                (2, 2700000, "2-Daraja (2 mln 700 ming so'm)"),
+                (3, 35000000, "3-Daraja (35 mln so'm)"),
+                (4, 1377000000, "4-Daraja (1 mlrd 377 mln so'm)"),
+                (5, 17100000000, "5-Daraja (17 mlrd 100 mln so'm)"),
             ]
             for lvl, prc, name in default_levels:
                 await db.execute(
-                    "INSERT OR IGNORE INTO level_settings (level, price, name, is_active) VALUES (?, ?, ?, 1)",
+                    "INSERT OR REPLACE INTO level_settings (level, price, name, is_active) VALUES (?, ?, ?, 1)",
                     (lvl, prc, name)
                 )
 
@@ -132,7 +133,7 @@ class Database:
                         (user_id, first_name, last_name, username, referrer_id, status, current_level, registered_at, last_active) 
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
-                        (admin_id, "Admin", "Buyuk Hayot", "admin", 0, "👑 Asoschi (Admin)", 6, now, now)
+                        (admin_id, "Admin", "Buyuk Hayot", "admin", 0, "👑 Asoschi (Admin)", 5, now, now)
                     )
             await db.commit()
 
@@ -147,7 +148,7 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             status = "👑 Admin" if user_id in ADMINS else "🌱 Boshlang'ich"
-            default_level = 6 if user_id in ADMINS else 1
+            default_level = 5 if user_id in ADMINS else 1
             await db.execute(
                 """
                 INSERT INTO users (user_id, first_name, last_name, username, referrer_id, status, current_level, registered_at, last_active, visits_count)

@@ -33,12 +33,19 @@ BANNER_MARKETING = os.path.join(BASE_DIR, "assets", "marketing_banner.png")
 BANNER_ALL_LEVELS = os.path.join(BASE_DIR, "assets", "all_levels_banner.png")
 
 LEVEL_PRICES = {
-    1: 10,
-    2: 20,
-    3: 50,
-    4: 100,
-    5: 200,
-    6: 500
+    1: 300000,
+    2: 2700000,
+    3: 35000000,
+    4: 1377000000,
+    5: 17100000000
+}
+
+LEVEL_LABELS = {
+    1: "300 000 so'm (300 ming so'm)",
+    2: "2 700 000 so'm (2 mln 700 ming so'm)",
+    3: "35 000 000 so'm (35 mln so'm)",
+    4: "1 377 000 000 so'm (1 mlrd 377 mln so'm)",
+    5: "17 100 000 000 so'm (17 mlrd 100 mln so'm)"
 }
 
 class WalletStates(StatesGroup):
@@ -48,10 +55,10 @@ class WalletStates(StatesGroup):
 # ==================== MARKETING SECTION (4 SCREENSHOTS) ====================
 
 MARKETING_CAPTION = (
-    "MARKETING\n\n"
-    "⚪️ Dasturga kirish atigi 10$ turadi — bu birinchi daraja uchun to'lov.\n"
-    "⚪️ Siz birdaniga ketma-ket bir nechta darajalarni to'lashingiz mumkin.\n"
-    "⚪️ Barcha narx tafsilotlari va model marketingda batafsil bayon etilgan.\n\n"
+    "👑 <b>BUYUK HAYOTGA YO'L — MARKETING</b>\n\n"
+    "⚪️ Dasturga kirish <b>300 000 so'm</b> turadi — bu 1-daraja uchun to'lov.\n"
+    "⚪️ Siz ketma-ket 5 tagacha darajalarni faollashtirishingiz mumkin.\n"
+    "⚪️ 100% shaffof va to'g'ridan-to'g'ri daromad modeli!\n\n"
     "1-Darajani to'lash uchun pastdagi tugmani bosing 👇."
 )
 
@@ -174,13 +181,14 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
         return
 
     # Case 3: Ready to activate next level
-    price = LEVEL_PRICES.get(level, 10)
+    price_val = LEVEL_PRICES.get(level, 300000)
+    price_label = LEVEL_LABELS.get(level, f"{price_val:,} so'm")
     caption = (
         f"💳 <b>{level}-Darajani faollashtirish</b>\n\n"
-        f"💰 <b>Narxi:</b> {price}$\n\n"
+        f"💰 <b>Narxi:</b> {price_label}\n\n"
         "To'lovni amalga oshirish va darajani ochish uchun quyidagi tugmani bosing:"
     )
-    keyboard = get_level_activate_keyboard(level, price, from_all=from_all)
+    keyboard = get_level_activate_keyboard(level, price_val, from_all=from_all)
     if os.path.exists(BANNER_MARKETING):
         try:
             await callback.message.delete()
@@ -336,10 +344,10 @@ async def cab_balance_handler(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     user = callback.from_user
     user_data = await db.get_user(user.id)
-    total_earned = user_data.get("total_earned", 30.0) if user_data else 30.0
+    total_earned = user_data.get("total_earned", 0.0) if user_data else 0.0
 
     caption = (
-        f"Dasturdagi umumiy daromad: {int(total_earned) if total_earned == int(total_earned) else total_earned}$\n\n"
+        f"Dasturdagi umumiy daromad: {int(total_earned):,} so'm\n\n"
         "Hamyonni o'rnatish yoki tahrirlash uchun - tegishli tugmani bosing"
     )
     keyboard = get_balance_keyboard()
@@ -448,7 +456,7 @@ async def balance_history_handler(callback: CallbackQuery):
     await callback.answer()
     text = (
         "📜 <b>OPERATSIYALAR TARIXI</b>\n\n"
-        "1. 📥 Dastlabki ro'yxatdan o'tish bonusi: <b>+30.00$</b>\n"
+        "1. 📥 Dastlabki hisob: <b>0 so'm</b>\n"
         "2. 🔄 Balans holati: <b>Faol</b>\n\n"
         "<i>Barcha yangi tushumlar va to'lovlar shu yerda aks etadi.</i>"
     )

@@ -259,11 +259,11 @@
         </div>
         <div class="stat-box">
           <div class="stat-lbl">Faol Darajalar</div>
-          <div class="stat-val">1 - 6 Bosqich</div>
+          <div class="stat-val">1 - 5 Bosqich</div>
         </div>
         <div class="stat-box">
           <div class="stat-lbl">Hisoblangan Jami Aylanma</div>
-          <div class="stat-val" id="ov-total-volume">$0</div>
+          <div class="stat-val" id="ov-total-volume">0 so'm</div>
         </div>
         <div class="stat-box">
           <div class="stat-lbl">Rasmiy Bot</div>
@@ -411,8 +411,8 @@
               <tr>
                 <th>Daraja</th>
                 <th>Nomi</th>
-                <th>Joriy Narx ($)</th>
-                <th>Yangi Narx ($)</th>
+                <th>Joriy Narx (so'm)</th>
+                <th>Yangi Narx (so'm)</th>
                 <th>Amal</th>
               </tr>
             </thead>
@@ -493,12 +493,12 @@
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
         <div class="form-group">
-          <label>Daraja (1 - 6):</label>
-          <input type="number" id="edit-level" class="form-control" min="1" max="6">
+          <label>Daraja (1 - 5):</label>
+          <input type="number" id="edit-level" class="form-control" min="1" max="5">
         </div>
         <div class="form-group">
-          <label>Balans ($):</label>
-          <input type="number" id="edit-balance" class="form-control" step="0.1">
+          <label>Balans (so'm):</label>
+          <input type="number" id="edit-balance" class="form-control" step="1000">
         </div>
       </div>
       <div class="form-group">
@@ -605,8 +605,8 @@
         .then(data => {
           allUsers = data.users || [];
           document.getElementById('ov-total-users').innerText = allUsers.length;
-          let volume = allUsers.reduce((sum, u) => sum + (u.total_earned || 30), 0);
-          document.getElementById('ov-total-volume').innerText = `$${volume}`;
+          let volume = allUsers.reduce((sum, u) => sum + (u.total_earned || 0), 0);
+          document.getElementById('ov-total-volume').innerText = (volume || 0).toLocaleString('uz-UZ') + " so'm";
           renderUsersTable(allUsers);
         });
     }
@@ -631,7 +631,7 @@
             <td><span style="color: var(--blue);">${uname}</span></td>
             <td>${ref}</td>
             <td><span class="badge badge-gold">${u.current_level || 1}-Daraja</span></td>
-            <td><b>$${u.balance || 0}</b></td>
+            <td><b>${Number(u.balance || 0).toLocaleString('uz-UZ')} so'm</b></td>
             <td>${banBadge}</td>
             <td>
               <div style="display: flex; gap: 6px;">
@@ -796,7 +796,7 @@
                 <td><span style="color: var(--blue);">@${l.username || '-'}</span></td>
                 <td><span class="badge badge-gold" style="font-size: 13px;">${l.direct_count} ta hamkor</span></td>
                 <td>${l.current_level || 1}-Daraja</td>
-                <td><b>$${l.total_earned || 30}</b></td>
+                <td><b>${Number(l.total_earned || 0).toLocaleString('uz-UZ')} so'm</b></td>
               </tr>
             `;
           }).join('');
@@ -812,8 +812,8 @@
             <tr>
               <td><b>${lvl.level}-Daraja</b></td>
               <td>${lvl.name}</td>
-              <td><span class="badge badge-gold">$${lvl.price}</span></td>
-              <td><input type="number" id="lvl-p-${lvl.level}" class="form-control" value="${lvl.price}" style="width: 100px;"></td>
+              <td><span class="badge badge-gold">${Number(lvl.price).toLocaleString('uz-UZ')} so'm</span></td>
+              <td><input type="number" id="lvl-p-${lvl.level}" class="form-control" value="${lvl.price}" style="width: 140px;"></td>
               <td><button class="btn btn-gold" onclick="updateLevelPrice(${lvl.level})">Saqlash</button></td>
             </tr>
           `).join('');

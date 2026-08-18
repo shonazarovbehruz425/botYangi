@@ -70,8 +70,7 @@ def get_all_levels_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(text="4-Daraja", callback_data="mkt_lvl:4:all"),
-                InlineKeyboardButton(text="5-Daraja", callback_data="mkt_lvl:5:all"),
-                InlineKeyboardButton(text="6-Daraja", callback_data="mkt_lvl:6:all")
+                InlineKeyboardButton(text="5-Daraja", callback_data="mkt_lvl:5:all")
             ],
             [
                 InlineKeyboardButton(

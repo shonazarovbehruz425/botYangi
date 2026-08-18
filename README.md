@@ -34,7 +34,7 @@ Ushbu Telegram boti **aiogram 3** asosida ishlab chiqilgan bo'lib, **faqat takli
 
 4. **📱 Telegram Mini App (Web App):**
    - Skrinshotlarga mos zamonaviy zumrad (emerald dark) interfeys.
-   - **Bosh sahifa:** Foydalanuvchi ma'lumotlari, umumiy daromad ($30), jamoa soni (7 ta), daraja (2-daraja), sana, referal havola va nusxalash.
+   - **Bosh sahifa:** Foydalanuvchi real ma'lumotlari, umumiy daromad (0 so'm), jamoa a'zolari, joriy daraja (1-5), sana, shaxsiy referal havola va QR kod.
    - **Yon menyu (Sidebar Drawer):** Bosh sahifa, Moliya, Hamkorlar, Tuzilma, Marketing, Asboblar, Taqdimotlar, Hujjatlar, Guruhlar, Chek generatori va Vizitka.
    - **Interaktiv xususiyatlar:** QR kod, Chek generatori, Vizitka kartochkasi, Telegram orqali bitta bosishda ulashish.
 
