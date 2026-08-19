@@ -11,7 +11,67 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.8">
+  <link rel="stylesheet" href="style.css?v=2.9">
+  <style>
+    /* INLINE CRITICAL: Struktura Section — cache bypass */
+    .struct-hero{position:relative;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(20,60,32,.95),rgba(12,30,18,.95));border:1px solid rgba(34,197,94,.3);border-radius:20px;padding:18px;margin-bottom:14px;overflow:hidden}
+    .struct-hero-glow{position:absolute;top:-30px;left:-30px;width:140px;height:140px;background:radial-gradient(circle,rgba(34,197,94,.2),transparent 70%);pointer-events:none}
+    .struct-hero-content{display:flex;align-items:center;gap:14px}
+    .struct-hero-icon{width:52px;height:52px;border-radius:16px;background:rgba(34,197,94,.12);border:1.5px solid rgba(34,197,94,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 20px rgba(34,197,94,.15)}
+    .struct-hero-title{font-size:21px;font-weight:900;margin:0;background:linear-gradient(135deg,#fff 30%,#86efac);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .struct-hero-sub{font-size:12px;color:rgba(134,239,172,.7);margin:2px 0 0}
+    .struct-refresh-btn{display:flex;align-items:center;gap:6px;padding:9px 14px;background:rgba(34,197,94,.1);border:1.5px solid rgba(34,197,94,.35);border-radius:12px;color:#86efac;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+    .struct-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+    .struct-stat-card{border-radius:16px;padding:12px 8px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;overflow:hidden;transition:transform .2s}
+    .stat-green{background:linear-gradient(135deg,rgba(20,83,45,.9),rgba(5,46,22,.9));border:1px solid rgba(34,197,94,.4);box-shadow:0 4px 16px rgba(34,197,94,.12)}
+    .stat-gold{background:linear-gradient(135deg,rgba(78,62,5,.9),rgba(41,33,5,.9));border:1px solid rgba(250,204,21,.4);box-shadow:0 4px 16px rgba(250,204,21,.12)}
+    .stat-silver{background:linear-gradient(135deg,rgba(40,50,65,.9),rgba(15,25,40,.9));border:1px solid rgba(148,163,184,.4)}
+    .stat-star{background:linear-gradient(135deg,rgba(76,29,149,.7),rgba(30,15,60,.9));border:1px solid rgba(167,139,250,.4)}
+    .stat-card-icon{font-size:18px}
+    .stat-card-value{font-size:17px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1}
+    .stat-green .stat-card-value{color:#4ade80}.stat-gold .stat-card-value{color:#fde047}.stat-silver .stat-card-value{color:#cbd5e1}.stat-star .stat-card-value{color:#c4b5fd}
+    .stat-card-label{font-size:9.5px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.4px;text-align:center}
+    .struct-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px}
+    .struct-tab-group{display:flex;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:3px;gap:2px}
+    .struct-tab{display:flex;align-items:center;gap:5px;padding:7px 14px;border-radius:9px;font-size:12px;font-weight:700;color:rgba(255,255,255,.5);background:transparent;border:none;cursor:pointer;transition:all .2s}
+    .struct-tab.active{background:linear-gradient(135deg,#166534,#14532d);color:#86efac;border:1px solid rgba(34,197,94,.4);box-shadow:0 2px 10px rgba(34,197,94,.2)}
+    .struct-zoom-group{display:flex;gap:4px}
+    .struct-zoom-btn{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.6);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s}
+    .struct-zoom-btn:hover{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.4);color:#86efac}
+    .struct-zoom-btn.active-zoom{background:rgba(250,204,21,.1);border-color:rgba(250,204,21,.35);color:#fde047}
+    .struct-canvas-wrap{border-radius:20px;overflow:hidden;min-height:300px;background:rgba(5,20,10,.7);border:1px solid rgba(34,197,94,.15)}
+    .struct-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:50px 20px;color:rgba(134,239,172,.6);font-size:13px;font-weight:600}
+    .struct-loading-ring{width:44px;height:44px;border-radius:50%;border:3px solid rgba(34,197,94,.15);border-top-color:#22c55e;animation:structSpin .8s linear infinite}
+    @keyframes structSpin{to{transform:rotate(360deg)}}
+    .struct-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:48px 24px;text-align:center}
+    .struct-empty-icon{font-size:52px;animation:emptyBob 3s ease-in-out infinite}
+    @keyframes emptyBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    .struct-empty-title{font-size:17px;font-weight:900;color:#fff}
+    .struct-empty-desc{font-size:13px;color:rgba(255,255,255,.4);line-height:1.55;max-width:300px}
+    .struct-empty-btn{margin-top:6px;padding:12px 24px;border-radius:14px;background:linear-gradient(135deg,rgba(20,83,45,.9),rgba(5,46,22,.9));border:1.5px solid rgba(34,197,94,.4);color:#86efac;font-size:13.5px;font-weight:800;cursor:pointer;transition:all .2s}
+    .struct-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);display:none;align-items:flex-end;justify-content:center;z-index:99999}
+    .struct-modal-card{position:relative;width:100%;max-width:480px;background:linear-gradient(160deg,#0d2116,#071009 50%,#0a1a12);border:1.5px solid rgba(34,197,94,.3);border-bottom:none;border-radius:28px 28px 0 0;padding:28px 24px 40px;display:flex;flex-direction:column;align-items:center;gap:10px;overflow:hidden;animation:slideUpModal .32s cubic-bezier(.34,1.56,.64,1);box-shadow:0 -10px 60px rgba(34,197,94,.12)}
+    @keyframes slideUpModal{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+    .struct-modal-card::before{content:'';position:absolute;top:10px;left:50%;transform:translateX(-50%);width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.15)}
+    .struct-modal-glow{position:absolute;top:-80px;left:50%;transform:translateX(-50%);width:240px;height:160px;background:radial-gradient(ellipse at center,rgba(34,197,94,.18),transparent 70%);pointer-events:none}
+    .struct-modal-close{position:absolute;top:20px;right:20px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6);cursor:pointer;display:flex;align-items:center;justify-content:center}
+    .struct-modal-avatar-wrap{position:relative;margin-top:14px;margin-bottom:4px}
+    .struct-modal-avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(34,197,94,.2),rgba(20,83,45,.4));display:flex;align-items:center;justify-content:center;font-size:38px;border:2.5px solid rgba(34,197,94,.5);box-shadow:0 0 30px rgba(34,197,94,.25);position:relative;z-index:1}
+    .struct-modal-ring{position:absolute;inset:-6px;border-radius:50%;border:1.5px solid transparent;background:linear-gradient(135deg,rgba(34,197,94,.4),transparent 50%,rgba(250,204,21,.3));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:ringRotate 4s linear infinite}
+    @keyframes ringRotate{to{transform:rotate(360deg)}}
+    .struct-modal-name{font-size:20px;font-weight:900;color:#fff;text-align:center}
+    .struct-modal-handle{font-size:13px;color:rgba(134,239,172,.7);text-align:center}
+    .struct-modal-badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:4px 0 2px}
+    .struct-badge-level{padding:5px 14px;border-radius:30px;background:linear-gradient(135deg,rgba(20,83,45,.9),rgba(5,46,22,.9));border:1px solid rgba(34,197,94,.5);color:#86efac;font-size:11.5px;font-weight:800}
+    .struct-badge-refs{padding:5px 14px;border-radius:30px;background:rgba(250,204,21,.08);border:1px solid rgba(250,204,21,.35);color:#fde047;font-size:11.5px;font-weight:700}
+    .struct-modal-info{width:100%;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden;margin:4px 0}
+    .struct-info-row{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.05)}
+    .struct-info-row:last-child{border-bottom:none}
+    .struct-info-label{display:flex;align-items:center;gap:7px;font-size:12.5px;color:rgba(255,255,255,.45)}
+    .struct-info-value{font-size:13px;font-weight:700;color:#e2e8f0}
+    code.struct-info-value{color:#4ade80;font-size:12px}
+    .struct-modal-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:15px 20px;border-radius:16px;background:linear-gradient(135deg,#d97706,#b45309 50%,#92400e);color:#fff;font-size:15px;font-weight:800;text-decoration:none;margin-top:4px;border:1px solid rgba(251,191,36,.4);box-shadow:0 6px 24px rgba(217,119,6,.35);transition:all .2s}
+  </style>
 </head>
 <body>
 
