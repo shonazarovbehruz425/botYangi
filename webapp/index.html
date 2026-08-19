@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.6">
+  <link rel="stylesheet" href="style.css?v=2.7">
 </head>
 <body>
 
@@ -332,7 +332,7 @@
       </div>
 
       <!-- Member Details Modal -->
-      <div class="modal-overlay" id="member-detail-modal" onclick="closeMemberModal(event)">
+      <div class="modal-overlay" id="member-detail-modal" style="display:none" onclick="closeMemberModal(event)">
         <div class="modal-card member-modal-card" onclick="event.stopPropagation()">
           <div class="modal-header">
             <h3 id="m-modal-title">👤 Hamkor Ma'lumotlari</h3>
@@ -340,16 +340,16 @@
           </div>
           <div class="member-detail-body">
             <div class="member-avatar-lg" id="m-modal-avatar">👤</div>
-            <div class="member-name-lg" id="m-modal-name">Ism Familiya</div>
-            <div class="member-handle-lg" id="m-modal-handle">@username</div>
+            <div class="member-name-lg" id="m-modal-name"></div>
+            <div class="member-handle-lg" id="m-modal-handle"></div>
             <div class="member-badges-row">
-              <span class="tree-level-badge" id="m-modal-level">1-Daraja</span>
-              <span class="tree-count-badge" id="m-modal-refs">👥 0 ta hamkor</span>
+              <span class="tree-level-badge" id="m-modal-level"></span>
+              <span class="tree-count-badge" id="m-modal-refs"></span>
             </div>
             <div class="member-info-box">
               <div class="m-info-row">
                 <span>Telegram ID:</span>
-                <code id="m-modal-id">00000000</code>
+                <code id="m-modal-id">-</code>
               </div>
               <div class="m-info-row">
                 <span>Ro'yxatdan o'tgan:</span>
@@ -497,6 +497,6 @@
   <!-- Toast Notification Container -->
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=2.6"></script>
+  <script src="app.js?v=2.7"></script>
 </body>
 </html>

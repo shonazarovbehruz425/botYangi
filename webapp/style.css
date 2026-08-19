@@ -1273,3 +1273,81 @@ body {
   transition: all 0.2s;
 }
 .close-modal:hover { background: rgba(239, 68, 68, 0.3); border-color: #ef4444; }
+
+/* ============================================================
+   MEMBER DETAIL MODAL SPECIFIC STYLES
+   ============================================================ */
+.member-modal-card {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+}
+
+.member-detail-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.member-avatar-lg {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.12);
+  border: 2px solid rgba(34, 197, 94, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  margin-bottom: 4px;
+}
+
+.member-name-lg {
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.member-handle-lg {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: -4px;
+}
+
+.member-badges-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 4px 0;
+}
+
+.member-info-box {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  margin-top: 4px;
+}
+
+.m-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.m-info-row code {
+  color: #22c55e;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.mt-3 { margin-top: 12px; }

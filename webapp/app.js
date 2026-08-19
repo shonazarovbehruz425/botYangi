@@ -120,9 +120,10 @@ function fetchLiveUserData() {
     .then(data => {
       if (data.success && data.user) {
         const u = data.user;
-        userState.first_name = u.first_name || userState.first_name;
-        userState.last_name = u.last_name || userState.last_name;
-        userState.username = u.username || userState.username;
+        // Always keep Telegram name if server returns generic placeholder
+        if (u.first_name && u.first_name !== 'Hamkor') userState.first_name = u.first_name;
+        if (u.last_name) userState.last_name = u.last_name;
+        if (u.username) userState.username = u.username;
         userState.income = u.total_earned || 0;
         userState.teamTotal = u.team_total || 0;
         userState.directRefs = u.direct_referrals || 0;
@@ -496,21 +497,29 @@ function openMemberDetails(uid) {
 
   const chatBtn = document.getElementById('m-modal-chat-btn');
   if (chatBtn) {
-    chatBtn.href = node.username ? `https://t.me/${node.username}` : `tg://user?id=${node.user_id}`;
+    if (node.username) {
+      chatBtn.href = `https://t.me/${node.username}`;
+    } else if (node.user_id) {
+      chatBtn.href = `tg://user?id=${node.user_id}`;
+    } else {
+      chatBtn.href = '#';
+    }
   }
 
   const modal = document.getElementById('member-detail-modal');
-  if (modal) modal.classList.add('active');
+  if (modal) {
+    modal.style.display = 'flex';
+  }
 }
 
 function closeMemberModal(e) {
   const modal = document.getElementById('member-detail-modal');
-  if (modal) modal.classList.remove('active');
+  if (modal) modal.style.display = 'none';
 }
 
 function closeModal(modalId) {
   const modal = document.getElementById(modalId);
-  if (modal) modal.classList.remove('active');
+  if (modal) modal.style.display = 'none';
 }
 
 function renderCurrentTree() {
@@ -539,19 +548,33 @@ function renderCurrentTree() {
   }
 }
 
-function loadUserTree() {
+function loadUserTree(retryCount) {
   const container = document.getElementById("user-tree-container");
   if (!container) return;
 
+  // If user_id is 0, re-detect and retry up to 3 times
+  detectTelegramUser();
   if (!userState.id) {
-    container.innerHTML = `
-      <div class="tree-empty-state">
-        <div class="tree-empty-icon">🌱</div>
-        <div class="tree-empty-title">Struktura</div>
-        <div class="tree-empty-desc">Ma'lumotlar yuklanmoqda yoki Telegram orqali ochilmagan.</div>
-      </div>
-    `;
-    return;
+    const attempts = retryCount || 0;
+    if (attempts < 4) {
+      container.innerHTML = `
+        <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
+          <div style="font-size: 28px; margin-bottom: 8px;">⏳</div>
+          <div>Foydalanuvchi aniqlanmoqda...</div>
+        </div>
+      `;
+      setTimeout(() => loadUserTree(attempts + 1), 900);
+      return;
+    } else {
+      container.innerHTML = `
+        <div class="tree-empty-state">
+          <div class="tree-empty-icon">⚠️</div>
+          <div class="tree-empty-title">Telegram orqali oching</div>
+          <div class="tree-empty-desc">Iltimos, botdan Mini App tugmasini bosib kirish qiling.</div>
+        </div>
+      `;
+      return;
+    }
   }
 
   container.innerHTML = `
