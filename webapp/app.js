@@ -336,7 +336,7 @@ function loadUserTree() {
     container.innerHTML = `
       <div class="tree-empty-state">
         <div class="tree-empty-icon">🌱</div>
-        <div class="tree-empty-title">Jamoa Tuzilmasi</div>
+        <div class="tree-empty-title">Struktura</div>
         <div class="tree-empty-desc">Ma'lumotlar yuklanmoqda yoki Telegram orqali ochilmagan.</div>
       </div>
     `;
