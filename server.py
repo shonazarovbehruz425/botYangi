@@ -25,13 +25,19 @@ async def start_webapp_server(bot: Bot = None):
     app = web.Application()
     webapp_dir = os.path.join(os.path.dirname(__file__), "webapp")
     
+    NO_CACHE_HEADERS = {
+        "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    }
+
     # 1. Main Mini App Route
     async def index(request):
-        return web.FileResponse(os.path.join(webapp_dir, "index.html"))
+        return web.FileResponse(os.path.join(webapp_dir, "index.html"), headers=NO_CACHE_HEADERS)
 
     # 2. Admin Panel Route (/buyukhayotpanel)
     async def admin_panel(request):
-        return web.FileResponse(os.path.join(webapp_dir, "admin.html"))
+        return web.FileResponse(os.path.join(webapp_dir, "admin.html"), headers=NO_CACHE_HEADERS)
 
     # 3. Live User Profile API for Mini App
     async def get_user_profile(request):
