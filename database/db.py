@@ -121,6 +121,22 @@ class Database:
                 """
             )
 
+            # 6. Payment Logs Table (to'lovlar tarixi)
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS payment_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    buyer_id INTEGER,
+                    curator_id INTEGER,
+                    level INTEGER,
+                    amount REAL,
+                    status TEXT DEFAULT 'pending',
+                    created_at TEXT,
+                    confirmed_at TEXT DEFAULT ''
+                )
+                """
+            )
+
             # Ensure Admin exists
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             for admin_id in ADMINS:
@@ -450,5 +466,39 @@ class Database:
             cursor = await db.execute("SELECT COUNT(*) FROM users")
             row = await cursor.fetchone()
             return row[0] if row else 0
+
+    async def add_payment_log(self, buyer_id: int, curator_id: int, level: int, amount: float):
+        """Foydalanuvchi 'Я оплатил' bosganda pending to'lov yozadi."""
+        async with aiosqlite.connect(self.db_path) as db:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            await db.execute(
+                "INSERT INTO payment_logs (buyer_id, curator_id, level, amount, status, created_at) VALUES (?, ?, ?, ?, 'pending', ?)",
+                (buyer_id, curator_id, level, amount, now)
+            )
+            await db.commit()
+
+    async def confirm_payment_log(self, buyer_id: int, level: int):
+        """Kurator tasdiqlanganda to'lovni 'confirmed' deb belgilaydi."""
+        async with aiosqlite.connect(self.db_path) as db:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            await db.execute(
+                "UPDATE payment_logs SET status = 'confirmed', confirmed_at = ? WHERE buyer_id = ? AND level = ? AND status = 'pending'",
+                (now, buyer_id, level)
+            )
+            await db.commit()
+
+    async def get_all_payment_logs(self):
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM payment_logs ORDER BY id DESC")
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
+
+    async def get_all_activity_logs(self):
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM activity_logs ORDER BY id DESC LIMIT 500")
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
 
 db = Database()

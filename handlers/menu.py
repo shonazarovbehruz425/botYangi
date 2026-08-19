@@ -275,10 +275,15 @@ async def marketing_paid_click_handler(callback: CallbackQuery, bot: Bot):
     user = callback.from_user
     user_uname = f"@{user.username}" if user.username else f"ID: {user.id}"
     price_label = LEVEL_LABELS.get(level, f"{LEVEL_PRICES.get(level, 200000):,} so'm")
+    price_val = LEVEL_PRICES.get(level, 200000)
 
     # Fetch curator info for button
     curator_data = await db.get_user(curator_id)
     curator_username = curator_data.get("username", "") if curator_data else ""
+
+    # Log payment attempt to DB
+    await db.add_payment_log(buyer_id=user.id, curator_id=curator_id, level=level, amount=price_val)
+    await db.log_activity(user.id, "PAYMENT_SENT", f"{level}-Daraja uchun to'lov so'rovi yuborildi. Kurator ID: {curator_id}. Summa: {price_label}")
 
     await callback.answer("✅ Запрос отправлен!", show_alert=False)
 
@@ -323,9 +328,15 @@ async def approve_level_handler(callback: CallbackQuery, bot: Bot):
     level = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 1
 
     await db.set_user_level(buyer_id, level)
-    
+
     price_val = LEVEL_PRICES.get(level, 200000)
+    price_label = LEVEL_LABELS.get(level, f"{price_val:,} so'm")
     await db.add_user_earnings(callback.from_user.id, price_val)
+
+    # Confirm payment log
+    await db.confirm_payment_log(buyer_id=buyer_id, level=level)
+    await db.log_activity(buyer_id, "LEVEL_CONFIRMED", f"{level}-Daraja tasdiqlandi. Kurator: {callback.from_user.id}. Summa: {price_label}")
+    await db.log_activity(callback.from_user.id, "EARNED", f"{price_label} daromad: {buyer_id} ID li user {level}-darajani to'ladi")
 
     await callback.answer(f"✅ {level}-Daraja muvaffaqiyatli tasdiqlandi!", show_alert=True)
     try:
@@ -349,6 +360,13 @@ async def approve_level_handler(callback: CallbackQuery, bot: Bot):
         )
     except Exception:
         pass
+
+    # Auto backup after level confirmation
+    from database.backup import send_database_backup_to_channel
+    import asyncio
+    asyncio.create_task(send_database_backup_to_channel(
+        bot, reason=f"To'lov tasdiqlandi: ID {buyer_id} → {level}-Daraja ({price_label})"
+    ))
 
 
 # ==================== KABINET SECTION (4 SCREENSHOTS) ====================
