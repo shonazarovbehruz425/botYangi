@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.3">
+  <link rel="stylesheet" href="style.css?v=2.5">
 </head>
 <body>
 
@@ -293,8 +293,12 @@
           <b class="ts-val" id="tree-stat-total">0</b>
         </div>
         <div class="tree-stat-pill">
-          <span class="ts-lbl">🥇 To'g'ridan-to'g'ri:</span>
-          <b class="ts-val" id="tree-stat-l1">0</b>
+          <span class="ts-lbl">🥇 1-Daraja (3 ta):</span>
+          <b class="ts-val" id="tree-stat-l1">0 / 3</b>
+        </div>
+        <div class="tree-stat-pill">
+          <span class="ts-lbl">🥈 2-Daraja (9 ta):</span>
+          <b class="ts-val" id="tree-stat-l2">0 / 9</b>
         </div>
         <div class="tree-stat-pill">
           <span class="ts-lbl">⭐ Sizning darajangiz:</span>
@@ -302,22 +306,59 @@
         </div>
       </div>
 
-      <!-- Tree Legend -->
-      <div class="tree-legend">
-        <span class="legend-item"><span class="dot lv0"></span> 0-Daraja</span>
-        <span class="legend-item"><span class="dot lv1"></span> 1-Daraja</span>
-        <span class="legend-item"><span class="dot lv2"></span> 2-Daraja</span>
-        <span class="legend-item"><span class="dot lv3"></span> 3-Daraja</span>
-        <span class="legend-item"><span class="dot lv4"></span> 4-Daraja</span>
-        <span class="legend-item"><span class="dot lv5"></span> 5-Daraja</span>
+      <!-- View Switcher & Zoom Toolbar -->
+      <div class="tree-toolbar">
+        <div class="tree-view-tabs">
+          <button class="tree-tab-btn active" id="btn-view-chart" onclick="switchTreeView('chart')">🌳 Sxema Daraxti</button>
+          <button class="tree-tab-btn" id="btn-view-list" onclick="switchTreeView('list')">📋 Ro'yxat</button>
+        </div>
+        <div class="tree-zoom-tools" id="tree-zoom-tools">
+          <button class="zoom-btn" onclick="zoomTree(0.1)" title="Kattalashtirish">➕</button>
+          <button class="zoom-btn" onclick="zoomTree(-0.1)" title="Kichiklashtirish">➖</button>
+          <button class="zoom-btn" onclick="resetTreeZoom()" title="Asliga qaytarish">🎯</button>
+        </div>
       </div>
 
-      <!-- Tree Graph Card -->
-      <div class="card-glass" style="margin-top: 14px; padding: 18px 14px; overflow-x: auto;">
-        <div id="user-tree-container">
-          <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
-            <div style="font-size: 28px; margin-bottom: 8px;">⏳</div>
-            <div>Jamoa tuzilmasi yuklanmoqda...</div>
+      <!-- Tree Graph Card with Org Chart Canvas -->
+      <div class="org-tree-wrapper card-glass" id="org-tree-wrapper">
+        <div class="org-tree-scroll-area" id="org-scroll-area">
+          <div id="user-tree-container">
+            <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
+              <div style="font-size: 28px; margin-bottom: 8px;">⏳</div>
+              <div>Struktura yuklanmoqda...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Member Details Modal -->
+      <div class="modal-overlay" id="member-detail-modal" onclick="closeMemberModal(event)">
+        <div class="modal-card member-modal-card" onclick="event.stopPropagation()">
+          <div class="modal-header">
+            <h3 id="m-modal-title">👤 Hamkor Ma'lumotlari</h3>
+            <button class="close-modal" onclick="closeModal('member-detail-modal')">&times;</button>
+          </div>
+          <div class="member-detail-body">
+            <div class="member-avatar-lg" id="m-modal-avatar">👤</div>
+            <div class="member-name-lg" id="m-modal-name">Ism Familiya</div>
+            <div class="member-handle-lg" id="m-modal-handle">@username</div>
+            <div class="member-badges-row">
+              <span class="tree-level-badge" id="m-modal-level">1-Daraja</span>
+              <span class="tree-count-badge" id="m-modal-refs">👥 0 ta hamkor</span>
+            </div>
+            <div class="member-info-box">
+              <div class="m-info-row">
+                <span>Telegram ID:</span>
+                <code id="m-modal-id">00000000</code>
+              </div>
+              <div class="m-info-row">
+                <span>Ro'yxatdan o'tgan:</span>
+                <span id="m-modal-date">-</span>
+              </div>
+            </div>
+            <a href="#" id="m-modal-chat-btn" target="_blank" class="action-btn gold-btn mt-3" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px;">
+              💬 Telegramda Yozish
+            </a>
           </div>
         </div>
       </div>
@@ -456,6 +497,6 @@
   <!-- Toast Notification Container -->
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=2.3"></script>
+  <script src="app.js?v=2.5"></script>
 </body>
 </html>

@@ -240,8 +240,11 @@ function navigateTo(pageId) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ====== VISUAL TEAM TREE (JAMOA SHAJARASI) ======
-let userTreeNodeCounter = 0;
+// ====== VISUAL TEAM TREE (JAMOA SHAJARASI / STRUKTURA) ======
+let currentTreeData = null;
+let currentTreeViewMode = 'chart';
+let currentTreeZoom = 1.0;
+window._treeNodeMap = {};
 
 function getUserLvlClass(lvl) {
   const l = parseInt(lvl) || 0;
@@ -253,6 +256,19 @@ function getUserLvlEmoji(lvl) {
   return icons[Math.min(parseInt(lvl) || 0, 5)];
 }
 
+function formatShortId(id) {
+  if (!id) return '';
+  const s = String(id);
+  return s.length > 5 ? s.slice(-4) : s;
+}
+
+function formatShortName(first, last, uname) {
+  if (uname) return `@${uname}`;
+  const full = `${first || ''} ${last || ''}`.trim();
+  if (full) return full.length > 10 ? full.slice(0, 9) + '…' : full;
+  return 'Hamkor';
+}
+
 function countTreeDescendants(node) {
   if (!node || !node.children || !node.children.length) return 0;
   let count = node.children.length;
@@ -260,10 +276,45 @@ function countTreeDescendants(node) {
   return count;
 }
 
-function renderUserTreeNode(node, isRoot = false) {
-  userTreeNodeCounter++;
-  const nodeId = `utn-${userTreeNodeCounter}`;
-  const childrenId = `utc-${userTreeNodeCounter}`;
+// 1. Org Chart Node Renderer (1 -> 3 -> 9 visual layout)
+function renderOrgChartNode(node, isRoot = false) {
+  const uid = node.user_id || 0;
+  window._treeNodeMap[uid] = node;
+
+  const shortId = uid ? (String(uid).length > 5 ? String(uid).slice(-4) : String(uid)) : '0';
+  const lvl = node.current_level || 0;
+  const nameDisp = isRoot ? '👑 Siz' : formatShortName(node.first_name, node.last_name, node.username);
+  const isSelfClass = isRoot ? 'is-self' : '';
+
+  const cardHtml = `
+    <div class="org-node-card ${isSelfClass}" onclick="openMemberDetails(${uid})">
+      <div class="org-node-id">
+        <span class="org-node-id-text">${shortId}</span>
+        <span class="org-level-badge lv${Math.min(lvl, 5)}">${lvl}</span>
+      </div>
+      <div class="org-node-name" title="${node.first_name || ''} ${node.last_name || ''}">
+        ${nameDisp}
+      </div>
+    </div>
+  `;
+
+  if (!node.children || !node.children.length) {
+    return `<li>${cardHtml}</li>`;
+  }
+
+  const childrenHtml = node.children.map(child => renderOrgChartNode(child, false)).join('');
+  return `
+    <li>
+      ${cardHtml}
+      <ul>${childrenHtml}</ul>
+    </li>
+  `;
+}
+
+// 2. List View Node Renderer
+function renderListTreeNode(node, isRoot = false) {
+  const uid = node.user_id || 0;
+  window._treeNodeMap[uid] = node;
 
   const fullName = isRoot
     ? `👑 Siz (${node.first_name || ''} ${node.last_name || ''}`.trim() + ')'
@@ -274,18 +325,13 @@ function renderUserTreeNode(node, isRoot = false) {
   const hasChildren = node.children && node.children.length > 0;
   const descCount = countTreeDescendants(node);
 
-  const toggleBtn = hasChildren
-    ? `<button class="tree-toggle" id="utog-${nodeId}" onclick="toggleUserTreeChildren('${childrenId}','utog-${nodeId}')">−</button>`
-    : `<span style="width:22px;height:22px;display:inline-block;flex-shrink:0;margin-right:8px;"></span>`;
-
   const countBadge = hasChildren
-    ? `<span class="tree-count-badge" title="${descCount} ta a'zo">👥 ${node.children.length}${descCount > node.children.length ? `+${descCount - node.children.length}` : ''}</span>`
+    ? `<span class="tree-count-badge">👥 ${node.children.length}${descCount > node.children.length ? `+${descCount - node.children.length}` : ''}</span>`
     : '';
 
   const cardClass = isRoot ? 'tree-person-card root-card' : 'tree-person-card';
   const avatarIcon = isRoot ? '👑' : getUserLvlEmoji(lvl);
 
-  // Contact button (for non-root children)
   let contactBtn = '';
   if (!isRoot && node.user_id) {
     const contactUrl = node.username ? `https://t.me/${node.username}` : `tg://user?id=${node.user_id}`;
@@ -293,9 +339,8 @@ function renderUserTreeNode(node, isRoot = false) {
   }
 
   const html = `
-    <div class="tree-person" id="${nodeId}">
-      ${toggleBtn}
-      <div class="${cardClass}">
+    <div class="tree-person">
+      <div class="${cardClass}" onclick="openMemberDetails(${uid})">
         <div class="tree-avatar">${avatarIcon}</div>
         <div class="tree-info">
           <div class="tree-name">${fullName} ${countBadge}</div>
@@ -304,14 +349,14 @@ function renderUserTreeNode(node, isRoot = false) {
             ${username ? `<span style="color:#38bdf8;">${username}</span>` : ''}
           </div>
         </div>
-        <span class="tree-level-badge ${getUserLvlClass(lvl)}">${lvl}-Daraja</span>
+        <span class="tree-level-badge">${lvl}-Daraja</span>
         ${contactBtn}
       </div>
     </div>
-    ${hasChildren ? `<div class="tree-children" id="${childrenId}">
+    ${hasChildren ? `<div class="tree-children">
       ${node.children.map(child => `
         <div class="tree-connector">
-          ${renderUserTreeNode(child, false)}
+          ${renderListTreeNode(child, false)}
         </div>
       `).join('')}
     </div>` : ''}
@@ -319,13 +364,109 @@ function renderUserTreeNode(node, isRoot = false) {
   return html;
 }
 
-function toggleUserTreeChildren(childrenId, toggleId) {
-  const el = document.getElementById(childrenId);
-  const btn = document.getElementById(toggleId);
-  if (!el) return;
-  const isVisible = el.style.display !== 'none';
-  el.style.display = isVisible ? 'none' : '';
-  btn.textContent = isVisible ? '+' : '−';
+// Switch between Org Chart view and List view
+function switchTreeView(mode) {
+  currentTreeViewMode = mode;
+  document.querySelectorAll('.tree-tab-btn').forEach(b => b.classList.remove('active'));
+
+  const activeBtn = document.getElementById(mode === 'chart' ? 'btn-view-chart' : 'btn-view-list');
+  if (activeBtn) activeBtn.classList.add('active');
+
+  const zoomTools = document.getElementById('tree-zoom-tools');
+  if (zoomTools) zoomTools.style.display = mode === 'chart' ? 'inline-flex' : 'none';
+
+  renderCurrentTree();
+}
+
+// Zoom controls
+function zoomTree(delta) {
+  currentTreeZoom = Math.min(Math.max(currentTreeZoom + delta, 0.45), 1.6);
+  const root = document.getElementById('org-chart-root');
+  if (root) {
+    root.style.transform = `scale(${currentTreeZoom})`;
+  }
+}
+
+function resetTreeZoom() {
+  currentTreeZoom = 1.0;
+  const root = document.getElementById('org-chart-root');
+  if (root) {
+    root.style.transform = `scale(1)`;
+  }
+  centerTreeScroll();
+}
+
+function centerTreeScroll() {
+  const scrollArea = document.getElementById('org-scroll-area');
+  if (scrollArea) {
+    setTimeout(() => {
+      scrollArea.scrollLeft = (scrollArea.scrollWidth - scrollArea.clientWidth) / 2;
+    }, 50);
+  }
+}
+
+// Open Member Details Modal
+function openMemberDetails(uid) {
+  const node = window._treeNodeMap ? window._treeNodeMap[uid] : null;
+  if (!node) return;
+
+  const fullName = `${node.first_name || ''} ${node.last_name || ''}`.trim() || 'Hamkor';
+  const uname = node.username ? `@${node.username}` : 'Mavjud emas';
+  const lvl = node.current_level || 0;
+  const descCount = countTreeDescendants(node);
+  const directCount = node.children ? node.children.length : 0;
+
+  document.getElementById('m-modal-name').innerText = fullName;
+  document.getElementById('m-modal-handle').innerText = uname;
+  document.getElementById('m-modal-id').innerText = node.user_id || '-';
+  document.getElementById('m-modal-date').innerText = node.registered_at ? node.registered_at.slice(0, 10) : '-';
+  document.getElementById('m-modal-level').innerText = `${lvl}-Daraja`;
+  document.getElementById('m-modal-refs').innerText = `👥 ${directCount} ta to'g'ridan-to'g'ri (${descCount} jami)`;
+  document.getElementById('m-modal-avatar').innerText = getUserLvlEmoji(lvl);
+
+  const chatBtn = document.getElementById('m-modal-chat-btn');
+  if (chatBtn) {
+    chatBtn.href = node.username ? `https://t.me/${node.username}` : `tg://user?id=${node.user_id}`;
+  }
+
+  const modal = document.getElementById('member-detail-modal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeMemberModal(e) {
+  const modal = document.getElementById('member-detail-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) modal.classList.remove('active');
+}
+
+function renderCurrentTree() {
+  const container = document.getElementById("user-tree-container");
+  if (!container || !currentTreeData) return;
+
+  window._treeNodeMap = {};
+
+  if (currentTreeViewMode === 'chart') {
+    container.innerHTML = `
+      <div class="org-chart-root" id="org-chart-root" style="transform: scale(${currentTreeZoom});">
+        <div class="org-chart-tree">
+          <ul>
+            ${renderOrgChartNode(currentTreeData, true)}
+          </ul>
+        </div>
+      </div>
+    `;
+    centerTreeScroll();
+  } else {
+    container.innerHTML = `
+      <div class="user-tree-wrap">
+        ${renderListTreeNode(currentTreeData, true)}
+      </div>
+    `;
+  }
 }
 
 function loadUserTree() {
@@ -346,7 +487,7 @@ function loadUserTree() {
   container.innerHTML = `
     <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
       <div style="font-size: 28px; margin-bottom: 8px;">⏳</div>
-      <div>Jamoa shajarasi yuklanmoqda...</div>
+      <div>Struktura yuklanmoqda...</div>
     </div>
   `;
 
@@ -365,15 +506,26 @@ function loadUserTree() {
       }
 
       const t = d.tree;
+      currentTreeData = t;
+
       const totalDesc = countTreeDescendants(t);
-      const directCount = t.children ? t.children.length : 0;
+      const l1Count = t.children ? t.children.length : 0;
+      let l2Count = 0;
+      if (t.children) {
+        t.children.forEach(c => {
+          if (c.children) l2Count += c.children.length;
+        });
+      }
 
       // Update stat pills
       const totalEl = document.getElementById("tree-stat-total");
       if (totalEl) totalEl.innerText = totalDesc;
 
       const l1El = document.getElementById("tree-stat-l1");
-      if (l1El) l1El.innerText = directCount;
+      if (l1El) l1El.innerText = `${l1Count} / 3`;
+
+      const l2El = document.getElementById("tree-stat-l2");
+      if (l2El) l2El.innerText = `${l2Count} / 9`;
 
       const lvlEl = document.getElementById("tree-stat-level");
       if (lvlEl) lvlEl.innerText = `${t.current_level || userState.level || 0}-Daraja`;
@@ -384,7 +536,7 @@ function loadUserTree() {
             <div class="tree-empty-icon">🌱</div>
             <div class="tree-empty-title">Sizda hali hamkorlar yo'q</div>
             <div class="tree-empty-desc">
-              Referal havolangiz orqali do'stlaringizni taklif qiling va o'z jamoangiz shajarasini yarating!
+              Referal havolangiz orqali 3 ta do'stingizni taklif qiling va 1-bosqich shajarangizni yarating!
             </div>
             <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
               <button class="action-btn gold-btn" style="padding: 9px 18px; font-size: 13px;" onclick="navigateTo('partners')">
@@ -396,9 +548,7 @@ function loadUserTree() {
         return;
       }
 
-      userTreeNodeCounter = 0;
-      const treeHtml = `<div class="user-tree-wrap">${renderUserTreeNode(t, true)}</div>`;
-      container.innerHTML = treeHtml;
+      renderCurrentTree();
     })
     .catch(err => {
       console.error("Error loading user tree:", err);
