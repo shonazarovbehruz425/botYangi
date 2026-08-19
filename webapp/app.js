@@ -1,8 +1,10 @@
 // Telegram WebApp Initialization
 const tg = window.Telegram?.WebApp;
 if (tg) {
-  tg.ready();
-  tg.expand();
+  try {
+    tg.ready();
+    tg.expand();
+  } catch (e) {}
 }
 
 // User state defaults
@@ -15,7 +17,7 @@ let userState = {
   teamTotal: 0,
   directRefs: 0,
   activeRefs: 0,
-  level: 1,
+  level: 0,
   regDate: "-",
   referrerName: "Bosh Admin (Tizim)",
   multiTier: { level_1: 0, level_2: 0, level_3: 0, total_team: 0 },
@@ -23,14 +25,80 @@ let userState = {
   botUsername: "Buyukhayot_bot"
 };
 
-// Check if launched from Telegram
-if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-  const tgUser = tg.initDataUnsafe.user;
-  userState.id = tgUser.id || 0;
-  userState.first_name = tgUser.first_name || "Foydalanuvchi";
-  userState.last_name = tgUser.last_name || "";
-  userState.username = tgUser.username || "";
+// Robust user extraction from Telegram WebApp, URL params, hash, or local cache
+function detectTelegramUser() {
+  // 1. Direct Telegram WebApp user object
+  if (tg?.initDataUnsafe?.user?.id) {
+    const u = tg.initDataUnsafe.user;
+    userState.id = Number(u.id);
+    userState.first_name = u.first_name || userState.first_name;
+    userState.last_name = u.last_name || "";
+    userState.username = u.username || "";
+  }
+
+  // 2. Query parameters (?user_id=123 or ?uid=123 or ?tgWebAppStartParam=123)
+  const urlParams = new URLSearchParams(window.location.search);
+  const qId = urlParams.get('user_id') || urlParams.get('uid') || urlParams.get('tgWebAppStartParam');
+  if (qId && !isNaN(qId) && Number(qId) > 0) {
+    userState.id = Number(qId);
+  }
+
+  // 3. Raw Telegram initData string parser
+  if (!userState.id && tg?.initData) {
+    try {
+      const parsed = new URLSearchParams(tg.initData);
+      const userRaw = parsed.get('user');
+      if (userRaw) {
+        const uObj = JSON.parse(userRaw);
+        if (uObj.id) {
+          userState.id = Number(uObj.id);
+          userState.first_name = uObj.first_name || userState.first_name;
+          userState.last_name = uObj.last_name || "";
+          userState.username = uObj.username || "";
+        }
+      }
+    } catch(e) {}
+  }
+
+  // 4. Hash parameters parser (e.g. #tgWebAppData=...)
+  if (!userState.id && window.location.hash) {
+    try {
+      const hashStr = window.location.hash.substring(1);
+      const hashParams = new URLSearchParams(hashStr);
+      const tgData = hashParams.get('tgWebAppData');
+      if (tgData) {
+        const parsed = new URLSearchParams(tgData);
+        const userRaw = parsed.get('user');
+        if (userRaw) {
+          const uObj = JSON.parse(userRaw);
+          if (uObj.id) {
+            userState.id = Number(uObj.id);
+            userState.first_name = uObj.first_name || userState.first_name;
+            userState.last_name = uObj.last_name || "";
+            userState.username = uObj.username || "";
+          }
+        }
+      }
+    } catch(e) {}
+  }
+
+  // 5. Persistent storage fallback
+  if (userState.id) {
+    try {
+      sessionStorage.setItem('bh_user_id', String(userState.id));
+      localStorage.setItem('bh_user_id', String(userState.id));
+    } catch (e) {}
+  } else {
+    try {
+      const saved = sessionStorage.getItem('bh_user_id') || localStorage.getItem('bh_user_id');
+      if (saved && !isNaN(saved) && Number(saved) > 0) {
+        userState.id = Number(saved);
+      }
+    } catch (e) {}
+  }
 }
+
+detectTelegramUser();
 
 // Helper to format currency
 function formatSom(amount) {
@@ -40,6 +108,8 @@ function formatSom(amount) {
 
 // Fetch Real Live Data from Server for this User
 function fetchLiveUserData() {
+  detectTelegramUser();
+
   if (!userState.id) {
     updateUI();
     return;
@@ -57,7 +127,7 @@ function fetchLiveUserData() {
         userState.teamTotal = u.team_total || 0;
         userState.directRefs = u.direct_referrals || 0;
         userState.activeRefs = u.active_in_marketing || 0;
-        userState.level = u.current_level || 1;
+        userState.level = u.current_level || 0;
         userState.regDate = u.registered_at || "-";
         userState.referrerName = u.referrer_name || "Bosh Admin (Tizim)";
         userState.multiTier = u.multi_tier || userState.multiTier;

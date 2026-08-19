@@ -320,7 +320,17 @@ class Database:
         """Returns deep multi-tier hierarchy structure for visual tree rendering."""
         user = await self.get_user(user_id)
         if not user:
-            return None
+            return {
+                "user_id": user_id,
+                "first_name": "Siz",
+                "last_name": "",
+                "username": "",
+                "current_level": 0,
+                "status": "🌱 Boshlang'ich",
+                "total_earned": 0,
+                "registered_at": "",
+                "children": []
+            }
 
         async with aiosqlite.connect(self.db_path) as db_conn:
             db_conn.row_factory = aiosqlite.Row

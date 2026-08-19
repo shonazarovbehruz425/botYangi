@@ -15,7 +15,7 @@ def get_register_keyboard(referrer_id: int) -> InlineKeyboardMarkup:
     )
 
 
-def get_main_menu_keyboard() -> InlineKeyboardMarkup:
+def get_main_menu_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
     buttons = [
         [
             InlineKeyboardButton(
@@ -34,9 +34,10 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
             )
         ]
     ]
-    if WEBAPP_URL.startswith("https://"):
+    if WEBAPP_URL and WEBAPP_URL.startswith("https://"):
+        target_url = f"{WEBAPP_URL}?user_id={user_id}" if user_id else WEBAPP_URL
         buttons.append([
-            InlineKeyboardButton(text="📱 Mini App", web_app=WebAppInfo(url=WEBAPP_URL))
+            InlineKeyboardButton(text="📱 Mini App", web_app=WebAppInfo(url=target_url))
         ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 

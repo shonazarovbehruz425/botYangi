@@ -22,7 +22,15 @@ BANNER_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets",
 
 async def send_main_menu(target, bot: Bot = None, user_id: int = None, **kwargs):
     """Sends or edits the main menu card with photo banner."""
-    keyboard = get_main_menu_keyboard()
+    uid = None
+    if isinstance(target, CallbackQuery):
+        uid = target.from_user.id
+    elif isinstance(target, Message):
+        uid = target.from_user.id
+    elif user_id:
+        uid = user_id
+
+    keyboard = get_main_menu_keyboard(user_id=uid)
     caption = f"👑 <b>BUYUK HAYOTGA YO'L</b>\n\n{MAIN_MENU_CAPTION}"
     photo = FSInputFile(BANNER_PATH) if os.path.exists(BANNER_PATH) else None
 

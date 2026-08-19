@@ -1205,3 +1205,71 @@ body {
 .tree-empty-icon { font-size: 46px; margin-bottom: 12px; }
 .tree-empty-title { font-size: 16px; font-weight: 800; color: var(--gold-light); margin-bottom: 6px; }
 .tree-empty-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px; max-width: 320px; margin-left: auto; margin-right: auto; }
+
+/* ============================================================
+   MODALS & POPUPS
+   ============================================================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  padding: 16px;
+}
+
+.modal-overlay.active {
+  display: flex !important;
+}
+
+.modal-card {
+  background: #0f1c13;
+  border: 1.5px solid var(--gold-primary);
+  border-radius: 20px;
+  padding: 24px;
+  width: 420px;
+  max-width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+  position: relative;
+  animation: modalFadeIn 0.25s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-header h3 {
+  color: var(--gold-light);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.close-modal {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 16px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.close-modal:hover { background: rgba(239, 68, 68, 0.3); border-color: #ef4444; }
