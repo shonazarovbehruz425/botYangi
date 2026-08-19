@@ -208,9 +208,118 @@
     .modal-header h3 { color: var(--gold-light); font-size: 18px; }
     .close-modal { background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; }
 
-    /* Visual Tree Graph */
-    .tree-node { margin-left: 20px; border-left: 2px dashed rgba(234, 179, 8, 0.3); padding-left: 14px; margin-top: 8px; }
-    .tree-box { background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-gold); padding: 8px 14px; border-radius: 10px; display: inline-flex; align-items: center; gap: 10px; }
+    /* ====== VISUAL FAMILY TREE ====== */
+    .tree-wrap { padding: 8px 0; }
+
+    .tree-person {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin: 6px 0;
+      position: relative;
+    }
+
+    .tree-person-card {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(250, 204, 21, 0.07);
+      border: 1px solid rgba(250, 204, 21, 0.35);
+      border-radius: 12px;
+      padding: 9px 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      min-width: 260px;
+      max-width: 100%;
+    }
+    .tree-person-card:hover {
+      background: rgba(250, 204, 21, 0.18);
+      border-color: var(--gold-primary);
+      box-shadow: 0 0 14px rgba(250, 204, 21, 0.25);
+      transform: translateX(3px);
+    }
+    .tree-person-card.root-card {
+      background: rgba(250, 204, 21, 0.15);
+      border-color: var(--gold-primary);
+      min-width: 280px;
+    }
+
+    .tree-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--gold-metallic);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+      font-weight: 800;
+      color: #000;
+    }
+    .tree-info { flex: 1; min-width: 0; }
+    .tree-name { font-weight: 700; font-size: 13.5px; color: var(--gold-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tree-meta { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+    .tree-level-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      flex-shrink: 0;
+    }
+    .tree-level-badge.lv0 { background: rgba(148,163,184,0.1); color: #94a3b8; border-color: rgba(148,163,184,0.2); }
+    .tree-level-badge.lv1 { background: rgba(34,197,94,0.1); color: #4ade80; border-color: rgba(34,197,94,0.3); }
+    .tree-level-badge.lv2 { background: rgba(56,189,248,0.1); color: #38bdf8; border-color: rgba(56,189,248,0.3); }
+    .tree-level-badge.lv3 { background: rgba(168,85,247,0.1); color: #c084fc; border-color: rgba(168,85,247,0.3); }
+    .tree-level-badge.lv4 { background: rgba(251,146,60,0.1); color: #fb923c; border-color: rgba(251,146,60,0.3); }
+    .tree-level-badge.lv5 { background: rgba(250,204,21,0.18); color: #facc15; border-color: rgba(250,204,21,0.4); }
+
+    .tree-edit-btn {
+      width: 28px; height: 28px; border-radius: 7px;
+      border: 1px solid rgba(250,204,21,0.3);
+      background: rgba(250,204,21,0.1);
+      color: #facc15; font-size: 13px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: all 0.2s;
+    }
+    .tree-edit-btn:hover { background: rgba(250,204,21,0.3); }
+
+    /* Tree connector lines */
+    .tree-children { margin-left: 28px; padding-left: 16px; border-left: 2px solid rgba(250,204,21,0.25); margin-top: 4px; }
+    .tree-connector { display: flex; align-items: center; margin: 0; }
+    .tree-connector::before {
+      content: '';
+      display: block;
+      width: 16px;
+      height: 2px;
+      background: rgba(250,204,21,0.25);
+      flex-shrink: 0;
+      margin-right: 0;
+    }
+
+    .tree-toggle {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: rgba(250,204,21,0.15);
+      border: 1px solid rgba(250,204,21,0.4);
+      color: #facc15; font-size: 11px; font-weight: 800;
+      cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-right: 8px; transition: all 0.2s;
+      user-select: none;
+    }
+    .tree-toggle:hover { background: rgba(250,204,21,0.3); }
+
+    .tree-empty { color: var(--text-muted); font-size: 13px; padding: 8px 0; font-style: italic; }
+    .tree-count-badge {
+      font-size: 11px; font-weight: 700;
+      padding: 2px 7px; border-radius: 5px;
+      background: rgba(250,204,21,0.12);
+      color: #facc15; margin-left: 6px;
+    }
   </style>
 </head>
 <body>
@@ -535,14 +644,19 @@
     </div>
   </div>
 
-  <!-- MODAL: VISUAL TREE GRAPH -->
+  <!-- MODAL: VISUAL FAMILY TREE -->
   <div class="modal-overlay" id="tree-modal">
-    <div class="modal-card" style="width: 650px;">
-      <div class="modal-header">
-        <h3 id="tree-title">🌳 Jamoa Daraxti</h3>
+    <div class="modal-card" style="width: 720px; max-height: 88vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="flex-shrink: 0;">
+        <div>
+          <h3 id="tree-title">🌳 Jamoa Daraxti</h3>
+          <div id="tree-subtitle" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;"></div>
+        </div>
         <button class="close-modal" onclick="closeModal('tree-modal')">&times;</button>
       </div>
-      <div id="tree-content" style="font-size: 13.5px;">Yuklanmoqda...</div>
+      <div id="tree-content" style="font-size: 13px; overflow-y: auto; flex: 1; padding-right: 4px;">
+        <div style="text-align:center; color: var(--text-muted); padding: 24px;">⏳ Yuklanmoqda...</div>
+      </div>
     </div>
   </div>
 
@@ -740,41 +854,114 @@
       });
     }
 
+    // ====== BEAUTIFUL FAMILY TREE ======
+    let treeNodeCounter = 0;
+
+    function getLvlClass(lvl) {
+      const l = parseInt(lvl) || 0;
+      return `lv${Math.min(l, 5)}`;
+    }
+
+    function getLvlEmoji(lvl) {
+      const icons = ['⬜', '🟢', '🔵', '🟣', '🟠', '🌟'];
+      return icons[Math.min(parseInt(lvl)||0, 5)];
+    }
+
+    function getAvatarText(firstName, lastName) {
+      const f = (firstName || '?')[0].toUpperCase();
+      const l = (lastName || '')[0] ? (lastName)[0].toUpperCase() : '';
+      return f + l || '?';
+    }
+
+    function countDescendants(node) {
+      if (!node.children || !node.children.length) return 0;
+      let count = node.children.length;
+      node.children.forEach(c => { count += countDescendants(c); });
+      return count;
+    }
+
+    function renderTreeNode(node, isRoot) {
+      treeNodeCounter++;
+      const nodeId = `tn-${treeNodeCounter}`;
+      const childrenId = `tc-${treeNodeCounter}`;
+
+      const fullName = `${node.first_name || ''} ${node.last_name || ''}`.trim() || 'Nomalum';
+      const username = node.username ? `@${node.username}` : '';
+      const lvl = node.current_level || 0;
+      const hasChildren = node.children && node.children.length > 0;
+      const descCount = countDescendants(node);
+
+      const toggleBtn = hasChildren
+        ? `<button class="tree-toggle" id="tog-${nodeId}" onclick="toggleTreeChildren('${childrenId}','tog-${nodeId}')">−</button>`
+        : `<span style="width:22px;height:22px;display:inline-block;flex-shrink:0;margin-right:8px;"></span>`;
+
+      const countBadge = hasChildren
+        ? `<span class="tree-count-badge" title="${descCount} ta umumiy avlod">👥 ${node.children.length}+${descCount - node.children.length}</span>`
+        : '';
+
+      const cardClass = isRoot ? 'tree-person-card root-card' : 'tree-person-card';
+      const rootIcon = isRoot ? '👑' : getLvlEmoji(lvl);
+
+      const html = `
+        <div class="tree-person" id="${nodeId}">
+          ${toggleBtn}
+          <div class="${cardClass}" onclick="openRefModal(${node.user_id}, '${fullName.replace(/'/g,"\\'")}')">
+            <div class="tree-avatar">${rootIcon}</div>
+            <div class="tree-info">
+              <div class="tree-name">${fullName} ${countBadge}</div>
+              <div class="tree-meta">
+                <code style="font-size:11px;color:#94a3b8;">${node.user_id}</code>
+                ${username ? `<span style="color:#38bdf8;margin-left:6px;">${username}</span>` : ''}
+              </div>
+            </div>
+            <span class="tree-level-badge ${getLvlClass(lvl)}">${lvl}-Daraja</span>
+            <button class="tree-edit-btn" title="Kuratorni o'zgartirish" onclick="event.stopPropagation(); openRefModal(${node.user_id}, '${fullName.replace(/'/g,"\\'")}')">✏️</button>
+          </div>
+        </div>
+        ${hasChildren ? `<div class="tree-children" id="${childrenId}">
+          ${node.children.map(child => `
+            <div class="tree-connector">
+              ${renderTreeNode(child, false)}
+            </div>
+          `).join('')}
+        </div>` : ''}
+      `;
+      return html;
+    }
+
+    function toggleTreeChildren(childrenId, toggleId) {
+      const el = document.getElementById(childrenId);
+      const btn = document.getElementById(toggleId);
+      if (!el) return;
+      const isVisible = el.style.display !== 'none';
+      el.style.display = isVisible ? 'none' : '';
+      btn.textContent = isVisible ? '+' : '−';
+    }
+
     function openTreeModal(uid, name) {
-      document.getElementById('tree-title').innerText = `🌳 Jamoa Daraxti: ${name} (ID: ${uid})`;
-      document.getElementById('tree-content').innerHTML = 'Yuklanmoqda...';
+      document.getElementById('tree-title').innerText = `🌳 Jamoa Daraxti`;
+      document.getElementById('tree-subtitle').innerText = `${name} (ID: ${uid}) — daraxtini yuklash...`;
+      document.getElementById('tree-content').innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:30px">⏳ Yuklanmoqda...</div>';
       document.getElementById('tree-modal').classList.add('active');
 
       fetch(`/api/admin/user/tree?user_id=${uid}`)
         .then(res => res.json())
         .then(d => {
           if (!d.success || !d.tree) {
-            document.getElementById('tree-content').innerHTML = 'Tuzilma topilmadi';
+            document.getElementById('tree-content').innerHTML = '<div style="color:var(--red);padding:16px;">⚠️ Tuzilma topilmadi</div>';
             return;
           }
           const t = d.tree;
-          let html = `<div class="tree-box">👑 <b>${t.first_name} ${t.last_name}</b> (ID: ${t.user_id}) - ${t.current_level}-Daraja</div>`;
-          
-          if (t.children && t.children.length) {
-            html += t.children.map(c1 => `
-              <div class="tree-node">
-                <div class="tree-box">🥇 <b>${c1.first_name} ${c1.last_name}</b> (ID: ${c1.user_id}) | ${c1.current_level}-Daraja</div>
-                ${c1.children && c1.children.length ? c1.children.map(c2 => `
-                  <div class="tree-node">
-                    <div class="tree-box">🥈 <b>${c2.first_name} ${c2.last_name}</b> (ID: ${c2.user_id}) | ${c2.current_level}-Daraja</div>
-                    ${c2.children && c2.children.length ? c2.children.map(c3 => `
-                      <div class="tree-node">
-                        <div class="tree-box">🥉 <b>${c3.first_name} ${c3.last_name}</b> (ID: ${c3.user_id})</div>
-                      </div>
-                    `).join('') : ''}
-                  </div>
-                `).join('') : ''}
-              </div>
-            `).join('');
-          } else {
-            html += '<div style="margin-top: 14px; color: var(--text-muted);">Ushbu a\'zoda hali taklif qilingan referallar yo\'q.</div>';
-          }
+          const totalDesc = countDescendants(t);
+          document.getElementById('tree-subtitle').innerText =
+            `${t.first_name} ${t.last_name} (ID: ${t.user_id}) — Jami: ${totalDesc} nafar avlod`;
+
+          treeNodeCounter = 0;
+          const html = `<div class="tree-wrap">${renderTreeNode(t, true)}</div>`;
           document.getElementById('tree-content').innerHTML = html;
+        })
+        .catch(() => {
+          document.getElementById('tree-content').innerHTML = '<div style="color:var(--red);padding:16px;">❌ Xatolik yuz berdi</div>';
         });
     }
 
