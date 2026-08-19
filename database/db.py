@@ -215,6 +215,22 @@ class Database:
             action = "BAN" if is_banned else "UNBAN"
             await self.log_activity(user_id, action, f"Foydalanuvchi {'bloklandi' if is_banned else 'blokdan chiqarildi'}")
 
+    async def delete_user(self, user_id: int):
+        """Foydalanuvchini bazadan butunlay o'chiradi va uning referallarini kuratoriga o'tkazadi."""
+        async with aiosqlite.connect(self.db_path) as db:
+            user = await self.get_user(user_id)
+            referrer_id = user.get("referrer_id", 0) if user else 0
+
+            # Referallarni o'chirilgan foydalanuvchining kuratoriga biriktirish (zanjir uzilmasligi uchun)
+            await db.execute("UPDATE users SET referrer_id = ? WHERE referrer_id = ?", (referrer_id, user_id))
+            await db.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+            await db.commit()
+
+            if referrer_id:
+                await self.update_user_rank(referrer_id)
+
+            await self.log_activity(user_id, "USER_DELETED", f"Foydalanuvchi bazadan butunlay o'chirildi. Referallari kurator {referrer_id} ga o'tkazildi.")
+
     async def change_user_referrer(self, user_id: int, new_referrer_id: int):
         async with aiosqlite.connect(self.db_path) as db:
             old_user = await self.get_user(user_id)

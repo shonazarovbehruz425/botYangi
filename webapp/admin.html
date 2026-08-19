@@ -644,7 +644,47 @@
     </div>
   </div>
 
-  <!-- MODAL: VISUAL FAMILY TREE -->
+  <!-- MODAL: DELETE CONFIRMATION -->
+  <div class="modal-overlay" id="delete-modal">
+    <div class="modal-card" style="width: 420px; text-align: center;">
+      <div style="font-size: 52px; margin-bottom: 12px;">🗑️</div>
+      <h3 style="color: #f87171; margin-bottom: 10px;">Foydalanuvchini O'chirish</h3>
+      <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 6px;">
+        Siz quyidagi foydalanuvchini <b style="color:#fff">butunlay</b> o'chirmoqchisiz:
+      </p>
+      <div id="delete-user-info" style="
+        background: rgba(239,68,68,0.1);
+        border: 1px solid rgba(239,68,68,0.3);
+        border-radius: 12px;
+        padding: 14px 18px;
+        margin: 14px 0;
+        text-align: left;
+      ">
+        <div id="delete-user-name" style="font-weight:700; font-size:15px; color:#f87171;"></div>
+        <div id="delete-user-id" style="font-size:12px; color:var(--text-muted); margin-top:4px;"></div>
+      </div>
+      <div style="
+        background: rgba(239,68,68,0.08);
+        border: 1px solid rgba(239,68,68,0.2);
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        color: #fca5a5;
+      ">
+        ⚠️ Bu amal <b>qaytarib bo'lmaydi!</b> Foydalanuvchining barcha ma'lumotlari o'chiriladi.
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-outline" style="flex:1; justify-content:center;" onclick="closeModal('delete-modal')">
+          ❌ Bekor qilish
+        </button>
+        <button class="btn btn-red" style="flex:1; justify-content:center; background:rgba(239,68,68,0.3); border:1px solid #ef4444;" onclick="executeDeleteUser()">
+          🗑️ Ha, O'chirish
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="tree-modal">
     <div class="modal-card" style="width: 720px; max-height: 88vh; display: flex; flex-direction: column;">
       <div class="modal-header" style="flex-shrink: 0;">
@@ -756,6 +796,7 @@
                 <button class="btn ${isBanned ? 'btn-green' : 'btn-red'}" style="padding: 4px 8px;" onclick="toggleBan(${u.user_id}, ${isBanned ? 0 : 1})">
                   ${isBanned ? '✅' : '🚫'}
                 </button>
+                <button class="btn btn-red" style="padding: 4px 8px; background: rgba(239,68,68,0.3);" onclick="confirmDeleteUser(${u.user_id}, '${name.replace(/'/g, "\\'")}')">🗑️</button>
               </div>
             </td>
           </tr>
@@ -770,6 +811,59 @@
         return str.includes(q);
       });
       renderUsersTable(filtered);
+    }
+
+    // ====== DELETE USER ======
+    let _deleteUserId = null;
+
+    function confirmDeleteUser(uid, name) {
+      _deleteUserId = uid;
+      document.getElementById('delete-user-name').innerHTML = `👤 ${name}`;
+      document.getElementById('delete-user-id').innerHTML = `🆔 ID: <code style="color:#94a3b8">${uid}</code>`;
+      document.getElementById('delete-modal').classList.add('active');
+    }
+
+    function executeDeleteUser() {
+      if (!_deleteUserId) return;
+      const uid = _deleteUserId;
+
+      fetch('/api/admin/user/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: uid })
+      })
+      .then(res => res.json())
+      .then(d => {
+        closeModal('delete-modal');
+        _deleteUserId = null;
+        if (d.success) {
+          loadUsers();
+          showNotif(`✅ Foydalanuvchi (ID: ${uid}) muvaffaqiyatli o'chirildi!`, 'green');
+        } else {
+          showNotif('❌ Xatolik: ' + (d.error || 'Noma\'lum xato'), 'red');
+        }
+      })
+      .catch(() => {
+        closeModal('delete-modal');
+        showNotif('❌ Server bilan bog\'lanishda xatolik', 'red');
+      });
+    }
+
+    function showNotif(msg, color) {
+      const el = document.createElement('div');
+      el.style.cssText = `
+        position: fixed; bottom: 24px; right: 24px; z-index: 99999;
+        background: ${color === 'green' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)'};
+        border: 1px solid ${color === 'green' ? '#22c55e' : '#ef4444'};
+        color: ${color === 'green' ? '#4ade80' : '#f87171'};
+        padding: 14px 20px; border-radius: 12px; font-size: 14px; font-weight: 600;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        animation: fadeIn 0.3s ease;
+        max-width: 360px;
+      `;
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3500);
     }
 
     function openEditModal(uid) {

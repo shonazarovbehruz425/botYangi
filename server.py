@@ -175,6 +175,24 @@ async def start_webapp_server(bot: Bot = None):
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=400)
 
+    # 8b. Admin Delete User API
+    async def admin_delete_user(request):
+        try:
+            data = await request.json()
+            user_id = int(data.get("user_id"))
+            from config import ADMINS
+            if user_id in ADMINS:
+                return web.json_response({"success": False, "error": "Admin hisobini o'chirish mumkin emas!"}, status=403)
+            await db.delete_user(user_id)
+
+            if _bot_instance:
+                from database.backup import send_database_backup_to_channel
+                asyncio.create_task(send_database_backup_to_channel(_bot_instance, reason=f"Foydalanuvchi o'chirildi (ID: {user_id})"))
+
+            return web.json_response({"success": True, "message": f"Foydalanuvchi {user_id} o'chirildi"})
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=400)
+
     # 9. Admin Visual Tree Graph API
     async def admin_get_tree(request):
         user_id_param = request.query.get("user_id")
@@ -383,6 +401,7 @@ async def start_webapp_server(bot: Bot = None):
     app.router.add_get("/api/admin/users", admin_get_users)
     app.router.add_post("/api/admin/user/update", admin_update_user)
     app.router.add_post("/api/admin/user/ban", admin_ban_user)
+    app.router.add_post("/api/admin/user/delete", admin_delete_user)
     app.router.add_post("/api/admin/user/referrer", admin_change_referrer)
     app.router.add_get("/api/admin/user/tree", admin_get_tree)
     app.router.add_get("/api/admin/leaders", admin_get_leaders)
