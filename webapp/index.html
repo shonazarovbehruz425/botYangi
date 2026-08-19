@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.7">
+  <link rel="stylesheet" href="style.css?v=2.8">
 </head>
 <body>
 
@@ -276,90 +276,134 @@
 
     <!-- 4. STRUCTURE VIEW (JAMOA SHAJARASI / STRUKTURA) -->
     <section class="page-view" id="view-structure">
-      <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
-        <div>
-          <h2>🌳 Struktura</h2>
-          <p>Sizning barcha bosqichlardagi hamkorlaringiz tarmog'i</p>
+
+      <!-- Section Hero Header -->
+      <div class="struct-hero">
+        <div class="struct-hero-glow"></div>
+        <div class="struct-hero-content">
+          <div class="struct-hero-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="11"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="11" x2="8" y2="14"/><line x1="16" y1="11" x2="16" y2="14"/><circle cx="8" cy="16" r="2"/><circle cx="16" cy="16" r="2"/></svg>
+          </div>
+          <div>
+            <h2 class="struct-hero-title">Struktura</h2>
+            <p class="struct-hero-sub">Jamoangizning shaxsiy tarmog'i</p>
+          </div>
         </div>
-        <button class="icon-btn" style="width: auto; height: auto; padding: 7px 14px; font-size: 12.5px; font-weight: 700; gap: 6px; border-radius: 10px;" onclick="loadUserTree()">
-          🔄 Yangilash
+        <button class="struct-refresh-btn" onclick="loadUserTree()" title="Yangilash">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          <span>Yangilash</span>
         </button>
       </div>
 
-      <!-- Quick Stats Strip -->
-      <div class="tree-stats-strip">
-        <div class="tree-stat-pill">
-          <span class="ts-lbl">👥 Jami jamoa:</span>
-          <b class="ts-val" id="tree-stat-total">0</b>
+      <!-- Luxury Stat Cards -->
+      <div class="struct-stats-grid">
+        <div class="struct-stat-card stat-green">
+          <div class="stat-card-icon">👥</div>
+          <div class="stat-card-value" id="tree-stat-total">0</div>
+          <div class="stat-card-label">Jami jamoa</div>
         </div>
-        <div class="tree-stat-pill">
-          <span class="ts-lbl">🥇 1-Daraja (3 ta):</span>
-          <b class="ts-val" id="tree-stat-l1">0 / 3</b>
+        <div class="struct-stat-card stat-gold">
+          <div class="stat-card-icon">🥇</div>
+          <div class="stat-card-value" id="tree-stat-l1">0/3</div>
+          <div class="stat-card-label">1-Daraja</div>
         </div>
-        <div class="tree-stat-pill">
-          <span class="ts-lbl">🥈 2-Daraja (9 ta):</span>
-          <b class="ts-val" id="tree-stat-l2">0 / 9</b>
+        <div class="struct-stat-card stat-silver">
+          <div class="stat-card-icon">🥈</div>
+          <div class="stat-card-value" id="tree-stat-l2">0/9</div>
+          <div class="stat-card-label">2-Daraja</div>
         </div>
-        <div class="tree-stat-pill">
-          <span class="ts-lbl">⭐ Sizning darajangiz:</span>
-          <b class="ts-val gold" id="tree-stat-level">0-Daraja</b>
-        </div>
-      </div>
-
-      <!-- View Switcher & Zoom Toolbar -->
-      <div class="tree-toolbar">
-        <div class="tree-view-tabs">
-          <button class="tree-tab-btn active" id="btn-view-chart" onclick="switchTreeView('chart')">🌳 Sxema Daraxti</button>
-          <button class="tree-tab-btn" id="btn-view-list" onclick="switchTreeView('list')">📋 Ro'yxat</button>
-        </div>
-        <div class="tree-zoom-tools" id="tree-zoom-tools">
-          <button class="zoom-btn" onclick="zoomTree(0.1)" title="Kattalashtirish">➕</button>
-          <button class="zoom-btn" onclick="zoomTree(-0.1)" title="Kichiklashtirish">➖</button>
-          <button class="zoom-btn" onclick="resetTreeZoom()" title="Asliga qaytarish">🎯</button>
+        <div class="struct-stat-card stat-star">
+          <div class="stat-card-icon">⭐</div>
+          <div class="stat-card-value" id="tree-stat-level">0</div>
+          <div class="stat-card-label">Darajangiz</div>
         </div>
       </div>
 
-      <!-- Tree Graph Card with Org Chart Canvas -->
-      <div class="org-tree-wrapper card-glass" id="org-tree-wrapper">
+      <!-- Premium Toolbar -->
+      <div class="struct-toolbar">
+        <div class="struct-tab-group">
+          <button class="struct-tab active" id="btn-view-chart" onclick="switchTreeView('chart')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="11"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="11" x2="8" y2="14"/><line x1="16" y1="11" x2="16" y2="14"/><circle cx="8" cy="16" r="2"/><circle cx="16" cy="16" r="2"/></svg>
+            Sxema
+          </button>
+          <button class="struct-tab" id="btn-view-list" onclick="switchTreeView('list')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1.5"/><circle cx="3.5" cy="12" r="1.5"/><circle cx="3.5" cy="18" r="1.5"/></svg>
+            Ro'yxat
+          </button>
+        </div>
+        <div class="struct-zoom-group" id="tree-zoom-tools">
+          <button class="struct-zoom-btn" onclick="zoomTree(0.15)" title="Kattalashtirish">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          </button>
+          <button class="struct-zoom-btn" onclick="zoomTree(-0.15)" title="Kichiklashtirish">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          </button>
+          <button class="struct-zoom-btn active-zoom" onclick="resetTreeZoom()" title="Asl o'lcham">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tree Canvas Wrapper -->
+      <div class="struct-canvas-wrap card-glass" id="org-tree-wrapper">
         <div class="org-tree-scroll-area" id="org-scroll-area">
           <div id="user-tree-container">
-            <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
-              <div style="font-size: 28px; margin-bottom: 8px;">⏳</div>
-              <div>Struktura yuklanmoqda...</div>
+            <div class="struct-loading">
+              <div class="struct-loading-ring"></div>
+              <span>Struktura yuklanmoqda...</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Member Details Modal -->
-      <div class="modal-overlay" id="member-detail-modal" style="display:none" onclick="closeMemberModal(event)">
-        <div class="modal-card member-modal-card" onclick="event.stopPropagation()">
-          <div class="modal-header">
-            <h3 id="m-modal-title">👤 Hamkor Ma'lumotlari</h3>
-            <button class="close-modal" onclick="closeModal('member-detail-modal')">&times;</button>
+      <!-- Premium Member Details Modal -->
+      <div class="struct-modal-overlay" id="member-detail-modal" style="display:none" onclick="closeMemberModal(event)">
+        <div class="struct-modal-card" onclick="event.stopPropagation()">
+          <!-- Modal Glow -->
+          <div class="struct-modal-glow"></div>
+
+          <!-- Close button -->
+          <button class="struct-modal-close" onclick="closeModal('member-detail-modal')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+
+          <!-- Avatar + Name -->
+          <div class="struct-modal-avatar-wrap">
+            <div class="struct-modal-avatar" id="m-modal-avatar">👤</div>
+            <div class="struct-modal-ring"></div>
           </div>
-          <div class="member-detail-body">
-            <div class="member-avatar-lg" id="m-modal-avatar">👤</div>
-            <div class="member-name-lg" id="m-modal-name"></div>
-            <div class="member-handle-lg" id="m-modal-handle"></div>
-            <div class="member-badges-row">
-              <span class="tree-level-badge" id="m-modal-level"></span>
-              <span class="tree-count-badge" id="m-modal-refs"></span>
-            </div>
-            <div class="member-info-box">
-              <div class="m-info-row">
-                <span>Telegram ID:</span>
-                <code id="m-modal-id">-</code>
-              </div>
-              <div class="m-info-row">
-                <span>Ro'yxatdan o'tgan:</span>
-                <span id="m-modal-date">-</span>
-              </div>
-            </div>
-            <a href="#" id="m-modal-chat-btn" target="_blank" class="action-btn gold-btn mt-3" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px;">
-              💬 Telegramda Yozish
-            </a>
+          <div class="struct-modal-name" id="m-modal-name"></div>
+          <div class="struct-modal-handle" id="m-modal-handle"></div>
+
+          <!-- Level & Refs badges -->
+          <div class="struct-modal-badges">
+            <span class="struct-badge-level" id="m-modal-level"></span>
+            <span class="struct-badge-refs" id="m-modal-refs"></span>
           </div>
+
+          <!-- Info rows -->
+          <div class="struct-modal-info">
+            <div class="struct-info-row">
+              <span class="struct-info-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                Telegram ID
+              </span>
+              <code class="struct-info-value" id="m-modal-id">-</code>
+            </div>
+            <div class="struct-info-row">
+              <span class="struct-info-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                A'zo bo'lgan
+              </span>
+              <span class="struct-info-value" id="m-modal-date">-</span>
+            </div>
+          </div>
+
+          <!-- CTA Button -->
+          <a href="#" id="m-modal-chat-btn" target="_blank" class="struct-modal-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m22 2-7 20-4-9-9-4 20-7z"/><path d="M22 2 11 13"/></svg>
+            Telegramda Yozish
+          </a>
         </div>
       </div>
     </section>
@@ -497,6 +541,6 @@
   <!-- Toast Notification Container -->
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=2.7"></script>
+  <script src="app.js?v=2.8"></script>
 </body>
 </html>

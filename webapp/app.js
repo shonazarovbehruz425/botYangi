@@ -438,13 +438,14 @@ function renderListTreeNode(node, isRoot = false) {
 // Switch between Org Chart view and List view
 function switchTreeView(mode) {
   currentTreeViewMode = mode;
-  document.querySelectorAll('.tree-tab-btn').forEach(b => b.classList.remove('active'));
+  // Support both old and new tab classes
+  document.querySelectorAll('.tree-tab-btn, .struct-tab').forEach(b => b.classList.remove('active'));
 
   const activeBtn = document.getElementById(mode === 'chart' ? 'btn-view-chart' : 'btn-view-list');
   if (activeBtn) activeBtn.classList.add('active');
 
   const zoomTools = document.getElementById('tree-zoom-tools');
-  if (zoomTools) zoomTools.style.display = mode === 'chart' ? 'inline-flex' : 'none';
+  if (zoomTools) zoomTools.style.display = mode === 'chart' ? 'flex' : 'none';
 
   renderCurrentTree();
 }
@@ -557,44 +558,33 @@ function loadUserTree(retryCount) {
   if (!userState.id) {
     const attempts = retryCount || 0;
     if (attempts < 4) {
-      container.innerHTML = `
-        <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
-          <div style="font-size: 28px; margin-bottom: 8px;">⏳</div>
-          <div>Foydalanuvchi aniqlanmoqda...</div>
-        </div>
-      `;
+      container.innerHTML = `<div class="struct-loading"><div class="struct-loading-ring"></div><span>Foydalanuvchi aniqlanmoqda...</span></div>`;
       setTimeout(() => loadUserTree(attempts + 1), 900);
       return;
     } else {
       container.innerHTML = `
-        <div class="tree-empty-state">
-          <div class="tree-empty-icon">⚠️</div>
-          <div class="tree-empty-title">Telegram orqali oching</div>
-          <div class="tree-empty-desc">Iltimos, botdan Mini App tugmasini bosib kirish qiling.</div>
-        </div>
-      `;
+        <div class="struct-empty">
+          <div class="struct-empty-icon">📱</div>
+          <div class="struct-empty-title">Telegram orqali oching</div>
+          <div class="struct-empty-desc">Iltimos, botdan Mini App tugmasini bosib kirish qiling.</div>
+        </div>`;
       return;
     }
   }
 
-  container.innerHTML = `
-    <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
-      <div style="font-size: 28px; margin-bottom: 8px;">⏳</div>
-      <div>Struktura yuklanmoqda...</div>
-    </div>
-  `;
+  container.innerHTML = `<div class="struct-loading"><div class="struct-loading-ring"></div><span>Struktura yuklanmoqda...</span></div>`;
 
   fetch(`/api/user/tree?user_id=${userState.id}`)
     .then(res => res.json())
     .then(d => {
       if (!d.success || !d.tree) {
         container.innerHTML = `
-          <div class="tree-empty-state">
-            <div class="tree-empty-icon">⚠️</div>
-            <div class="tree-empty-title">Tuzilma topilmadi</div>
-            <div class="tree-empty-desc">Jamoa ma'lumotlarini yuklab bo'lmadi. Qayta urinib ko'ring.</div>
-          </div>
-        `;
+          <div class="struct-empty">
+            <div class="struct-empty-icon">⚠️</div>
+            <div class="struct-empty-title">Tuzilma topilmadi</div>
+            <div class="struct-empty-desc">Jamoa ma'lumotlarini yuklab bo'lmadi. Qayta urinib ko'ring.</div>
+            <button class="struct-empty-btn" onclick="loadUserTree()">🔄 Qayta urinish</button>
+          </div>`;
         return;
       }
 
@@ -610,34 +600,29 @@ function loadUserTree(retryCount) {
         });
       }
 
-      // Update stat pills
+      // Update stat cards
       const totalEl = document.getElementById("tree-stat-total");
       if (totalEl) totalEl.innerText = totalDesc;
 
       const l1El = document.getElementById("tree-stat-l1");
-      if (l1El) l1El.innerText = `${l1Count} / 3`;
+      if (l1El) l1El.innerText = `${l1Count}/3`;
 
       const l2El = document.getElementById("tree-stat-l2");
-      if (l2El) l2El.innerText = `${l2Count} / 9`;
+      if (l2El) l2El.innerText = `${l2Count}/9`;
 
       const lvlEl = document.getElementById("tree-stat-level");
-      if (lvlEl) lvlEl.innerText = `${t.current_level || userState.level || 0}-Daraja`;
+      if (lvlEl) lvlEl.innerText = `${t.current_level || userState.level || 0}`;
 
       if (!t.children || t.children.length === 0) {
         container.innerHTML = `
-          <div class="tree-empty-state">
-            <div class="tree-empty-icon">🌱</div>
-            <div class="tree-empty-title">Sizda hali hamkorlar yo'q</div>
-            <div class="tree-empty-desc">
-              Referal havolangiz orqali 3 ta do'stingizni taklif qiling va 1-bosqich shajarangizni yarating!
+          <div class="struct-empty">
+            <div class="struct-empty-icon">🌱</div>
+            <div class="struct-empty-title">Hali hamkorlar yo'q</div>
+            <div class="struct-empty-desc">
+              Referal havolangiz orqali 3 ta do'stingizni taklif qiling va birinchi shajarangizni yarating!
             </div>
-            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-              <button class="action-btn gold-btn" style="padding: 9px 18px; font-size: 13px;" onclick="navigateTo('partners')">
-                🔗 Referal Havola Olish
-              </button>
-            </div>
-          </div>
-        `;
+            <button class="struct-empty-btn" onclick="navigateTo('partners')">🔗 Referal Havola Olish</button>
+          </div>`;
         return;
       }
 
@@ -646,12 +631,12 @@ function loadUserTree(retryCount) {
     .catch(err => {
       console.error("Error loading user tree:", err);
       container.innerHTML = `
-        <div class="tree-empty-state">
-          <div class="tree-empty-icon">❌</div>
-          <div class="tree-empty-title">Xatolik yuz berdi</div>
-          <div class="tree-empty-desc">Server bilan bog'lanishda xatolik. Iltimos qayta urining.</div>
-        </div>
-      `;
+        <div class="struct-empty">
+          <div class="struct-empty-icon">❌</div>
+          <div class="struct-empty-title">Xatolik yuz berdi</div>
+          <div class="struct-empty-desc">Server bilan bog'lanishda xatolik. Iltimos qayta urining.</div>
+          <button class="struct-empty-btn" onclick="loadUserTree()">🔄 Qayta urinish</button>
+        </div>`;
     });
 }
 
