@@ -108,6 +108,15 @@ async def start_webapp_server(bot: Bot = None):
             }
         })
 
+    # 3b. Live User Tree API for Mini App
+    async def get_user_tree_api(request):
+        user_id_param = request.query.get("user_id")
+        if not user_id_param or not user_id_param.isdigit():
+            return web.json_response({"success": False, "error": "user_id missing"}, status=400)
+        uid = int(user_id_param)
+        tree = await db.get_user_tree(uid)
+        return web.json_response({"success": True, "tree": tree})
+
     # 4. Admin Auth API
     async def admin_auth(request):
         try:
@@ -394,6 +403,7 @@ async def start_webapp_server(bot: Bot = None):
     app.router.add_get("/", index)
     app.router.add_get("/buyukhayotpanel", admin_panel)
     app.router.add_get("/api/user/profile", get_user_profile)
+    app.router.add_get("/api/user/tree", get_user_tree_api)
     app.router.add_get("/api/announcements/active", get_active_announcement)
 
     # Admin APIs

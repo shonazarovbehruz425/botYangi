@@ -271,25 +271,51 @@
       </div>
     </section>
 
-    <!-- 4. STRUCTURE VIEW -->
+    <!-- 4. STRUCTURE VIEW (JAMOA SHAJARASI / STRUKTURA) -->
     <section class="page-view" id="view-structure">
-      <div class="section-header">
-        <h2>3-Darajali Jamoa Tuzilmasi</h2>
-        <p>Barcha chuqurlikdagi a'zolar taqsimoti</p>
+      <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h2>🌳 Jamoa Shajarasi</h2>
+          <p>Sizning barcha bosqichlardagi hamkorlaringiz tarmog'i</p>
+        </div>
+        <button class="icon-btn" style="width: auto; height: auto; padding: 7px 14px; font-size: 12.5px; font-weight: 700; gap: 6px; border-radius: 10px;" onclick="loadUserTree()">
+          🔄 Yangilash
+        </button>
       </div>
 
-      <div class="structure-tree-card">
-        <div class="tree-tier">
-          <div class="tier-badge gold">1-Daraja (15%)</div>
-          <div class="tier-count"><span id="tree-l1">0</span> ta hamkor</div>
+      <!-- Quick Stats Strip -->
+      <div class="tree-stats-strip">
+        <div class="tree-stat-pill">
+          <span class="ts-lbl">👥 Jami jamoa:</span>
+          <b class="ts-val" id="tree-stat-total">0</b>
         </div>
-        <div class="tree-tier">
-          <div class="tier-badge silver">2-Daraja (7%)</div>
-          <div class="tier-count"><span id="tree-l2">0</span> ta hamkor</div>
+        <div class="tree-stat-pill">
+          <span class="ts-lbl">🥇 To'g'ridan-to'g'ri:</span>
+          <b class="ts-val" id="tree-stat-l1">0</b>
         </div>
-        <div class="tree-tier">
-          <div class="tier-badge bronze">3-Daraja (3%)</div>
-          <div class="tier-count"><span id="tree-l3">0</span> ta hamkor</div>
+        <div class="tree-stat-pill">
+          <span class="ts-lbl">⭐ Sizning darajangiz:</span>
+          <b class="ts-val gold" id="tree-stat-level">0-Daraja</b>
+        </div>
+      </div>
+
+      <!-- Tree Legend -->
+      <div class="tree-legend">
+        <span class="legend-item"><span class="dot lv0"></span> 0-Daraja</span>
+        <span class="legend-item"><span class="dot lv1"></span> 1-Daraja</span>
+        <span class="legend-item"><span class="dot lv2"></span> 2-Daraja</span>
+        <span class="legend-item"><span class="dot lv3"></span> 3-Daraja</span>
+        <span class="legend-item"><span class="dot lv4"></span> 4-Daraja</span>
+        <span class="legend-item"><span class="dot lv5"></span> 5-Daraja</span>
+      </div>
+
+      <!-- Tree Graph Card -->
+      <div class="card-glass" style="margin-top: 14px; padding: 18px 14px; overflow-x: auto;">
+        <div id="user-tree-container">
+          <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
+            <div style="font-size: 28px; margin-bottom: 8px;">⏳</div>
+            <div>Jamoa tuzilmasi yuklanmoqda...</div>
+          </div>
         </div>
       </div>
     </section>

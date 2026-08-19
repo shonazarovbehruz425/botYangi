@@ -728,3 +728,211 @@ body {
 .toast.show {
   transform: translateX(-50%) translateY(0);
 }
+
+/* ============================================================
+   VISUAL TEAM TREE & HIERARCHY (JAMOA SHAJARASI)
+   ============================================================ */
+.tree-stats-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tree-stat-pill {
+  background: rgba(250, 204, 21, 0.05);
+  border: 1px solid rgba(250, 204, 21, 0.2);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tree-stat-pill .ts-lbl { font-size: 11px; color: var(--text-muted); }
+.tree-stat-pill .ts-val { font-size: 14px; font-weight: 800; color: #fff; }
+.tree-stat-pill .ts-val.gold { color: var(--gold-light); }
+
+.tree-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.tree-legend .legend-item { display: flex; align-items: center; gap: 5px; }
+.tree-legend .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.tree-legend .dot.lv0 { background: #94a3b8; }
+.tree-legend .dot.lv1 { background: #4ade80; }
+.tree-legend .dot.lv2 { background: #38bdf8; }
+.tree-legend .dot.lv3 { background: #c084fc; }
+.tree-legend .dot.lv4 { background: #fb923c; }
+.tree-legend .dot.lv5 { background: #facc15; }
+
+.user-tree-wrap {
+  padding: 4px 0;
+  min-width: 290px;
+}
+
+.tree-person {
+  display: flex;
+  align-items: center;
+  margin: 6px 0;
+  position: relative;
+}
+
+.tree-person-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(22, 17, 7, 0.85);
+  border: 1px solid rgba(250, 204, 21, 0.3);
+  border-radius: 14px;
+  padding: 10px 12px;
+  transition: all 0.2s ease;
+  position: relative;
+  min-width: 260px;
+  max-width: 100%;
+}
+.tree-person-card:hover {
+  background: rgba(250, 204, 21, 0.12);
+  border-color: var(--gold-primary);
+  box-shadow: 0 0 16px rgba(250, 204, 21, 0.2);
+}
+.tree-person-card.root-card {
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.18) 0%, rgba(22, 17, 7, 0.95) 100%);
+  border: 1.5px solid var(--gold-primary);
+  box-shadow: 0 0 15px rgba(250, 204, 21, 0.18);
+  min-width: 280px;
+}
+
+.tree-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--gold-metallic);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+  font-weight: 800;
+  color: #000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.tree-info { flex: 1; min-width: 0; }
+.tree-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--gold-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.tree-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tree-level-badge {
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 3px 7px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.tree-level-badge.lv0 { background: rgba(148,163,184,0.12); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
+.tree-level-badge.lv1 { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.4); }
+.tree-level-badge.lv2 { background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.4); }
+.tree-level-badge.lv3 { background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.4); }
+.tree-level-badge.lv4 { background: rgba(251,146,60,0.15); color: #fb923c; border: 1px solid rgba(251,146,60,0.4); }
+.tree-level-badge.lv5 { background: rgba(250,204,21,0.22); color: #facc15; border: 1px solid rgba(250,204,21,0.5); }
+
+.tree-contact-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.tree-contact-btn:hover {
+  background: rgba(56, 189, 248, 0.3);
+  transform: scale(1.08);
+}
+
+.tree-toggle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(250,204,21,0.15);
+  border: 1px solid rgba(250,204,21,0.4);
+  color: #facc15;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 8px;
+  transition: all 0.2s;
+  user-select: none;
+}
+.tree-toggle:active {
+  transform: scale(0.9);
+  background: rgba(250,204,21,0.35);
+}
+
+.tree-children {
+  margin-left: 24px;
+  padding-left: 14px;
+  border-left: 2px solid rgba(250,204,21,0.25);
+  margin-top: 4px;
+}
+
+.tree-connector {
+  display: flex;
+  align-items: center;
+}
+.tree-connector::before {
+  content: '';
+  display: block;
+  width: 14px;
+  height: 2px;
+  background: rgba(250,204,21,0.25);
+  flex-shrink: 0;
+}
+
+.tree-count-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgba(250,204,21,0.15);
+  color: #facc15;
+  border: 1px solid rgba(250,204,21,0.3);
+}
+
+.tree-empty-state {
+  text-align: center;
+  padding: 36px 16px;
+}
+.tree-empty-icon { font-size: 46px; margin-bottom: 12px; }
+.tree-empty-title { font-size: 16px; font-weight: 800; color: var(--gold-light); margin-bottom: 6px; }
+.tree-empty-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px; max-width: 320px; margin-left: auto; margin-right: auto; }

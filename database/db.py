@@ -316,37 +316,39 @@ class Database:
                 "total_team": total_team
             }
 
-    async def get_user_tree(self, user_id: int) -> dict:
-        """Returns deep 3-tier hierarchy structure for visual tree rendering."""
+    async def get_user_tree(self, user_id: int, max_depth: int = 5) -> dict:
+        """Returns deep multi-tier hierarchy structure for visual tree rendering."""
         user = await self.get_user(user_id)
         if not user:
             return None
 
-        async with aiosqlite.connect(self.db_path) as db:
-            db.row_factory = aiosqlite.Row
-            
-            # Level 1
-            cursor = await db.execute("SELECT user_id, first_name, last_name, username, current_level, status, total_earned FROM users WHERE referrer_id = ?", (user_id,))
-            l1_users = [dict(r) for r in await cursor.fetchall()]
+        async with aiosqlite.connect(self.db_path) as db_conn:
+            db_conn.row_factory = aiosqlite.Row
 
-            for u1 in l1_users:
-                # Level 2
-                cursor2 = await db.execute("SELECT user_id, first_name, last_name, username, current_level, status, total_earned FROM users WHERE referrer_id = ?", (u1["user_id"],))
-                u1["children"] = [dict(r) for r in await cursor2.fetchall()]
-                
-                for u2 in u1["children"]:
-                    # Level 3
-                    cursor3 = await db.execute("SELECT user_id, first_name, last_name, username, current_level, status, total_earned FROM users WHERE referrer_id = ?", (u2["user_id"],))
-                    u2["children"] = [dict(r) for r in await cursor3.fetchall()]
+            async def _fetch_children(parent_id: int, depth: int) -> list:
+                if depth > max_depth:
+                    return []
+                cursor = await db_conn.execute(
+                    "SELECT user_id, first_name, last_name, username, current_level, status, total_earned, registered_at FROM users WHERE referrer_id = ? AND is_banned = 0 ORDER BY registered_at ASC",
+                    (parent_id,)
+                )
+                rows = [dict(r) for r in await cursor.fetchall()]
+                for row in rows:
+                    row["children"] = await _fetch_children(row["user_id"], depth + 1)
+                return rows
+
+            children = await _fetch_children(user_id, 1)
 
             return {
                 "user_id": user["user_id"],
                 "first_name": user.get("first_name", ""),
                 "last_name": user.get("last_name", ""),
                 "username": user.get("username", ""),
-                "current_level": user.get("current_level", 1),
+                "current_level": user.get("current_level", 0),
                 "status": user.get("status", "🌱 Boshlang'ich"),
-                "children": l1_users
+                "total_earned": user.get("total_earned", 0),
+                "registered_at": user.get("registered_at", ""),
+                "children": children
             }
 
     async def get_top_leaders(self, limit: int = 20):

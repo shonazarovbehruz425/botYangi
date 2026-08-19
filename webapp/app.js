@@ -233,7 +233,183 @@ function navigateTo(pageId) {
   if (activeNav) activeNav.classList.add("active");
   if (activeView) activeView.classList.add("active");
 
+  if (pageId === "structure") {
+    loadUserTree();
+  }
+
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ====== VISUAL TEAM TREE (JAMOA SHAJARASI) ======
+let userTreeNodeCounter = 0;
+
+function getUserLvlClass(lvl) {
+  const l = parseInt(lvl) || 0;
+  return `lv${Math.min(l, 5)}`;
+}
+
+function getUserLvlEmoji(lvl) {
+  const icons = ['⬜', '🟢', '🔵', '🟣', '🟠', '🌟'];
+  return icons[Math.min(parseInt(lvl) || 0, 5)];
+}
+
+function countTreeDescendants(node) {
+  if (!node || !node.children || !node.children.length) return 0;
+  let count = node.children.length;
+  node.children.forEach(c => { count += countTreeDescendants(c); });
+  return count;
+}
+
+function renderUserTreeNode(node, isRoot = false) {
+  userTreeNodeCounter++;
+  const nodeId = `utn-${userTreeNodeCounter}`;
+  const childrenId = `utc-${userTreeNodeCounter}`;
+
+  const fullName = isRoot
+    ? `👑 Siz (${node.first_name || ''} ${node.last_name || ''}`.trim() + ')'
+    : `${node.first_name || ''} ${node.last_name || ''}`.trim() || 'Hamkor';
+
+  const username = node.username ? `@${node.username}` : '';
+  const lvl = node.current_level || 0;
+  const hasChildren = node.children && node.children.length > 0;
+  const descCount = countTreeDescendants(node);
+
+  const toggleBtn = hasChildren
+    ? `<button class="tree-toggle" id="utog-${nodeId}" onclick="toggleUserTreeChildren('${childrenId}','utog-${nodeId}')">−</button>`
+    : `<span style="width:22px;height:22px;display:inline-block;flex-shrink:0;margin-right:8px;"></span>`;
+
+  const countBadge = hasChildren
+    ? `<span class="tree-count-badge" title="${descCount} ta a'zo">👥 ${node.children.length}${descCount > node.children.length ? `+${descCount - node.children.length}` : ''}</span>`
+    : '';
+
+  const cardClass = isRoot ? 'tree-person-card root-card' : 'tree-person-card';
+  const avatarIcon = isRoot ? '👑' : getUserLvlEmoji(lvl);
+
+  // Contact button (for non-root children)
+  let contactBtn = '';
+  if (!isRoot && node.user_id) {
+    const contactUrl = node.username ? `https://t.me/${node.username}` : `tg://user?id=${node.user_id}`;
+    contactBtn = `<a href="${contactUrl}" target="_blank" class="tree-contact-btn" title="Telegramda yozish" onclick="event.stopPropagation();">💬</a>`;
+  }
+
+  const html = `
+    <div class="tree-person" id="${nodeId}">
+      ${toggleBtn}
+      <div class="${cardClass}">
+        <div class="tree-avatar">${avatarIcon}</div>
+        <div class="tree-info">
+          <div class="tree-name">${fullName} ${countBadge}</div>
+          <div class="tree-meta">
+            <code style="font-size:10.5px; color:#94a3b8;">${node.user_id ? `ID: ${node.user_id}` : ''}</code>
+            ${username ? `<span style="color:#38bdf8;">${username}</span>` : ''}
+          </div>
+        </div>
+        <span class="tree-level-badge ${getUserLvlClass(lvl)}">${lvl}-Daraja</span>
+        ${contactBtn}
+      </div>
+    </div>
+    ${hasChildren ? `<div class="tree-children" id="${childrenId}">
+      ${node.children.map(child => `
+        <div class="tree-connector">
+          ${renderUserTreeNode(child, false)}
+        </div>
+      `).join('')}
+    </div>` : ''}
+  `;
+  return html;
+}
+
+function toggleUserTreeChildren(childrenId, toggleId) {
+  const el = document.getElementById(childrenId);
+  const btn = document.getElementById(toggleId);
+  if (!el) return;
+  const isVisible = el.style.display !== 'none';
+  el.style.display = isVisible ? 'none' : '';
+  btn.textContent = isVisible ? '+' : '−';
+}
+
+function loadUserTree() {
+  const container = document.getElementById("user-tree-container");
+  if (!container) return;
+
+  if (!userState.id) {
+    container.innerHTML = `
+      <div class="tree-empty-state">
+        <div class="tree-empty-icon">🌱</div>
+        <div class="tree-empty-title">Jamoa Tuzilmasi</div>
+        <div class="tree-empty-desc">Ma'lumotlar yuklanmoqda yoki Telegram orqali ochilmagan.</div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
+      <div style="font-size: 28px; margin-bottom: 8px;">⏳</div>
+      <div>Jamoa shajarasi yuklanmoqda...</div>
+    </div>
+  `;
+
+  fetch(`/api/user/tree?user_id=${userState.id}`)
+    .then(res => res.json())
+    .then(d => {
+      if (!d.success || !d.tree) {
+        container.innerHTML = `
+          <div class="tree-empty-state">
+            <div class="tree-empty-icon">⚠️</div>
+            <div class="tree-empty-title">Tuzilma topilmadi</div>
+            <div class="tree-empty-desc">Jamoa ma'lumotlarini yuklab bo'lmadi. Qayta urinib ko'ring.</div>
+          </div>
+        `;
+        return;
+      }
+
+      const t = d.tree;
+      const totalDesc = countTreeDescendants(t);
+      const directCount = t.children ? t.children.length : 0;
+
+      // Update stat pills
+      const totalEl = document.getElementById("tree-stat-total");
+      if (totalEl) totalEl.innerText = totalDesc;
+
+      const l1El = document.getElementById("tree-stat-l1");
+      if (l1El) l1El.innerText = directCount;
+
+      const lvlEl = document.getElementById("tree-stat-level");
+      if (lvlEl) lvlEl.innerText = `${t.current_level || userState.level || 0}-Daraja`;
+
+      if (!t.children || t.children.length === 0) {
+        container.innerHTML = `
+          <div class="tree-empty-state">
+            <div class="tree-empty-icon">🌱</div>
+            <div class="tree-empty-title">Sizda hali hamkorlar yo'q</div>
+            <div class="tree-empty-desc">
+              Referal havolangiz orqali do'stlaringizni taklif qiling va o'z jamoangiz shajarasini yarating!
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+              <button class="action-btn gold-btn" style="padding: 9px 18px; font-size: 13px;" onclick="navigateTo('partners')">
+                🔗 Referal Havola Olish
+              </button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      userTreeNodeCounter = 0;
+      const treeHtml = `<div class="user-tree-wrap">${renderUserTreeNode(t, true)}</div>`;
+      container.innerHTML = treeHtml;
+    })
+    .catch(err => {
+      console.error("Error loading user tree:", err);
+      container.innerHTML = `
+        <div class="tree-empty-state">
+          <div class="tree-empty-icon">❌</div>
+          <div class="tree-empty-title">Xatolik yuz berdi</div>
+          <div class="tree-empty-desc">Server bilan bog'lanishda xatolik. Iltimos qayta urining.</div>
+        </div>
+      `;
+    });
 }
 
 // Copy Referral Link
