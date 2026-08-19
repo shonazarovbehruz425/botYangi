@@ -84,12 +84,8 @@ def get_all_levels_keyboard() -> InlineKeyboardMarkup:
 
 def get_payment_request_keyboard(level: int, curator_id: int, curator_username: str = "", from_all: bool = False) -> InlineKeyboardMarkup:
     back_target = "mkt_all_levels" if from_all else "menu_marketing"
-    
-    clean_username = (curator_username or "").replace("@", "").strip()
-    if clean_username and clean_username != "-" and not clean_username.startswith("ID:"):
-        contact_url = f"https://t.me/{clean_username}"
-    else:
-        contact_url = f"tg://user?id={curator_id}"
+    # Always use tg://user?id= - guaranteed to open the exact person's chat regardless of username
+    contact_url = f"tg://user?id={curator_id}"
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -105,11 +101,8 @@ def get_payment_request_keyboard(level: int, curator_id: int, curator_username: 
 
 
 def get_payment_sent_keyboard(curator_id: int, curator_username: str = "") -> InlineKeyboardMarkup:
-    clean_username = (curator_username or "").replace("@", "").strip()
-    if clean_username and clean_username != "-" and not clean_username.startswith("ID:"):
-        contact_url = f"https://t.me/{clean_username}"
-    else:
-        contact_url = f"tg://user?id={curator_id}"
+    # Always use tg://user?id= - guaranteed to open the exact person's chat regardless of username
+    contact_url = f"tg://user?id={curator_id}"
 
     return InlineKeyboardMarkup(
         inline_keyboard=[

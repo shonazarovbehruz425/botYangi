@@ -225,7 +225,11 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
     payeer = curator_data.get("wallet_payeer") or "P... (PAYEER)"
 
     curator_username = curator_data.get("username", "")
-    curator_tag = f"@{curator_username}" if curator_username else f"ID: {curator_id}"
+    curator_first = curator_data.get("first_name", "")
+    curator_last = curator_data.get("last_name", "")
+    curator_full_name = f"{curator_first} {curator_last}".strip() or f"ID: {curator_id}"
+    # Show real name, not username (username can be wrong/placeholder)
+    curator_tag = curator_full_name
     price_label = LEVEL_LABELS.get(level, f"{LEVEL_PRICES.get(level, 200000):,} so'm")
 
     caption = (
