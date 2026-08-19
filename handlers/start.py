@@ -118,28 +118,32 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
     referrer_in_db = await db.get_user(referrer_id)
     referrer_info = None
 
-    if referrer_in_db:
+    # Always try Telegram API first for fresh real data
+    try:
+        chat = await bot.get_chat(referrer_id)
+        referrer_info = {
+            "first_name": chat.first_name or "-",
+            "last_name": chat.last_name or "-",
+            "username": chat.username or "-"
+        }
+    except Exception:
+        pass
+
+    # If API failed, fall back to DB
+    if not referrer_info and referrer_in_db:
         referrer_info = {
             "first_name": referrer_in_db.get("first_name") or "-",
             "last_name": referrer_in_db.get("last_name") or "-",
             "username": referrer_in_db.get("username") or "-"
         }
-    else:
-        # Try fetching info directly from Telegram API
-        try:
-            chat = await bot.get_chat(referrer_id)
-            referrer_info = {
-                "first_name": chat.first_name or "-",
-                "last_name": chat.last_name or "-",
-                "username": chat.username or "-"
-            }
-        except Exception:
-            if referrer_id in ADMINS:
-                referrer_info = {
-                    "first_name": "Admin",
-                    "last_name": "Buyuk Hayot",
-                    "username": "Buyukhayot_bot"
-                }
+
+    # If neither worked but referrer_id is valid admin
+    if not referrer_info and referrer_id in ADMINS:
+        referrer_info = {
+            "first_name": f"ID: {referrer_id}",
+            "last_name": "-",
+            "username": "-"
+        }
 
     if not referrer_info:
         await message.answer(

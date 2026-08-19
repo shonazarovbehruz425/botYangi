@@ -202,16 +202,22 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
         curator_id = ADMINS[0] if ADMINS else user.id
 
     curator_data = await db.get_user(curator_id)
-    if not curator_data:
-        try:
-            chat_obj = await bot.get_chat(curator_id)
-            curator_data = {
-                "first_name": chat_obj.first_name or "Admin",
-                "last_name": chat_obj.last_name or "",
-                "username": chat_obj.username or "Buyukhayot_bot"
-            }
-        except Exception:
-            curator_data = {"first_name": "Admin", "last_name": "", "username": "Buyukhayot_bot"}
+
+    # Always try Telegram API for fresh real info
+    try:
+        chat_obj = await bot.get_chat(curator_id)
+        tg_info = {
+            "first_name": chat_obj.first_name or "",
+            "last_name": chat_obj.last_name or "",
+            "username": chat_obj.username or ""
+        }
+        # Merge: use API for name/username, keep DB wallet fields
+        merged = dict(curator_data) if curator_data else {}
+        merged.update({k: v for k, v in tg_info.items() if v})
+        curator_data = merged
+    except Exception:
+        if not curator_data:
+            curator_data = {"first_name": f"ID: {curator_id}", "last_name": "", "username": ""}
 
     karta = curator_data.get("wallet_card") or "8600 **** **** **** (UzCard / Humo)"
     bep20 = curator_data.get("wallet_bep20") or "0x... (USDT BEP20)"
