@@ -148,7 +148,7 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             status = "👑 Admin" if user_id in ADMINS else "🌱 Boshlang'ich"
-            default_level = 5 if user_id in ADMINS else 1
+            default_level = 5 if user_id in ADMINS else 0
             await db.execute(
                 """
                 INSERT INTO users (user_id, first_name, last_name, username, referrer_id, status, current_level, registered_at, last_active, visits_count)

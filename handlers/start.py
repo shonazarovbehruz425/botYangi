@@ -199,32 +199,11 @@ async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
 
     await callback.answer("✅ Ro'yxatdan o'tish muvaffaqiyatli yakunlandi!", show_alert=False)
 
-    # Notify inviter (referrer) & check for level upgrade
+    # Notify inviter (referrer)
     if referrer_id and referrer_id != user.id:
         try:
             username_tag = f"(@{user.username})" if user.username else ""
             ref_count = await db.get_referral_count(referrer_id)
-            
-            ref_user = await db.get_user(referrer_id)
-            cur_lvl = ref_user.get("current_level", 0) if ref_user else 0
-            
-            new_lvl = cur_lvl
-            if ref_count >= 243 and cur_lvl < 5:
-                new_lvl = 5
-            elif ref_count >= 81 and cur_lvl < 4:
-                new_lvl = 4
-            elif ref_count >= 27 and cur_lvl < 3:
-                new_lvl = 3
-            elif ref_count >= 9 and cur_lvl < 2:
-                new_lvl = 2
-            elif ref_count >= 3 and cur_lvl < 1:
-                new_lvl = 1
-
-            if new_lvl > cur_lvl:
-                await db.set_user_level(referrer_id, new_lvl)
-                level_msg = f"\n\n🚀 <b>TABRIKLAYMIZ! Sizning marketing darajangiz {new_lvl}-Bosqichga ko'tarildi!</b>"
-            else:
-                level_msg = f"\n\n📊 Jami to'g'ridan-to'g'ri referallaringiz: <b>{ref_count}</b> ta"
 
             await bot.send_message(
                 chat_id=referrer_id,
@@ -232,8 +211,8 @@ async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
                     "🎉 <b>Yangi hamkor qo'shildi!</b>\n\n"
                     f"Sizning referal havolangiz orqali yangi a'zo ro'yxatdan o'tdi:\n"
                     f"👤 <b>{user.full_name}</b> {username_tag}\n"
-                    f"🆔 ID: <code>{user.id}</code>"
-                    f"{level_msg}"
+                    f"🆔 ID: <code>{user.id}</code>\n\n"
+                    f"📊 Jami to'g'ridan-to'g'ri referallaringiz: <b>{ref_count}</b> ta"
                 ),
                 parse_mode="HTML"
             )
