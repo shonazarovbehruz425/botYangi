@@ -165,6 +165,18 @@ class Database:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             status = "👑 Admin" if user_id in ADMINS else "🌱 Boshlang'ich"
             default_level = 5 if user_id in ADMINS else 0
+
+            # Guard: check if referrer already has 3 or more direct referrals
+            if referrer_id and referrer_id != 0:
+                cursor = await db.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ? AND user_id != ?", (referrer_id, user_id))
+                cnt = (await cursor.fetchone())[0]
+                if cnt >= 3:
+                    # Referrer is full (max 3 allowed)
+                    cursor = await db.execute("SELECT referrer_id FROM users WHERE user_id = ?", (user_id,))
+                    row = await cursor.fetchone()
+                    if not row or row[0] != referrer_id:
+                        referrer_id = 0
+
             await db.execute(
                 """
                 INSERT INTO users (user_id, first_name, last_name, username, referrer_id, status, current_level, registered_at, last_active, visits_count)

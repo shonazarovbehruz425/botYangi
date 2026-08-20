@@ -624,9 +624,12 @@ async def partners_handler(callback: CallbackQuery, bot: Bot):
     ref_count = await db.get_referral_count(user.id)
     ref_link = f"https://t.me/{bot_me.username}?start=ref_{user.id}"
 
+    status_note = "✅ <i>Sizning 1-darajangiz to'lgan (3/3).</i>" if ref_count >= 3 else f"ℹ️ <i>1-darajangizda yana {3 - ref_count} ta bo'sh o'rin mavjud.</i>"
+
     text = (
         "👥 <b>HAMKORLAR VA REFERAL TIZIMI</b>\n\n"
-        f"👤 <b>Sizning hamkorlaringiz:</b> <b>{ref_count}</b> ta\n\n"
+        f"👤 <b>Sizning 1-darajali hamkorlaringiz:</b> <b>{ref_count} / 3</b> ta\n"
+        f"{status_note}\n\n"
         f"🔗 <b>Sizning taklif havolangiz:</b>\n<code>{ref_link}</code>"
     )
     keyboard = get_partners_keyboard(bot_me.username, user.id)
@@ -641,12 +644,16 @@ async def cab_ref_link_handler(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     user = callback.from_user
     bot_me = await bot.get_me()
+    ref_count = await db.get_referral_count(user.id)
     ref_link = f"https://t.me/{bot_me.username}?start=ref_{user.id}"
+
+    limit_info = "\n\n⚠️ <i>Diqqat: Sizning 1-darajangizda 3/3 ta hamkor to'lgan!</i>" if ref_count >= 3 else f"\n\n📊 <i>Hozirgi holat: {ref_count}/3 ta hamkor</i>"
 
     text = (
         "🔗 <b>SIZNING SHAXSIY REFERAL HAVOLANGIZ:</b>\n\n"
         f"<code>{ref_link}</code>\n\n"
-        "📌 <i>Ushbu havolani nusxalab do'stlaringizga yuboring. Ular faqat sizning havolangiz orqali ro'yxatdan o'ta oladilar!</i>"
+        "📌 <i>Ushbu havolani nusxalab do'stlaringizga yuboring. Har bir a'zo to'g'ridan-to'g'ri ko'pi bilan 3 ta hamkor qabul qilishi mumkin.</i>"
+        f"{limit_info}"
     )
     await callback.message.answer(text=text, parse_mode="HTML")
 

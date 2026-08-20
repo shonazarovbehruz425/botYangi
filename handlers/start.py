@@ -161,6 +161,17 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
         )
         return
 
+    # Check if referrer already has 3 direct referrals
+    ref_count = await db.get_referral_count(referrer_id)
+    if ref_count >= 3:
+        await message.answer(
+            "⚠️ <b>Ushbu taklif qiluvchining 1-darajali jamoasi to'lgan!</b>\n\n"
+            f"Tizim qoidasiga ko'ra, har bir ishtirokchi to'g'ridan-to'g'ri faqat <b>3 ta</b> hamkorni qabul qila oladi (hozirda: <b>{ref_count}/3</b>).\n"
+            "Iltimos, ushbu jamoaning boshqa a'zosi referal havolasi orqali kiring.",
+            parse_mode="HTML"
+        )
+        return
+
     # Format Curator (Inviter) & User info card in Uzbek
     curator_username_display = f"@{referrer_info['username']}" if referrer_info['username'] != "-" else "Mavjud emas"
     user_username_display = f"@{user.username}" if user.username else "Mavjud emas"
@@ -190,6 +201,19 @@ async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
     user = callback.from_user
     data_parts = callback.data.split(":")
     referrer_id = int(data_parts[1]) if len(data_parts) > 1 and data_parts[1].isdigit() else 0
+
+    # Double check if referrer already has 3 direct referrals
+    if referrer_id:
+        current_ref_count = await db.get_referral_count(referrer_id)
+        if current_ref_count >= 3:
+            await callback.answer("⚠️ Ushbu kuratorning 1-darajali jamoasi to'lgan (3/3)!", show_alert=True)
+            await callback.message.answer(
+                "⚠️ <b>Ro'yxatdan o'tib bo'lmadi!</b>\n\n"
+                "Ushbu kurator allaqachon maksimal <b>3 ta</b> to'g'ridan-to'g'ri hamkorni qabul qilgan.\n"
+                "Iltimos, boshqa hamkorning referal havolasi orqali ro'yxatdan o'ting.",
+                parse_mode="HTML"
+            )
+            return
 
     # Save to database
     await db.register_user(
