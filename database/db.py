@@ -231,6 +231,148 @@ class Database:
 
             await self.log_activity(user_id, "USER_DELETED", f"Foydalanuvchi bazadan butunlay o'chirildi. Referallari kurator {referrer_id} ga o'tkazildi.")
 
+    async def find_or_create_user_by_identifier(self, identifier: str) -> dict:
+        """Finds user by user_id or @username, or registers placeholder if valid numeric ID."""
+        clean_id = identifier.strip().lstrip("@")
+        if not clean_id:
+            return None
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            # 1. Try finding by numeric user_id
+            if clean_id.isdigit():
+                uid = int(clean_id)
+                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (uid,))
+                row = await cursor.fetchone()
+                if row:
+                    return dict(row)
+                # If not found, create new user entry
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                await db.execute(
+                    """
+                    INSERT OR IGNORE INTO users (user_id, first_name, last_name, username, referrer_id, current_level, registered_at)
+                    VALUES (?, ?, ?, ?, 0, 1, ?)
+                    """,
+                    (uid, f"User_{clean_id[-4:]}", "", "", now_str)
+                )
+                await db.commit()
+                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (uid,))
+                new_row = await cursor.fetchone()
+                return dict(new_row) if new_row else None
+
+            # 2. Try finding by username
+            cursor = await db.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (clean_id,))
+            row = await cursor.fetchone()
+            if row:
+                return dict(row)
+
+            # 3. If username not found, generate a pseudo user_id based on hash or random ID to register them
+            pseudo_id = 900000000 + abs(hash(clean_id)) % 99999999
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            await db.execute(
+                """
+                INSERT OR IGNORE INTO users (user_id, first_name, last_name, username, referrer_id, current_level, registered_at)
+                VALUES (?, ?, ?, ?, 0, 1, ?)
+                """,
+                (pseudo_id, clean_id, "", clean_id, now_str)
+            )
+            await db.commit()
+            cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (pseudo_id,))
+            new_row = await cursor.fetchone()
+            return dict(new_row) if new_row else None
+
+    async def is_user_in_subtree(self, root_id: int, target_id: int, max_depth: int = 15) -> bool:
+        """Checks if target_id is equal to or a descendant of root_id."""
+        if root_id == target_id:
+            return True
+        curr = target_id
+        depth = 0
+        while curr and curr != 0 and depth < max_depth:
+            user = await self.get_user(curr)
+            if not user:
+                break
+            ref = user.get("referrer_id", 0)
+            if ref == root_id:
+                return True
+            curr = ref
+            depth += 1
+        return False
+
+    async def replace_user_in_tree(self, target_user_id: int, new_user_identifier: str, requester_id: int) -> dict:
+        """Replaces target_user with new_user in the referral tree."""
+        new_user = await self.find_or_create_user_by_identifier(new_user_identifier)
+        if not new_user:
+            return {"success": False, "error": "Yangi foydalanuvchi topilmadi yoki kiritilmadi"}
+
+        new_user_id = new_user["user_id"]
+        if new_user_id == target_user_id:
+            return {"success": False, "error": "Ayni bir xil foydalanuvchini almashtirib bo'lmaydi"}
+
+        target_user = await self.get_user(target_user_id)
+        if not target_user:
+            return {"success": False, "error": "Almashtiriluvchi foydalanuvchi topilmadi"}
+
+        # Check authorization (is requester admin or ancestor)
+        is_auth = (requester_id in ADMINS) or await self.is_user_in_subtree(requester_id, target_user_id)
+        if not is_auth:
+            return {"success": False, "error": "Siz ushbu a'zoni almashtirish huquqiga ega emassiz"}
+
+        parent_id = target_user.get("referrer_id", 0)
+
+        async with aiosqlite.connect(self.db_path) as db:
+            # 1. Set new_user's referrer to target's parent
+            await db.execute("UPDATE users SET referrer_id = ? WHERE user_id = ?", (parent_id, new_user_id))
+
+            # 2. Reassign target's children to new_user
+            await db.execute("UPDATE users SET referrer_id = ? WHERE referrer_id = ? AND user_id != ?", (new_user_id, target_user_id, new_user_id))
+
+            # 3. Detach target_user
+            await db.execute("UPDATE users SET referrer_id = 0 WHERE user_id = ?", (target_user_id,))
+            await db.commit()
+
+        if parent_id:
+            await self.update_user_rank(parent_id)
+        await self.update_user_rank(new_user_id)
+
+        await self.log_activity(requester_id, "TREE_REPLACE_USER", f"Foydalanuvchi {target_user_id} o'rniga {new_user_id} (@{new_user.get('username', '')}) almashtirildi")
+        return {"success": True, "message": f"Foydalanuvchi muvaffaqiyatli almashtirildi: {new_user.get('first_name', '')} (ID: {new_user_id})", "new_user": new_user}
+
+    async def insert_user_in_between(self, target_user_id: int, new_user_identifier: str, requester_id: int, mode: str = "above") -> dict:
+        """Inserts new_user between parent and target ('above') or between target and target's children ('below')."""
+        new_user = await self.find_or_create_user_by_identifier(new_user_identifier)
+        if not new_user:
+            return {"success": False, "error": "Yangi foydalanuvchi topilmadi"}
+
+        new_user_id = new_user["user_id"]
+        if new_user_id == target_user_id:
+            return {"success": False, "error": "Ayni bir xil foydalanuvchini qo'shib bo'lmaydi"}
+
+        target_user = await self.get_user(target_user_id)
+        if not target_user:
+            return {"success": False, "error": "Maqsadli foydalanuvchi topilmadi"}
+
+        is_auth = (requester_id in ADMINS) or await self.is_user_in_subtree(requester_id, target_user_id)
+        if not is_auth:
+            return {"success": False, "error": "Siz ushbu zanjirga a'zo qo'shish huquqiga ega emassiz"}
+
+        async with aiosqlite.connect(self.db_path) as db:
+            if mode == "above":
+                # Parent -> new_user -> target_user
+                parent_id = target_user.get("referrer_id", 0)
+                await db.execute("UPDATE users SET referrer_id = ? WHERE user_id = ?", (parent_id, new_user_id))
+                await db.execute("UPDATE users SET referrer_id = ? WHERE user_id = ?", (new_user_id, target_user_id))
+            else:
+                # Target_user -> new_user -> target's children
+                await db.execute("UPDATE users SET referrer_id = ? WHERE referrer_id = ? AND user_id != ?", (new_user_id, target_user_id, new_user_id))
+                await db.execute("UPDATE users SET referrer_id = ? WHERE user_id = ?", (target_user_id, new_user_id))
+            await db.commit()
+
+        await self.update_user_rank(new_user_id)
+        await self.update_user_rank(target_user_id)
+
+        await self.log_activity(requester_id, "TREE_INSERT_USER", f"Zanjir orasiga yangi a'zo {new_user_id} ({mode}) qo'shildi")
+        return {"success": True, "message": f"Zanjirga yangi hamkor muvaffaqiyatli qo'shildi: {new_user.get('first_name', '')} (ID: {new_user_id})", "new_user": new_user}
+
     async def change_user_referrer(self, user_id: int, new_referrer_id: int):
         async with aiosqlite.connect(self.db_path) as db:
             old_user = await self.get_user(user_id)

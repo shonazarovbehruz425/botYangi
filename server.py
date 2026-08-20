@@ -123,6 +123,43 @@ async def start_webapp_server(bot: Bot = None):
         tree = await db.get_user_tree(uid)
         return web.json_response({"success": True, "tree": tree})
 
+    # 3c. User Tree Node Replace API
+    async def user_tree_replace_api(request):
+        try:
+            data = await request.json()
+            target_user_id = int(data.get("target_user_id", 0))
+            new_identifier = str(data.get("new_identifier", "")).strip()
+            requester_id = int(data.get("requester_id", 0))
+
+            if not target_user_id or not new_identifier or not requester_id:
+                return web.json_response({"success": False, "error": "Barcha maydonlar to'ldirilishi shart"}, status=400)
+
+            res = await db.replace_user_in_tree(target_user_id, new_identifier, requester_id)
+            if res.get("success"):
+                asyncio.create_task(db_backup_manager.backup_and_send(bot_instance))
+            return web.json_response(res)
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=400)
+
+    # 3d. User Tree Node Insert Between API
+    async def user_tree_insert_api(request):
+        try:
+            data = await request.json()
+            target_user_id = int(data.get("target_user_id", 0))
+            new_identifier = str(data.get("new_identifier", "")).strip()
+            requester_id = int(data.get("requester_id", 0))
+            mode = str(data.get("mode", "above"))
+
+            if not target_user_id or not new_identifier or not requester_id:
+                return web.json_response({"success": False, "error": "Barcha maydonlar to'ldirilishi shart"}, status=400)
+
+            res = await db.insert_user_in_between(target_user_id, new_identifier, requester_id, mode)
+            if res.get("success"):
+                asyncio.create_task(db_backup_manager.backup_and_send(bot_instance))
+            return web.json_response(res)
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=400)
+
     # 4. Admin Auth API
     async def admin_auth(request):
         try:
@@ -410,6 +447,8 @@ async def start_webapp_server(bot: Bot = None):
     app.router.add_get("/buyukhayotpanel", admin_panel)
     app.router.add_get("/api/user/profile", get_user_profile)
     app.router.add_get("/api/user/tree", get_user_tree_api)
+    app.router.add_post("/api/user/tree/replace", user_tree_replace_api)
+    app.router.add_post("/api/user/tree/insert", user_tree_insert_api)
     app.router.add_get("/api/announcements/active", get_active_announcement)
 
     # Admin APIs

@@ -918,6 +918,28 @@ function openMemberDetails(uid, directNode = null) {
   const avatarEl = document.getElementById('m-modal-avatar');
   if (avatarEl) avatarEl.innerText = getUserLvlEmoji(lvl);
 
+  currentSelectedMemberNode = node;
+
+  // Reset forms in modal
+  const replaceForm = document.getElementById('form-tree-replace');
+  const insertForm = document.getElementById('form-tree-insert');
+  if (replaceForm) {
+    replaceForm.style.display = 'none';
+    const inp = document.getElementById('input-replace-target');
+    if (inp) inp.value = '';
+  }
+  if (insertForm) {
+    insertForm.style.display = 'none';
+    const inp = document.getElementById('input-insert-target');
+    if (inp) inp.value = '';
+  }
+
+  // If node is root (user himself), hide replace option or keep available
+  const curatorBox = document.getElementById('curator-actions-box');
+  if (curatorBox) {
+    curatorBox.style.display = 'flex';
+  }
+
   const chatBtn = document.getElementById('m-modal-chat-btn');
   if (chatBtn) {
     if (node.username) {
@@ -931,6 +953,106 @@ function openMemberDetails(uid, directNode = null) {
 
   const modal = document.getElementById('member-detail-modal');
   if (modal) modal.style.display = 'flex';
+}
+
+let currentSelectedMemberNode = null;
+
+function toggleTreeActionForm(type) {
+  const replaceForm = document.getElementById('form-tree-replace');
+  const insertForm = document.getElementById('form-tree-insert');
+
+  if (type === 'replace') {
+    if (replaceForm && replaceForm.style.display === 'block') {
+      replaceForm.style.display = 'none';
+    } else if (replaceForm) {
+      replaceForm.style.display = 'block';
+      if (insertForm) insertForm.style.display = 'none';
+      document.getElementById('input-replace-target')?.focus();
+    }
+  } else if (type === 'insert') {
+    if (insertForm && insertForm.style.display === 'block') {
+      insertForm.style.display = 'none';
+    } else if (insertForm) {
+      insertForm.style.display = 'block';
+      if (replaceForm) replaceForm.style.display = 'none';
+      document.getElementById('input-insert-target')?.focus();
+    }
+  }
+}
+
+function submitTreeReplace() {
+  if (!currentSelectedMemberNode) return;
+  const targetUid = currentSelectedMemberNode.user_id;
+  const inputEl = document.getElementById('input-replace-target');
+  const val = inputEl ? inputEl.value.trim() : '';
+
+  if (!val) {
+    showToast("⚠️ Yangi hamkor username yoki ID sini kiriting");
+    return;
+  }
+
+  showToast("⏳ Almashtirilmoqda...");
+  fetch('/api/user/tree/replace', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      target_user_id: targetUid,
+      new_identifier: val,
+      requester_id: userState.id || targetUid
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showToast("✅ " + (data.message || "Muvaffaqiyatli almashtirildi!"));
+      closeModal('member-detail-modal');
+      loadUserTree();
+    } else {
+      showToast("❌ Xatolik: " + (data.error || "Almashtirib bo'lmadi"));
+    }
+  })
+  .catch(err => {
+    showToast("❌ Server xatoligi yuz berdi");
+  });
+}
+
+function submitTreeInsert() {
+  if (!currentSelectedMemberNode) return;
+  const targetUid = currentSelectedMemberNode.user_id;
+  const inputEl = document.getElementById('input-insert-target');
+  const val = inputEl ? inputEl.value.trim() : '';
+  const modeEl = document.querySelector('input[name="insert-mode"]:checked');
+  const mode = modeEl ? modeEl.value : 'above';
+
+  if (!val) {
+    showToast("⚠️ Yangi a'zo username yoki ID sini kiriting");
+    return;
+  }
+
+  showToast("⏳ Zanjirga qo'shilmoqda...");
+  fetch('/api/user/tree/insert', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      target_user_id: targetUid,
+      new_identifier: val,
+      mode: mode,
+      requester_id: userState.id || targetUid
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showToast("✅ " + (data.message || "Muvaffaqiyatli qo'shildi!"));
+      closeModal('member-detail-modal');
+      loadUserTree();
+    } else {
+      showToast("❌ Xatolik: " + (data.error || "Qo'shib bo'lmadi"));
+    }
+  })
+  .catch(err => {
+    showToast("❌ Server xatoligi yuz berdi");
+  });
 }
 
 function closeMemberModal(e) {

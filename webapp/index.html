@@ -510,11 +510,49 @@
             </div>
           </div>
 
-          <!-- CTA Button -->
-          <a href="#" id="m-modal-chat-btn" target="_blank" class="struct-modal-btn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m22 2-7 20-4-9-9-4 20-7z"/><path d="M22 2 11 13"/></svg>
-            Telegramda Yozish
-          </a>
+          <!-- Actions: Chat, Replace, Insert -->
+          <div style="width:100%; display:flex; flex-direction:column; gap:8px; margin-top:4px;">
+            <a href="#" id="m-modal-chat-btn" target="_blank" class="struct-modal-btn" style="margin-top:0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m22 2-7 20-4-9-9-4 20-7z"/><path d="M22 2 11 13"/></svg>
+              Telegramda Yozish
+            </a>
+
+            <!-- Curator Action Buttons (Shown for curator/admin) -->
+            <div id="curator-actions-box" style="display:flex; gap:8px; width:100%;">
+              <button type="button" class="tree-btn-sm" style="flex:1; justify-content:center; padding:10px; background:rgba(201,118,28,0.15); border-color:#c9761c; color:#f2b33d;" onclick="toggleTreeActionForm('replace')">
+                🔄 Almashtirish
+              </button>
+              <button type="button" class="tree-btn-sm" style="flex:1; justify-content:center; padding:10px; background:rgba(34,197,94,0.15); border-color:#22c55e; color:#86efac;" onclick="toggleTreeActionForm('insert')">
+                ➕ Orasiga qo'shish
+              </button>
+            </div>
+
+            <!-- Replace User Form -->
+            <div id="form-tree-replace" style="display:none; background:rgba(0,0,0,0.5); border:1px solid #c9761c; border-radius:14px; padding:12px; margin-top:4px;">
+              <div style="font-size:12px; color:#f2b33d; font-weight:700; margin-bottom:6px;">🔄 Ushbu hamkor o'rniga boshqasini qo'yish:</div>
+              <input type="text" id="input-replace-target" placeholder="Yangi Telegram @username yoki ID" style="width:100%; padding:9px 12px; border-radius:10px; border:1px solid #c9761c; background:#0b2318; color:#fff; font-size:13px; outline:none; box-sizing:border-box; margin-bottom:8px;">
+              <button type="button" class="action-btn" style="width:100%; padding:9px; background:linear-gradient(135deg,#c9761c,#e08f2e); color:#fff; border:none; border-radius:10px; font-weight:800; cursor:pointer;" onclick="submitTreeReplace()">
+                Tasdiqlash va Almashtirish
+              </button>
+            </div>
+
+            <!-- Insert User Form -->
+            <div id="form-tree-insert" style="display:none; background:rgba(0,0,0,0.5); border:1px solid #22c55e; border-radius:14px; padding:12px; margin-top:4px;">
+              <div style="font-size:12px; color:#86efac; font-weight:700; margin-bottom:6px;">➕ Zanjir orasiga yangi a'zo kiritish:</div>
+              <input type="text" id="input-insert-target" placeholder="Yangi Telegram @username yoki ID" style="width:100%; padding:9px 12px; border-radius:10px; border:1px solid #22c55e; background:#0b2318; color:#fff; font-size:13px; outline:none; box-sizing:border-box; margin-bottom:8px;">
+              <div style="display:flex; gap:10px; font-size:12px; color:#e2e8f0; margin-bottom:10px;">
+                <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                  <input type="radio" name="insert-mode" value="above" checked> 🔼 Yuqorisiga
+                </label>
+                <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                  <input type="radio" name="insert-mode" value="below"> 🔽 Pastiga (bolalari oldiga)
+                </label>
+              </div>
+              <button type="button" class="action-btn" style="width:100%; padding:9px; background:linear-gradient(135deg,#166534,#22c55e); color:#fff; border:none; border-radius:10px; font-weight:800; cursor:pointer;" onclick="submitTreeInsert()">
+                Zanjirga qo'shish
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
