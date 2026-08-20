@@ -32,33 +32,42 @@ def get_main_menu_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
                 text="Kabinet",
                 callback_data="menu_cabinet"
             )
+        ],
+        [
+            InlineKeyboardButton(
+                text="🌳 Struktura",
+                callback_data="bot_structure"
+            )
         ]
     ]
     if WEBAPP_URL and WEBAPP_URL.startswith("https://"):
         target_url = f"{WEBAPP_URL}?user_id={user_id}" if user_id else WEBAPP_URL
-        buttons.append([
-            InlineKeyboardButton(text="📱 Mini App", web_app=WebAppInfo(url=target_url))
-        ])
+        buttons[-1].append(InlineKeyboardButton(text="📱 Mini App", web_app=WebAppInfo(url=target_url)))
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 # ==================== MARKETING KEYBOARDS (4 SCREENSHOTS) ====================
 
-def get_marketing_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="1-Daraja", callback_data="mkt_lvl:1"),
-                InlineKeyboardButton(text="Barcha darajalar", callback_data="mkt_all_levels")
-            ],
-            [
-                InlineKeyboardButton(
-                    text="♦️ Asosiy menyu ♦️",
-                    callback_data="back_to_main_menu"
-                )
-            ]
+def get_marketing_menu_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
+    buttons = [
+        [
+            InlineKeyboardButton(text="1-Daraja", callback_data="mkt_lvl:1"),
+            InlineKeyboardButton(text="Barcha darajalar", callback_data="mkt_all_levels")
+        ],
+        [
+            InlineKeyboardButton(text="🌳 Struktura", callback_data="bot_structure")
+        ],
+        [
+            InlineKeyboardButton(
+                text="♦️ Asosiy menyu ♦️",
+                callback_data="back_to_main_menu"
+            )
         ]
-    )
+    ]
+    if WEBAPP_URL and WEBAPP_URL.startswith("https://"):
+        target_url = f"{WEBAPP_URL}?user_id={user_id}" if user_id else WEBAPP_URL
+        buttons[1].append(InlineKeyboardButton(text="📱 Mini App", web_app=WebAppInfo(url=target_url)))
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def get_all_levels_keyboard() -> InlineKeyboardMarkup:
@@ -370,6 +379,50 @@ def get_admin_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(text="♦️ Asosiy menyu ♦️", callback_data="back_to_main_menu")
+            ]
+        ]
+    )
+
+
+# ==================== BOT STRUKTURA KEYBOARDS ====================
+
+def get_bot_structure_keyboard(children: list, user_id: int = None) -> InlineKeyboardMarkup:
+    rows = []
+    # For each direct child, add a button to manage them
+    for child in children[:6]:
+        cid = child.get("user_id", 0)
+        cname = f"{child.get('first_name', '')} {child.get('last_name', '')}".strip() or f"ID: {cid}"
+        if child.get("username"):
+            cname = f"@{child.get('username')}"
+        rows.append([
+            InlineKeyboardButton(text=f"👤 {cname}", callback_data=f"tree_node:{cid}")
+        ])
+
+    bottom_row = []
+    if WEBAPP_URL and WEBAPP_URL.startswith("https://"):
+        target_url = f"{WEBAPP_URL}?user_id={user_id}" if user_id else WEBAPP_URL
+        bottom_row.append(InlineKeyboardButton(text="📱 Mini Appda ochish", web_app=WebAppInfo(url=target_url)))
+    bottom_row.append(InlineKeyboardButton(text="🔄 Yangilash", callback_data="bot_structure"))
+    rows.append(bottom_row)
+
+    rows.append([
+        InlineKeyboardButton(text="♦️ Asosiy menyu ♦️", callback_data="back_to_main_menu")
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def get_tree_member_action_keyboard(target_user_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔄 Hamkorni almashtirish", callback_data=f"tree_replace:{target_user_id}"),
+                InlineKeyboardButton(text="➕ Orasiga qo'shish", callback_data=f"tree_insert:{target_user_id}")
+            ],
+            [
+                InlineKeyboardButton(text="💬 Telegramda yozish", url=f"tg://user?id={target_user_id}")
+            ],
+            [
+                InlineKeyboardButton(text="🔙 Struktura ro'yxatiga qaytish", callback_data="bot_structure")
             ]
         ]
     )

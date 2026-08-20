@@ -24,7 +24,9 @@ from keyboards.inline import (
     get_back_to_menu_keyboard,
     get_payment_request_keyboard,
     get_payment_sent_keyboard,
-    get_curator_approval_keyboard
+    get_curator_approval_keyboard,
+    get_bot_structure_keyboard,
+    get_tree_member_action_keyboard
 )
 
 router = Router()
@@ -749,3 +751,197 @@ async def cab_team_page_handler(callback: CallbackQuery):
 @router.callback_query(F.data == "noop")
 async def noop_handler(callback: CallbackQuery):
     await callback.answer()
+
+
+# ==================== BOT STRUKTURA & KURATOR BOSHQARUVI ====================
+
+class TreeManageStates(StatesGroup):
+    waiting_for_replace_identifier = State()
+    waiting_for_insert_identifier = State()
+
+
+def format_bot_tree_text(node: dict, prefix: str = "", is_tail: bool = True, depth: int = 0) -> list:
+    """Formats tree nodes into clean visual text for Telegram messages."""
+    lines = []
+    uid = node.get("user_id", 0)
+    name = f"{node.get('first_name', '')} {node.get('last_name', '')}".strip() or "Hamkor"
+    uname = f"(@{node.get('username')})" if node.get("username") else ""
+    lvl = node.get("current_level", 0)
+
+    if depth == 0:
+        lines.append(f"👑 <b>Siz ({name})</b> — <i>{lvl}-Daraja (ID: {uid})</i>")
+    else:
+        connector = "└── " if is_tail else "├── "
+        lines.append(f"{prefix}{connector}👤 <b>{name}</b> {uname} — <i>Lvl {lvl} (ID: {uid})</i>")
+
+    children = node.get("children", [])
+    for i, child in enumerate(children):
+        is_last = (i == len(children) - 1)
+        new_prefix = prefix + ("    " if is_tail else "│   ") if depth > 0 else "│   "
+        lines.extend(format_bot_tree_text(child, new_prefix, is_last, depth + 1))
+    return lines
+
+
+@router.callback_query(F.data == "bot_structure")
+async def bot_structure_handler(callback: CallbackQuery, bot: Bot):
+    await callback.answer()
+    user_id = callback.from_user.id
+    tree = await db.get_user_tree(user_id)
+    children = tree.get("children", []) if tree else []
+
+    stats = await db.get_multi_tier_stats(user_id)
+
+    tree_lines = format_bot_tree_text(tree)
+    tree_visual = "\n".join(tree_lines[:25]) # up to 25 nodes for clean layout
+
+    text = (
+        "🌳 <b>JAMOA STRUKTURASI (TAKLIflAR DARAХTI)</b>\n\n"
+        f"👥 <b>Jami jamoa:</b> <b>{stats['total_team']}</b> ta hamkor\n"
+        f"🥇 <b>1-Daraja:</b> <b>{stats['level_1']}/3</b> ta | 🥈 <b>2-Daraja:</b> <b>{stats['level_2']}/9</b> ta\n\n"
+        "────────────────────\n"
+        f"<pre>{tree_visual}</pre>\n"
+        "────────────────────\n"
+        "👇 <i>A'zoning o'rnini almashtirish yoki orasiga a'zo qo'shish uchun pastdagi tugmani bosing:</i>"
+    )
+
+    keyboard = get_bot_structure_keyboard(children, user_id)
+    try:
+        await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    except Exception:
+        await callback.message.answer(text=text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.callback_query(F.data.startswith("tree_node:"))
+async def tree_node_view_handler(callback: CallbackQuery):
+    await callback.answer()
+    parts = callback.data.split(":")
+    target_uid = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+
+    target_user = await db.get_user(target_uid)
+    if not target_user:
+        await callback.message.answer("❌ Hamkor ma'lumotlari topilmadi.")
+        return
+
+    name = f"{target_user.get('first_name', '')} {target_user.get('last_name', '')}".strip() or "Hamkor"
+    uname = f"@{target_user.get('username')}" if target_user.get("username") else "Mavjud emas"
+    lvl = target_user.get("current_level", 0)
+    ref_count = await db.get_referral_count(target_uid)
+    reg_date = target_user.get("registered_at", "-")[:10] if target_user.get("registered_at") else "-"
+
+    text = (
+        "👤 <b>HAMKOR MA'LUMOTLARI</b>\n\n"
+        f"🏷 <b>Ism:</b> {name}\n"
+        f"🔹 <b>Username:</b> {uname}\n"
+        f"🆔 <b>Telegram ID:</b> <code>{target_uid}</code>\n"
+        f"⭐ <b>Darajasi:</b> {lvl}-Daraja\n"
+        f"👥 <b>To'g'ridan-to'g'ri takliflari:</b> {ref_count} ta\n"
+        f"📅 <b>Ro'yxatdan o'tgan:</b> {reg_date}\n\n"
+        "⚡️ <i>Quyidagi amallardan birini tanlang:</i>"
+    )
+
+    keyboard = get_tree_member_action_keyboard(target_uid)
+    try:
+        await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    except Exception:
+        await callback.message.answer(text=text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.callback_query(F.data.startswith("tree_replace:"))
+async def tree_replace_prompt_handler(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    parts = callback.data.split(":")
+    target_uid = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+
+    await state.update_data(replace_target_uid=target_uid)
+    await state.set_state(TreeManageStates.waiting_for_replace_identifier)
+
+    await callback.message.answer(
+        f"🔄 <b>HAMKORNI ALMASHTIRISH (ID: {target_uid})</b>\n\n"
+        "Ushbu hamkor o'rniga qo'ymoqchi bo'lgan yangi foydalanuvchining Telegram <b>@username</b> yoki <b>User ID</b> sini yuboring:\n\n"
+        "<i>(Bekor qilish uchun /cancel deb yozing)</i>",
+        parse_mode="HTML"
+    )
+
+
+@router.message(TreeManageStates.waiting_for_replace_identifier)
+async def process_tree_replace_input(message: Message, state: FSMContext, bot: Bot):
+    if message.text == "/cancel":
+        await state.clear()
+        await message.answer("❌ Almashtirish bekor qilindi.")
+        return
+
+    data = await state.get_data()
+    target_uid = data.get("replace_target_uid")
+    identifier = message.text.strip()
+
+    if not target_uid or not identifier:
+        await state.clear()
+        await message.answer("❌ Noto'g'ri ma'lumot kiritildi.")
+        return
+
+    res = await db.replace_user_in_tree(target_uid, identifier, message.from_user.id)
+    if res.get("success"):
+        from database.backup import db_backup_manager
+        import asyncio
+        asyncio.create_task(db_backup_manager.backup_and_send(bot))
+        await message.answer(
+            f"✅ <b>Muvaffaqiyatli almashtirildi!</b>\n\n"
+            f"{res.get('message', '')}\n\n"
+            "Struktura yangilandi.",
+            parse_mode="HTML",
+            reply_markup=get_main_menu_keyboard(message.from_user.id)
+        )
+    else:
+        await message.answer(f"❌ Xatolik: {res.get('error', 'Almashtirish amalga oshmadi')}")
+    await state.clear()
+
+
+@router.callback_query(F.data.startswith("tree_insert:"))
+async def tree_insert_prompt_handler(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    parts = callback.data.split(":")
+    target_uid = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+
+    await state.update_data(insert_target_uid=target_uid)
+    await state.set_state(TreeManageStates.waiting_for_insert_identifier)
+
+    await callback.message.answer(
+        f"➕ <b>ZANJIR ORASIGA YANGI A'ZO QO'SHISH (ID: {target_uid})</b>\n\n"
+        "Zanjirga kiritmoqchi bo'lgan yangi a'zoning Telegram <b>@username</b> yoki <b>User ID</b> sini yuboring:\n\n"
+        "<i>(Bekor qilish uchun /cancel deb yozing)</i>",
+        parse_mode="HTML"
+    )
+
+
+@router.message(TreeManageStates.waiting_for_insert_identifier)
+async def process_tree_insert_input(message: Message, state: FSMContext, bot: Bot):
+    if message.text == "/cancel":
+        await state.clear()
+        await message.answer("❌ A'zo qo'shish bekor qilindi.")
+        return
+
+    data = await state.get_data()
+    target_uid = data.get("insert_target_uid")
+    identifier = message.text.strip()
+
+    if not target_uid or not identifier:
+        await state.clear()
+        await message.answer("❌ Noto'g'ri ma'lumot kiritildi.")
+        return
+
+    res = await db.insert_user_in_between(target_uid, identifier, message.from_user.id, mode="above")
+    if res.get("success"):
+        from database.backup import db_backup_manager
+        import asyncio
+        asyncio.create_task(db_backup_manager.backup_and_send(bot))
+        await message.answer(
+            f"✅ <b>Yangi hamkor zanjir orasiga muvaffaqiyatli qo'shildi!</b>\n\n"
+            f"{res.get('message', '')}\n\n"
+            "Struktura yangilandi.",
+            parse_mode="HTML",
+            reply_markup=get_main_menu_keyboard(message.from_user.id)
+        )
+    else:
+        err_msg = res.get("error", "Qo'shish amalga oshmadi")
+        await message.answer(f"❌ Xatolik: {err_msg}")
+    await state.clear()
