@@ -347,52 +347,474 @@ function countTreeDescendants(node) {
   return count;
 }
 
-// 1. Org Chart Node Renderer (1 -> 3 -> 9 visual layout)
-function renderOrgChartNode(node, isRoot = false) {
-  const uid = node.user_id || 0;
-  window._treeNodeMap[uid] = node;
+// =========================================================
+// REFERRAL TREE CANVAS ENGINE (EXACT USER SPECIFICATION)
+// =========================================================
+const CANVAS_NODE_W    = 112;
+const CANVAS_NODE_GAP  = 26;
+const CANVAS_LEVEL_H   = 128;
+const CANVAS_MIN_LEAF_W = CANVAS_NODE_W + CANVAS_NODE_GAP;
+const CANVAS_CARD_H    = 64;
+const ZOOM_MIN         = 0.15;
+const ZOOM_MAX         = 2.2;
 
-  const shortId = uid ? (String(uid).length > 5 ? String(uid).slice(-4) : String(uid)) : '0';
-  const lvl = node.current_level || 0;
-  const nameDisp = isRoot ? '👑 Siz' : formatShortName(node.first_name, node.last_name, node.username);
-  const isSelfClass = isRoot ? 'is-self' : '';
+let canvasRoot = null;
+let flatIndex = [];
+const nodeElPool = new Map();
+let visibleNodes = [];
+let contentW = 0, contentH = 0;
+let panX = 40, panY = 20, zoom = 1;
+let selectedUid = null;
+let dragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+let lastTouchDist = null, lastTouchMid = null;
+let canvasListenersAttached = false;
 
-  const cardHtml = `
-    <div class="org-node-card ${isSelfClass}" onclick="openMemberDetails(${uid})">
-      <div class="org-node-id">
-        <span class="org-node-id-text">${shortId}</span>
-        <span class="org-level-badge lv${Math.min(lvl, 5)}">${lvl}</span>
-      </div>
-      <div class="org-node-name" title="${node.first_name || ''} ${node.last_name || ''}">
-        ${nameDisp}
-      </div>
-    </div>
-  `;
+// Convert API Tree Data to Canvas Tree Model
+function buildCanvasTree(apiNode, level = 0, parent = null) {
+  const isRoot = (level === 0);
+  const fullName = isRoot
+    ? (apiNode.first_name ? `${apiNode.first_name} ${apiNode.last_name || ''}`.trim() : (userState.first_name || 'Siz'))
+    : (`${apiNode.first_name || ''} ${apiNode.last_name || ''}`.trim() || 'Hamkor');
+  
+  const dispName = isRoot ? '👑 Siz' : (apiNode.username ? `@${apiNode.username}` : fullName);
+  const rawId = apiNode.user_id ? String(apiNode.user_id) : String(1000 + Math.floor(Math.random() * 9000));
+  const shortId = rawId.length > 6 ? rawId.slice(-5) : rawId;
 
-  if (!node.children || !node.children.length) {
-    return `<li>${cardHtml}</li>`;
+  const node = {
+    uid: flatIndex.length,
+    user_id: apiNode.user_id || 0,
+    id: shortId,
+    fullId: rawId,
+    name: dispName,
+    fullName: fullName,
+    username: apiNode.username || '',
+    level: apiNode.current_level !== undefined ? apiNode.current_level : level,
+    treeDepth: level,
+    parent: parent,
+    children: [],
+    registered_at: apiNode.registered_at || '',
+    total_earned: apiNode.total_earned || 0,
+    status: apiNode.status || "🌱 Boshlang'ich",
+    expanded: level < 2
+  };
+
+  flatIndex.push(node);
+
+  if (apiNode.children && Array.isArray(apiNode.children)) {
+    apiNode.children.forEach(child => {
+      node.children.push(buildCanvasTree(child, level + 1, node));
+    });
   }
 
-  const childrenHtml = node.children.map(child => renderOrgChartNode(child, false)).join('');
-  return `
-    <li>
-      ${cardHtml}
-      <ul>${childrenHtml}</ul>
-    </li>
-  `;
+  return node;
+}
+
+// Tree Layout Calculations
+function computeWidth(node) {
+  if (!node.expanded || node.children.length === 0) {
+    node._w = CANVAS_MIN_LEAF_W;
+    return node._w;
+  }
+  let w = 0;
+  node.children.forEach(c => { w += computeWidth(c); });
+  node._w = Math.max(w, CANVAS_MIN_LEAF_W);
+  return node._w;
+}
+
+function computePosition(node, x, y) {
+  node._x = x + node._w / 2;
+  node._y = y;
+  if (node.expanded && node.children.length) {
+    let cx = x;
+    node.children.forEach(c => {
+      computePosition(c, cx, y + CANVAS_LEVEL_H);
+      cx += c._w;
+    });
+  }
+}
+
+function collectVisible(node, arr) {
+  arr.push(node);
+  if (node.expanded) {
+    node.children.forEach(c => collectVisible(c, arr));
+  }
+}
+
+function layoutTree() {
+  if (!canvasRoot) return;
+  computeWidth(canvasRoot);
+  computePosition(canvasRoot, 0, 40);
+  visibleNodes = [];
+  collectVisible(canvasRoot, visibleNodes);
+  contentW = canvasRoot._w || 300;
+  const maxDepth = visibleNodes.length ? Math.max(...visibleNodes.map(n => n.treeDepth || 0)) : 0;
+  contentH = (maxDepth + 1) * CANVAS_LEVEL_H + 80;
+}
+
+// Create Card DOM Element for Canvas
+function makeNodeEl(node) {
+  const el = document.createElement('div');
+  el.className = 'node';
+  el.dataset.uid = node.uid;
+
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const idPill = document.createElement('div');
+  idPill.className = 'id-pill';
+  idPill.textContent = node.id;
+
+  if (node.children.length) {
+    const badge = document.createElement('span');
+    badge.className = 'badge';
+    badge.textContent = node.children.length;
+    idPill.appendChild(badge);
+  }
+
+  const namePill = document.createElement('div');
+  namePill.className = 'name-pill';
+  namePill.textContent = node.name;
+  namePill.title = `${node.fullName} (${node.fullId})`;
+
+  card.appendChild(idPill);
+  card.appendChild(namePill);
+  el.appendChild(card);
+
+  if (node.children.length) {
+    const dot = document.createElement('div');
+    dot.className = 'expand-dot';
+    dot.textContent = node.expanded ? '−' : '+';
+    el.appendChild(dot);
+  }
+
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onCanvasNodeClick(node);
+  });
+
+  return el;
+}
+
+// Render Canvas Tree
+function renderCanvasTree() {
+  if (!canvasRoot) return;
+  layoutTree();
+
+  const viewport = document.getElementById('viewport');
+  const linksSvg = document.getElementById('links');
+  if (!viewport || !linksSvg) return;
+
+  viewport.style.width = contentW + 'px';
+  viewport.style.height = contentH + 'px';
+  linksSvg.setAttribute('width', contentW);
+  linksSvg.setAttribute('height', contentH);
+  linksSvg.setAttribute('viewBox', `0 0 ${contentW} ${contentH}`);
+
+  const seen = new Set();
+  visibleNodes.forEach(node => {
+    seen.add(node.uid);
+    let el = nodeElPool.get(node.uid);
+    if (!el) {
+      el = makeNodeEl(node);
+      nodeElPool.set(node.uid, el);
+      viewport.appendChild(el);
+    } else {
+      const dot = el.querySelector('.expand-dot');
+      if (dot) dot.textContent = node.expanded ? '−' : '+';
+    }
+    el.style.left = node._x + 'px';
+    el.style.top  = node._y + 'px';
+  });
+
+  nodeElPool.forEach((el, uid) => {
+    if (!seen.has(uid)) {
+      el.remove();
+      nodeElPool.delete(uid);
+    }
+  });
+
+  drawCanvasLinks();
+  applyTreeHighlight();
+}
+
+function drawCanvasLinks() {
+  const linksSvg = document.getElementById('links');
+  if (!linksSvg) return;
+  let html = '';
+  visibleNodes.forEach(node => {
+    if (!node.expanded || node.children.length === 0) return;
+    const px = node._x, py = node._y + CANVAS_CARD_H;
+    const midY = py + (CANVAS_LEVEL_H - CANVAS_CARD_H) / 2;
+    node.children.forEach(child => {
+      const cx = child._x, cy = child._y;
+      const d = `M ${px} ${py} L ${px} ${midY} L ${cx} ${midY} L ${cx} ${cy}`;
+      html += `<path data-from="${node.uid}" data-to="${child.uid}" d="${d}"></path>`;
+    });
+  });
+  linksSvg.innerHTML = html;
+}
+
+function onCanvasNodeClick(node) {
+  if (node.children.length) {
+    node.expanded = !node.expanded;
+  }
+  selectedUid = node.uid;
+  renderCanvasTree();
+  openMemberDetails(node.user_id || node.uid, node);
+}
+
+function collectSubtreeUids(node, set) {
+  set.add(node.uid);
+  node.children.forEach(c => collectSubtreeUids(c, set));
+}
+
+function applyTreeHighlight() {
+  const linksSvg = document.getElementById('links');
+  if (!linksSvg) return;
+
+  if (selectedUid === null) {
+    nodeElPool.forEach(el => { el.classList.remove('dim', 'lit'); });
+    linksSvg.querySelectorAll('path').forEach(p => p.classList.remove('dim', 'lit'));
+    return;
+  }
+  const selNode = flatIndex.find(n => n.uid === selectedUid);
+  if (!selNode) return;
+  const lit = new Set();
+  collectSubtreeUids(selNode, lit);
+
+  nodeElPool.forEach((el, uid) => {
+    if (lit.has(uid)) { el.classList.add('lit'); el.classList.remove('dim'); }
+    else { el.classList.add('dim'); el.classList.remove('lit'); }
+  });
+  linksSvg.querySelectorAll('path').forEach(p => {
+    const from = Number(p.dataset.from), to = Number(p.dataset.to);
+    if (lit.has(from) && lit.has(to)) { p.classList.add('lit'); p.classList.remove('dim'); }
+    else { p.classList.add('dim'); p.classList.remove('lit'); }
+  });
+}
+
+// Pan & Zoom Engine
+function applyCanvasTransform() {
+  const viewport = document.getElementById('viewport');
+  const zoomPct = document.getElementById('zoomPct');
+  if (viewport) {
+    viewport.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+  }
+  if (zoomPct) {
+    zoomPct.textContent = Math.round(zoom * 100) + '%';
+  }
+}
+
+function zoomAt(mx, my, newZoom) {
+  newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, newZoom));
+  const wx = (mx - panX) / zoom;
+  const wy = (my - panY) / zoom;
+  panX = mx - wx * newZoom;
+  panY = my - wy * newZoom;
+  zoom = newZoom;
+  applyCanvasTransform();
+}
+
+function fitToScreen() {
+  const stage = document.getElementById('stage');
+  if (!stage || !contentW) return;
+  const r = stage.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const pad = 40;
+  const scaleX = (r.width - pad * 2) / contentW;
+  const scaleY = (r.height - pad * 2) / Math.max(contentH, 200);
+  zoom = Math.min(1.2, Math.max(ZOOM_MIN, Math.min(scaleX, scaleY)));
+  panX = (r.width - contentW * zoom) / 2;
+  panY = 24;
+  applyCanvasTransform();
+}
+
+function touchDist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+function touchMid(t) { return { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 }; }
+
+function attachCanvasListeners() {
+  if (canvasListenersAttached) return;
+  canvasListenersAttached = true;
+
+  const stage = document.getElementById('stage');
+  if (!stage) return;
+
+  stage.addEventListener('mousedown', (e) => {
+    dragging = true;
+    stage.classList.add('dragging');
+    dragStartX = e.clientX; dragStartY = e.clientY;
+    panStartX = panX; panStartY = panY;
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    panX = panStartX + (e.clientX - dragStartX);
+    panY = panStartY + (e.clientY - dragStartY);
+    applyCanvasTransform();
+  });
+
+  window.addEventListener('mouseup', () => {
+    dragging = false;
+    stage.classList.remove('dragging');
+  });
+
+  stage.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      dragging = true;
+      dragStartX = e.touches[0].clientX; dragStartY = e.touches[0].clientY;
+      panStartX = panX; panStartY = panY;
+    } else if (e.touches.length === 2) {
+      dragging = false;
+      lastTouchDist = touchDist(e.touches);
+      lastTouchMid = touchMid(e.touches);
+    }
+  }, { passive: true });
+
+  stage.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1 && dragging) {
+      panX = panStartX + (e.touches[0].clientX - dragStartX);
+      panY = panStartY + (e.touches[0].clientY - dragStartY);
+      applyCanvasTransform();
+    } else if (e.touches.length === 2) {
+      const dist = touchDist(e.touches);
+      const mid  = touchMid(e.touches);
+      if (lastTouchDist) {
+        const scaleDelta = dist / lastTouchDist;
+        zoomAt(mid.x, mid.y, zoom * scaleDelta);
+      }
+      lastTouchDist = dist; lastTouchMid = mid;
+    }
+  }, { passive: true });
+
+  stage.addEventListener('touchend', () => {
+    dragging = false;
+    lastTouchDist = null;
+  });
+
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = stage.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const delta = -e.deltaY * 0.0016;
+    zoomAt(mx, my, zoom * (1 + delta));
+  }, { passive: false });
+
+  document.getElementById('zoomInBtn')?.addEventListener('click', () => {
+    const r = stage.getBoundingClientRect();
+    zoomAt(r.width / 2, r.height / 2, zoom * 1.25);
+  });
+  document.getElementById('zoomOutBtn')?.addEventListener('click', () => {
+    const r = stage.getBoundingClientRect();
+    zoomAt(r.width / 2, r.height / 2, zoom * 0.8);
+  });
+  document.getElementById('fitBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fitToScreen();
+  });
+  document.getElementById('expandAllBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    flatIndex.forEach(n => { if (n.children.length) n.expanded = true; });
+    renderCanvasTree();
+    requestAnimationFrame(fitToScreen);
+  });
+  document.getElementById('collapseAllBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    flatIndex.forEach(n => { n.expanded = (n.treeDepth < 1); });
+    selectedUid = null;
+    renderCanvasTree();
+    requestAnimationFrame(fitToScreen);
+  });
+
+  stage.addEventListener('click', () => {
+    selectedUid = null;
+    applyTreeHighlight();
+  });
+
+  // Search Engine
+  const searchInput = document.getElementById('searchInput');
+  const searchResults = document.getElementById('searchResults');
+  if (searchInput && searchResults) {
+    function expandAncestors(node) {
+      let p = node.parent;
+      while (p) {
+        p.expanded = true;
+        p = p.parent;
+      }
+    }
+
+    function goToNode(node) {
+      expandAncestors(node);
+      selectedUid = node.uid;
+      renderCanvasTree();
+
+      const r = stage.getBoundingClientRect();
+      zoom = Math.max(zoom, 0.7);
+      panX = r.width / 2  - node._x * zoom;
+      panY = r.height / 2 - node._y * zoom;
+      applyCanvasTransform();
+
+      const el = nodeElPool.get(node.uid);
+      if (el) {
+        el.classList.add('found');
+        setTimeout(() => el.classList.remove('found'), 2400);
+      }
+      searchResults.style.display = 'none';
+      searchInput.blur();
+      openMemberDetails(node.user_id || node.uid, node);
+    }
+
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.trim().toLowerCase();
+      if (q.length < 1) { searchResults.style.display = 'none'; return; }
+      const matches = flatIndex.filter(n =>
+        n.id.toLowerCase().includes(q) ||
+        n.fullId.toLowerCase().includes(q) ||
+        n.name.toLowerCase().includes(q) ||
+        n.fullName.toLowerCase().includes(q)
+      ).slice(0, 20);
+
+      if (!matches.length) {
+        searchResults.innerHTML = `<div style="opacity:.6;cursor:default">Hech narsa topilmadi</div>`;
+        searchResults.style.display = 'block';
+        return;
+      }
+      searchResults.innerHTML = matches.map(n =>
+        `<div data-uid="${n.uid}"><span>${n.name}</span><span class="rid">${n.id} <span class="rlvl">· L${n.level}</span></span></div>`
+      ).join('');
+      searchResults.style.display = 'block';
+    });
+
+    searchResults.addEventListener('click', (e) => {
+      const row = e.target.closest('div[data-uid]');
+      if (!row) return;
+      const node = flatIndex.find(n => n.uid === Number(row.dataset.uid));
+      if (node) goToNode(node);
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const q = searchInput.value.trim().toLowerCase();
+        const node = flatIndex.find(n => n.id.toLowerCase() === q || n.fullId.toLowerCase() === q) ||
+                     flatIndex.find(n => n.name.toLowerCase().includes(q) || n.fullName.toLowerCase().includes(q));
+        if (node) goToNode(node);
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#searchWrap')) searchResults.style.display = 'none';
+    });
+  }
 }
 
 // 2. List View Node Renderer
 function renderListTreeNode(node, isRoot = false) {
-  const uid = node.user_id || 0;
-  window._treeNodeMap[uid] = node;
-
+  const uid = node.user_id || node.uid || 0;
   const fullName = isRoot
-    ? `👑 Siz (${node.first_name || ''} ${node.last_name || ''}`.trim() + ')'
-    : `${node.first_name || ''} ${node.last_name || ''}`.trim() || 'Hamkor';
+    ? `👑 Siz (${node.fullName || node.first_name || ''})`.trim()
+    : `${node.fullName || node.first_name || ''}`.trim() || 'Hamkor';
 
   const username = node.username ? `@${node.username}` : '';
-  const lvl = node.current_level || 0;
+  const lvl = node.level !== undefined ? node.level : (node.current_level || 0);
   const hasChildren = node.children && node.children.length > 0;
   const descCount = countTreeDescendants(node);
 
@@ -404,19 +826,19 @@ function renderListTreeNode(node, isRoot = false) {
   const avatarIcon = isRoot ? '👑' : getUserLvlEmoji(lvl);
 
   let contactBtn = '';
-  if (!isRoot && node.user_id) {
+  if (!isRoot && (node.username || node.user_id)) {
     const contactUrl = node.username ? `https://t.me/${node.username}` : `tg://user?id=${node.user_id}`;
     contactBtn = `<a href="${contactUrl}" target="_blank" class="tree-contact-btn" title="Telegramda yozish" onclick="event.stopPropagation();">💬</a>`;
   }
 
   const html = `
     <div class="tree-person">
-      <div class="${cardClass}" onclick="openMemberDetails(${uid})">
+      <div class="${cardClass}" onclick="openMemberDetails(${node.user_id || node.uid}, null)">
         <div class="tree-avatar">${avatarIcon}</div>
         <div class="tree-info">
           <div class="tree-name">${fullName} ${countBadge}</div>
           <div class="tree-meta">
-            <code style="font-size:10.5px; color:#94a3b8;">${node.user_id ? `ID: ${node.user_id}` : ''}</code>
+            <code style="font-size:10.5px; color:#94a3b8;">${node.id ? `ID: ${node.id}` : ''}</code>
             ${username ? `<span style="color:#38bdf8;">${username}</span>` : ''}
           </div>
         </div>
@@ -435,66 +857,66 @@ function renderListTreeNode(node, isRoot = false) {
   return html;
 }
 
-// Switch between Org Chart view and List view
+// Switch between Canvas Tree view and List view
 function switchTreeView(mode) {
   currentTreeViewMode = mode;
-  // Support both old and new tab classes
-  document.querySelectorAll('.tree-tab-btn, .struct-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.struct-tab').forEach(b => b.classList.remove('active'));
 
   const activeBtn = document.getElementById(mode === 'chart' ? 'btn-view-chart' : 'btn-view-list');
   if (activeBtn) activeBtn.classList.add('active');
 
-  const zoomTools = document.getElementById('tree-zoom-tools');
-  if (zoomTools) zoomTools.style.display = mode === 'chart' ? 'flex' : 'none';
+  const stage = document.getElementById('stage');
+  const zoomCtrl = document.getElementById('zoomCtrl');
+  const listContainer = document.getElementById('user-list-container');
 
-  renderCurrentTree();
-}
-
-// Zoom controls
-function zoomTree(delta) {
-  currentTreeZoom = Math.min(Math.max(currentTreeZoom + delta, 0.45), 1.6);
-  const root = document.getElementById('org-chart-root');
-  if (root) {
-    root.style.transform = `scale(${currentTreeZoom})`;
-  }
-}
-
-function resetTreeZoom() {
-  currentTreeZoom = 1.0;
-  const root = document.getElementById('org-chart-root');
-  if (root) {
-    root.style.transform = `scale(1)`;
-  }
-  centerTreeScroll();
-}
-
-function centerTreeScroll() {
-  const scrollArea = document.getElementById('org-scroll-area');
-  if (scrollArea) {
-    setTimeout(() => {
-      scrollArea.scrollLeft = (scrollArea.scrollWidth - scrollArea.clientWidth) / 2;
-    }, 50);
+  if (mode === 'chart') {
+    if (stage) stage.style.display = 'block';
+    if (zoomCtrl) zoomCtrl.style.display = 'flex';
+    if (listContainer) listContainer.style.display = 'none';
+    renderCanvasTree();
+    fitToScreen();
+  } else {
+    if (stage) stage.style.display = 'none';
+    if (zoomCtrl) zoomCtrl.style.display = 'none';
+    if (listContainer) {
+      listContainer.style.display = 'block';
+      listContainer.innerHTML = canvasRoot ? renderListTreeNode(canvasRoot, true) : '';
+    }
   }
 }
 
 // Open Member Details Modal
-function openMemberDetails(uid) {
-  const node = window._treeNodeMap ? window._treeNodeMap[uid] : null;
+function openMemberDetails(uid, directNode = null) {
+  const node = directNode || flatIndex.find(n => n.user_id === uid || n.uid === uid) || (window._treeNodeMap ? window._treeNodeMap[uid] : null);
   if (!node) return;
 
-  const fullName = `${node.first_name || ''} ${node.last_name || ''}`.trim() || 'Hamkor';
+  const fullName = node.fullName || `${node.first_name || ''} ${node.last_name || ''}`.trim() || 'Hamkor';
   const uname = node.username ? `@${node.username}` : 'Mavjud emas';
-  const lvl = node.current_level || 0;
+  const lvl = node.level !== undefined ? node.level : (node.current_level || 0);
   const descCount = countTreeDescendants(node);
   const directCount = node.children ? node.children.length : 0;
+  const rawId = node.fullId || node.user_id || node.id || '-';
 
-  document.getElementById('m-modal-name').innerText = fullName;
-  document.getElementById('m-modal-handle').innerText = uname;
-  document.getElementById('m-modal-id').innerText = node.user_id || '-';
-  document.getElementById('m-modal-date').innerText = node.registered_at ? node.registered_at.slice(0, 10) : '-';
-  document.getElementById('m-modal-level').innerText = `${lvl}-Daraja`;
-  document.getElementById('m-modal-refs').innerText = `👥 ${directCount} ta to'g'ridan-to'g'ri (${descCount} jami)`;
-  document.getElementById('m-modal-avatar').innerText = getUserLvlEmoji(lvl);
+  const nameEl = document.getElementById('m-modal-name');
+  if (nameEl) nameEl.innerText = fullName;
+
+  const handleEl = document.getElementById('m-modal-handle');
+  if (handleEl) handleEl.innerText = uname;
+
+  const idEl = document.getElementById('m-modal-id');
+  if (idEl) idEl.innerText = rawId;
+
+  const dateEl = document.getElementById('m-modal-date');
+  if (dateEl) dateEl.innerText = node.registered_at ? String(node.registered_at).slice(0, 10) : '-';
+
+  const lvlEl = document.getElementById('m-modal-level');
+  if (lvlEl) lvlEl.innerText = `${lvl}-Daraja`;
+
+  const refsEl = document.getElementById('m-modal-refs');
+  if (refsEl) refsEl.innerText = `👥 ${directCount} ta to'g'ridan-to'g'ri (${descCount} jami)`;
+
+  const avatarEl = document.getElementById('m-modal-avatar');
+  if (avatarEl) avatarEl.innerText = getUserLvlEmoji(lvl);
 
   const chatBtn = document.getElementById('m-modal-chat-btn');
   if (chatBtn) {
@@ -508,9 +930,7 @@ function openMemberDetails(uid) {
   }
 
   const modal = document.getElementById('member-detail-modal');
-  if (modal) {
-    modal.style.display = 'flex';
-  }
+  if (modal) modal.style.display = 'flex';
 }
 
 function closeMemberModal(e) {
@@ -523,84 +943,58 @@ function closeModal(modalId) {
   if (modal) modal.style.display = 'none';
 }
 
-function renderCurrentTree() {
-  const container = document.getElementById("user-tree-container");
-  if (!container || !currentTreeData) return;
-
-  window._treeNodeMap = {};
-
-  if (currentTreeViewMode === 'chart') {
-    container.innerHTML = `
-      <div class="org-chart-root" id="org-chart-root" style="transform: scale(${currentTreeZoom});">
-        <div class="org-chart-tree">
-          <ul>
-            ${renderOrgChartNode(currentTreeData, true)}
-          </ul>
-        </div>
-      </div>
-    `;
-    centerTreeScroll();
-  } else {
-    container.innerHTML = `
-      <div class="user-tree-wrap">
-        ${renderListTreeNode(currentTreeData, true)}
-      </div>
-    `;
-  }
-}
-
+// Load Tree Data from Database API
 function loadUserTree(retryCount) {
-  const container = document.getElementById("user-tree-container");
-  if (!container) return;
+  const loadingOverlay = document.getElementById('canvas-loading-overlay');
+  if (loadingOverlay) loadingOverlay.style.display = 'flex';
 
-  // If user_id is 0, re-detect and retry up to 3 times
   detectTelegramUser();
   if (!userState.id) {
     const attempts = retryCount || 0;
-    if (attempts < 4) {
-      container.innerHTML = `<div class="struct-loading"><div class="struct-loading-ring"></div><span>Foydalanuvchi aniqlanmoqda...</span></div>`;
-      setTimeout(() => loadUserTree(attempts + 1), 900);
-      return;
-    } else {
-      container.innerHTML = `
-        <div class="struct-empty">
-          <div class="struct-empty-icon">📱</div>
-          <div class="struct-empty-title">Telegram orqali oching</div>
-          <div class="struct-empty-desc">Iltimos, botdan Mini App tugmasini bosib kirish qiling.</div>
-        </div>`;
+    if (attempts < 3) {
+      setTimeout(() => loadUserTree(attempts + 1), 800);
       return;
     }
   }
 
-  container.innerHTML = `<div class="struct-loading"><div class="struct-loading-ring"></div><span>Struktura yuklanmoqda...</span></div>`;
-
-  fetch(`/api/user/tree?user_id=${userState.id}`)
+  const targetUid = userState.id || 0;
+  fetch(`/api/user/tree?user_id=${targetUid}`)
     .then(res => res.json())
     .then(d => {
-      if (!d.success || !d.tree) {
-        container.innerHTML = `
-          <div class="struct-empty">
-            <div class="struct-empty-icon">⚠️</div>
-            <div class="struct-empty-title">Tuzilma topilmadi</div>
-            <div class="struct-empty-desc">Jamoa ma'lumotlarini yuklab bo'lmadi. Qayta urinib ko'ring.</div>
-            <button class="struct-empty-btn" onclick="loadUserTree()">🔄 Qayta urinish</button>
-          </div>`;
-        return;
+      if (loadingOverlay) loadingOverlay.style.display = 'none';
+
+      let apiTree = (d.success && d.tree) ? d.tree : null;
+      if (!apiTree) {
+        apiTree = {
+          user_id: userState.id || 10475,
+          first_name: userState.first_name || 'Siz',
+          last_name: userState.last_name || '',
+          username: userState.username || '',
+          current_level: userState.level || 0,
+          children: []
+        };
       }
 
-      const t = d.tree;
-      currentTreeData = t;
+      currentTreeData = apiTree;
+      flatIndex = [];
+      nodeElPool.clear();
+      const viewport = document.getElementById('viewport');
+      if (viewport) {
+        Array.from(viewport.querySelectorAll('.node')).forEach(el => el.remove());
+      }
 
-      const totalDesc = countTreeDescendants(t);
-      const l1Count = t.children ? t.children.length : 0;
+      canvasRoot = buildCanvasTree(apiTree, 0, null);
+
+      // Stats Update
+      const totalDesc = countTreeDescendants(apiTree);
+      const l1Count = apiTree.children ? apiTree.children.length : 0;
       let l2Count = 0;
-      if (t.children) {
-        t.children.forEach(c => {
+      if (apiTree.children) {
+        apiTree.children.forEach(c => {
           if (c.children) l2Count += c.children.length;
         });
       }
 
-      // Update stat cards
       const totalEl = document.getElementById("tree-stat-total");
       if (totalEl) totalEl.innerText = totalDesc;
 
@@ -611,32 +1005,16 @@ function loadUserTree(retryCount) {
       if (l2El) l2El.innerText = `${l2Count}/9`;
 
       const lvlEl = document.getElementById("tree-stat-level");
-      if (lvlEl) lvlEl.innerText = `${t.current_level || userState.level || 0}`;
+      if (lvlEl) lvlEl.innerText = `${apiTree.current_level !== undefined ? apiTree.current_level : (userState.level || 0)}`;
 
-      if (!t.children || t.children.length === 0) {
-        container.innerHTML = `
-          <div class="struct-empty">
-            <div class="struct-empty-icon">🌱</div>
-            <div class="struct-empty-title">Hali hamkorlar yo'q</div>
-            <div class="struct-empty-desc">
-              Referal havolangiz orqali 3 ta do'stingizni taklif qiling va birinchi shajarangizni yarating!
-            </div>
-            <button class="struct-empty-btn" onclick="navigateTo('partners')">🔗 Referal Havola Olish</button>
-          </div>`;
-        return;
-      }
-
-      renderCurrentTree();
+      attachCanvasListeners();
+      renderCanvasTree();
+      requestAnimationFrame(fitToScreen);
     })
     .catch(err => {
-      console.error("Error loading user tree:", err);
-      container.innerHTML = `
-        <div class="struct-empty">
-          <div class="struct-empty-icon">❌</div>
-          <div class="struct-empty-title">Xatolik yuz berdi</div>
-          <div class="struct-empty-desc">Server bilan bog'lanishda xatolik. Iltimos qayta urining.</div>
-          <button class="struct-empty-btn" onclick="loadUserTree()">🔄 Qayta urinish</button>
-        </div>`;
+      console.error("Tree loading error:", err);
+      if (loadingOverlay) loadingOverlay.style.display = 'none';
+      attachCanvasListeners();
     });
 }
 

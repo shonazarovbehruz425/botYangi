@@ -11,44 +11,85 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.9">
+  <link rel="stylesheet" href="style.css?v=3.0">
   <style>
-    /* INLINE CRITICAL: Struktura Section — cache bypass */
-    .struct-hero{position:relative;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(20,60,32,.95),rgba(12,30,18,.95));border:1px solid rgba(34,197,94,.3);border-radius:20px;padding:18px;margin-bottom:14px;overflow:hidden}
+    /* =========================================================
+       INLINE CRITICAL: REFERRAL TREE & STRUKTURA CANVAS
+       ========================================================= */
+    .struct-hero{position:relative;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(20,60,32,.95),rgba(12,30,18,.95));border:1px solid rgba(34,197,94,.3);border-radius:20px;padding:16px 18px;margin-bottom:12px;overflow:hidden}
     .struct-hero-glow{position:absolute;top:-30px;left:-30px;width:140px;height:140px;background:radial-gradient(circle,rgba(34,197,94,.2),transparent 70%);pointer-events:none}
     .struct-hero-content{display:flex;align-items:center;gap:14px}
-    .struct-hero-icon{width:52px;height:52px;border-radius:16px;background:rgba(34,197,94,.12);border:1.5px solid rgba(34,197,94,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 20px rgba(34,197,94,.15)}
-    .struct-hero-title{font-size:21px;font-weight:900;margin:0;background:linear-gradient(135deg,#fff 30%,#86efac);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .struct-hero-icon{width:48px;height:48px;border-radius:14px;background:rgba(34,197,94,.12);border:1.5px solid rgba(34,197,94,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 20px rgba(34,197,94,.15)}
+    .struct-hero-title{font-size:20px;font-weight:900;margin:0;background:linear-gradient(135deg,#fff 30%,#86efac);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
     .struct-hero-sub{font-size:12px;color:rgba(134,239,172,.7);margin:2px 0 0}
-    .struct-refresh-btn{display:flex;align-items:center;gap:6px;padding:9px 14px;background:rgba(34,197,94,.1);border:1.5px solid rgba(34,197,94,.35);border-radius:12px;color:#86efac;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
-    .struct-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
-    .struct-stat-card{border-radius:16px;padding:12px 8px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;overflow:hidden;transition:transform .2s}
+    .struct-refresh-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(34,197,94,.1);border:1.5px solid rgba(34,197,94,.35);border-radius:12px;color:#86efac;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+
+    /* Stats Strip */
+    .struct-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+    .struct-stat-card{border-radius:14px;padding:10px 6px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;overflow:hidden;transition:transform .2s}
     .stat-green{background:linear-gradient(135deg,rgba(20,83,45,.9),rgba(5,46,22,.9));border:1px solid rgba(34,197,94,.4);box-shadow:0 4px 16px rgba(34,197,94,.12)}
     .stat-gold{background:linear-gradient(135deg,rgba(78,62,5,.9),rgba(41,33,5,.9));border:1px solid rgba(250,204,21,.4);box-shadow:0 4px 16px rgba(250,204,21,.12)}
     .stat-silver{background:linear-gradient(135deg,rgba(40,50,65,.9),rgba(15,25,40,.9));border:1px solid rgba(148,163,184,.4)}
     .stat-star{background:linear-gradient(135deg,rgba(76,29,149,.7),rgba(30,15,60,.9));border:1px solid rgba(167,139,250,.4)}
-    .stat-card-icon{font-size:18px}
-    .stat-card-value{font-size:17px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1}
+    .stat-card-icon{font-size:16px}
+    .stat-card-value{font-size:16px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1}
     .stat-green .stat-card-value{color:#4ade80}.stat-gold .stat-card-value{color:#fde047}.stat-silver .stat-card-value{color:#cbd5e1}.stat-star .stat-card-value{color:#c4b5fd}
-    .stat-card-label{font-size:9.5px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.4px;text-align:center}
-    .struct-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px}
+    .stat-card-label{font-size:9px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.3px;text-align:center}
+
+    /* Search Bar */
+    #searchWrap{position:relative;width:100%;margin-bottom:10px}
+    #searchInput{width:100%;padding:10px 36px 10px 14px;border-radius:12px;border:1px solid rgba(34,197,94,.35);background:#0b2318;color:#eafff4;font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s;box-sizing:border-box}
+    #searchInput:focus{border-color:#5fe0bb;box-shadow:0 0 0 3px rgba(95,224,187,.15)}
+    #searchWrap svg{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;opacity:.6;pointer-events:none;color:#86efac}
+    #searchResults{position:absolute;top:calc(100% + 6px);left:0;right:0;background:#0b2318f5;border:1px solid rgba(34,197,94,.4);border-radius:12px;max-height:220px;overflow-y:auto;display:none;z-index:60;box-shadow:0 12px 30px rgba(0,0,0,.7)}
+    #searchResults div{padding:9px 14px;font-size:12.5px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;gap:8px;align-items:center}
+    #searchResults div:last-child{border-bottom:none}
+    #searchResults div:hover{background:rgba(95,224,187,.15)}
+    #searchResults .rid{color:#5fe0bb;font-weight:700;font-family:monospace}
+    #searchResults .rlvl{color:#7fae9a;font-size:11px}
+
+    /* Action Toolbar */
+    .tree-action-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap}
+    .tree-action-btns{display:flex;gap:6px}
+    .tree-btn-sm{border:1px solid rgba(34,197,94,.35);background:#0b2318;color:#eafff4;padding:7px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap}
+    .tree-btn-sm:hover{background:#123322;border-color:#5fe0bb;color:#5fe0bb}
+    .tree-btn-sm:active{transform:scale(.96)}
     .struct-tab-group{display:flex;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:3px;gap:2px}
-    .struct-tab{display:flex;align-items:center;gap:5px;padding:7px 14px;border-radius:9px;font-size:12px;font-weight:700;color:rgba(255,255,255,.5);background:transparent;border:none;cursor:pointer;transition:all .2s}
+    .struct-tab{display:flex;align-items:center;gap:5px;padding:7px 12px;border-radius:9px;font-size:12px;font-weight:700;color:rgba(255,255,255,.5);background:transparent;border:none;cursor:pointer;transition:all .2s}
     .struct-tab.active{background:linear-gradient(135deg,#166534,#14532d);color:#86efac;border:1px solid rgba(34,197,94,.4);box-shadow:0 2px 10px rgba(34,197,94,.2)}
-    .struct-zoom-group{display:flex;gap:4px}
-    .struct-zoom-btn{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.6);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s}
-    .struct-zoom-btn:hover{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.4);color:#86efac}
-    .struct-zoom-btn.active-zoom{background:rgba(250,204,21,.1);border-color:rgba(250,204,21,.35);color:#fde047}
-    .struct-canvas-wrap{border-radius:20px;overflow:hidden;min-height:300px;background:rgba(5,20,10,.7);border:1px solid rgba(34,197,94,.15)}
-    .struct-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:50px 20px;color:rgba(134,239,172,.6);font-size:13px;font-weight:600}
-    .struct-loading-ring{width:44px;height:44px;border-radius:50%;border:3px solid rgba(34,197,94,.15);border-top-color:#22c55e;animation:structSpin .8s linear infinite}
-    @keyframes structSpin{to{transform:rotate(360deg)}}
-    .struct-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:48px 24px;text-align:center}
-    .struct-empty-icon{font-size:52px;animation:emptyBob 3s ease-in-out infinite}
-    @keyframes emptyBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-    .struct-empty-title{font-size:17px;font-weight:900;color:#fff}
-    .struct-empty-desc{font-size:13px;color:rgba(255,255,255,.4);line-height:1.55;max-width:300px}
-    .struct-empty-btn{margin-top:6px;padding:12px 24px;border-radius:14px;background:linear-gradient(135deg,rgba(20,83,45,.9),rgba(5,46,22,.9));border:1.5px solid rgba(34,197,94,.4);color:#86efac;font-size:13.5px;font-weight:800;cursor:pointer;transition:all .2s}
+
+    /* Canvas Stage Container */
+    .tree-stage-wrap{position:relative;width:100%;height:520px;border-radius:20px;overflow:hidden;border:1.5px solid rgba(34,197,94,.3);background:radial-gradient(1200px 700px at 15% -10%,#14432c 0%,transparent 60%),radial-gradient(1000px 800px at 100% 10%,#0e2a1e 0%,transparent 55%),linear-gradient(160deg,#07130f 0%,#0d251c 45%,#123322 100%);box-shadow:0 12px 36px rgba(0,0,0,.7);box-sizing:border-box}
+    #stage{position:absolute;inset:0;cursor:grab;touch-action:none;overflow:hidden;-webkit-user-select:none;user-select:none}
+    #stage.dragging{cursor:grabbing}
+    #viewport{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+    svg#links{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
+    svg#links path{fill:none;stroke:#5fe0bb55;stroke-width:1.8;transition:stroke .25s,stroke-width .25s,opacity .25s}
+    svg#links path.lit{stroke:#f2b33d;stroke-width:2.4;opacity:1}
+    svg#links path.dim{opacity:.18}
+
+    /* Node Cards (Exact User Snippet) */
+    .node{position:absolute;width:112px;margin-left:-56px;display:flex;flex-direction:column;align-items:center;cursor:pointer;-webkit-user-select:none;user-select:none}
+    .card{width:100%;border-radius:14px;overflow:hidden;box-shadow:0 6px 16px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.12) inset;transition:transform .18s cubic-bezier(.34,1.56,.64,1),box-shadow .18s,filter .2s;position:relative}
+    .node:hover .card{transform:translateY(-3px) scale(1.055);box-shadow:0 12px 26px rgba(0,0,0,.8),0 0 0 2px #5fe0bb}
+    .id-pill{background:linear-gradient(135deg,#0bbf9c,#0f8a72 75%);color:#eafff9;font-weight:700;font-size:13px;letter-spacing:.3px;padding:7px 10px 6px;text-align:center;position:relative;border-bottom:1px solid rgba(0,0,0,.25)}
+    .name-pill{background:linear-gradient(135deg,#e08f2e,#c9761c 80%);color:#fff6ea;font-size:11.5px;font-weight:600;padding:6px 10px 7px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 4px;border-radius:999px;background:#f2b33d;color:#2a1a02;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.7),0 0 0 2px #0d251c}
+    .expand-dot{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:16px;height:16px;border-radius:999px;background:#0b2318;border:1px solid #5fe0bb;color:#5fe0bb;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;z-index:2;box-shadow:0 2px 6px rgba(0,0,0,.6)}
+
+    /* Node highlight / found states */
+    .node.dim .card{opacity:.28;filter:grayscale(.4)}
+    .node.lit .card{box-shadow:0 0 0 2px #f2b33d,0 10px 22px rgba(0,0,0,.8)}
+    .node.found .card{animation:pulseFound 1.1s ease-in-out 2}
+    @keyframes pulseFound{0%,100%{box-shadow:0 0 0 2px #f2b33d,0 10px 22px rgba(0,0,0,.8)}50%{box-shadow:0 0 0 7px rgba(242,179,61,.45),0 10px 30px rgba(0,0,0,.9)}}
+
+    /* Floating Zoom Controls */
+    #zoomCtrl{position:absolute;bottom:12px;right:12px;z-index:45;display:flex;flex-direction:column;gap:5px;background:rgba(15,36,25,.85);border:1px solid rgba(31,74,52,.8);border-radius:12px;padding:5px;backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.5)}
+    #zoomCtrl button{width:32px;height:32px;border-radius:8px;border:1px solid rgba(31,74,52,.8);background:#0b2318;color:#eafff4;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+    #zoomCtrl button:hover{background:#123322;border-color:#5fe0bb;color:#5fe0bb}
+    #zoomPct{font-size:9.5px;text-align:center;color:#7fae9a;font-weight:700;padding:2px 0}
+
+    /* Modal Sheet */
     .struct-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);display:none;align-items:flex-end;justify-content:center;z-index:99999}
     .struct-modal-card{position:relative;width:100%;max-width:480px;background:linear-gradient(160deg,#0d2116,#071009 50%,#0a1a12);border:1.5px solid rgba(34,197,94,.3);border-bottom:none;border-radius:28px 28px 0 0;padding:28px 24px 40px;display:flex;flex-direction:column;align-items:center;gap:10px;overflow:hidden;animation:slideUpModal .32s cubic-bezier(.34,1.56,.64,1);box-shadow:0 -10px 60px rgba(34,197,94,.12)}
     @keyframes slideUpModal{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -379,40 +420,50 @@
         </div>
       </div>
 
-      <!-- Premium Toolbar -->
-      <div class="struct-toolbar">
-        <div class="struct-tab-group">
-          <button class="struct-tab active" id="btn-view-chart" onclick="switchTreeView('chart')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="11"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="11" x2="8" y2="14"/><line x1="16" y1="11" x2="16" y2="14"/><circle cx="8" cy="16" r="2"/><circle cx="16" cy="16" r="2"/></svg>
-            Sxema
-          </button>
-          <button class="struct-tab" id="btn-view-list" onclick="switchTreeView('list')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1.5"/><circle cx="3.5" cy="12" r="1.5"/><circle cx="3.5" cy="18" r="1.5"/></svg>
-            Ro'yxat
+      <!-- Search Bar -->
+      <div id="searchWrap">
+        <input id="searchInput" type="text" placeholder="ID yoki ism bo'yicha qidirish…" autocomplete="off">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <div id="searchResults"></div>
+      </div>
+
+      <!-- Action Toolbar (Expand All, Collapse All, Fit, View Switch) -->
+      <div class="tree-action-bar">
+        <div class="tree-action-btns">
+          <button class="tree-btn-sm" id="expandAllBtn">➕ Ochish</button>
+          <button class="tree-btn-sm" id="collapseAllBtn">➖ Yig'ish</button>
+          <button class="tree-btn-sm" id="fitBtn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
+            Moslash
           </button>
         </div>
-        <div class="struct-zoom-group" id="tree-zoom-tools">
-          <button class="struct-zoom-btn" onclick="zoomTree(0.15)" title="Kattalashtirish">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-          </button>
-          <button class="struct-zoom-btn" onclick="zoomTree(-0.15)" title="Kichiklashtirish">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-          </button>
-          <button class="struct-zoom-btn active-zoom" onclick="resetTreeZoom()" title="Asl o'lcham">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-          </button>
+        <div class="struct-tab-group">
+          <button class="struct-tab active" id="btn-view-chart" onclick="switchTreeView('chart')">🌳 Sxema</button>
+          <button class="struct-tab" id="btn-view-list" onclick="switchTreeView('list')">📋 Ro'yxat</button>
         </div>
       </div>
 
-      <!-- Tree Canvas Wrapper -->
-      <div class="struct-canvas-wrap card-glass" id="org-tree-wrapper">
-        <div class="org-tree-scroll-area" id="org-scroll-area">
-          <div id="user-tree-container">
-            <div class="struct-loading">
-              <div class="struct-loading-ring"></div>
-              <span>Struktura yuklanmoqda...</span>
-            </div>
+      <!-- Interactive Canvas Stage (User's Exact Referral Tree Canvas) -->
+      <div class="tree-stage-wrap" id="tree-stage-wrap">
+        <div id="stage">
+          <div id="viewport">
+            <svg id="links"></svg>
           </div>
+        </div>
+
+        <div id="zoomCtrl">
+          <button id="zoomInBtn" title="Kattalashtirish">+</button>
+          <div id="zoomPct">100%</div>
+          <button id="zoomOutBtn" title="Kichiklashtirish">−</button>
+        </div>
+
+        <!-- List Mode Container -->
+        <div id="user-list-container" style="display:none; position:relative; z-index:20; padding:16px; max-height:520px; overflow-y:auto;"></div>
+
+        <!-- Empty & Loading Overlay Inside Canvas -->
+        <div id="canvas-loading-overlay" class="struct-loading" style="position:absolute; inset:0; z-index:30; background:rgba(7,19,15,0.92);">
+          <div class="struct-loading-ring"></div>
+          <span>Struktura yuklanmoqda...</span>
         </div>
       </div>
 
@@ -601,6 +652,6 @@
   <!-- Toast Notification Container -->
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=2.8"></script>
+  <script src="app.js?v=3.0"></script>
 </body>
 </html>
