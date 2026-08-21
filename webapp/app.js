@@ -307,7 +307,8 @@ function navigateTo(pageId) {
   if (activeView) activeView.classList.add("active");
 
   if (pageId === "structure") {
-    loadUserTree();
+    // Small delay ensures the section is visible (has width/height) before loading tree
+    setTimeout(() => loadUserTree(), 80);
   }
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -537,7 +538,6 @@ function renderCanvasTree() {
 
   drawCanvasLinks();
   applyTreeHighlight();
-  applyCanvasTransform();
 }
 
 function drawCanvasLinks() {
@@ -1130,7 +1130,8 @@ function loadUserTree(retryCount) {
 
       attachCanvasListeners();
       renderCanvasTree();
-      setTimeout(fitToScreen, 50);
+      applyCanvasTransform();       // immediate so nodes appear at default pan/zoom
+      setTimeout(fitToScreen, 120); // then fit to screen after layout is stable
     })
     .catch(err => {
       console.error("Tree loading error:", err);
