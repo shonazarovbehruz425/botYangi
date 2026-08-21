@@ -537,6 +537,7 @@ function renderCanvasTree() {
 
   drawCanvasLinks();
   applyTreeHighlight();
+  applyCanvasTransform();
 }
 
 function drawCanvasLinks() {
@@ -621,13 +622,14 @@ function fitToScreen() {
   const stage = document.getElementById('stage');
   if (!stage || !contentW) return;
   const r = stage.getBoundingClientRect();
-  if (!r.width || !r.height) return;
-  const pad = 40;
-  const scaleX = (r.width - pad * 2) / contentW;
-  const scaleY = (r.height - pad * 2) / Math.max(contentH, 200);
-  zoom = Math.min(1.2, Math.max(ZOOM_MIN, Math.min(scaleX, scaleY)));
-  panX = (r.width - contentW * zoom) / 2;
-  panY = 24;
+  const width = (r.width > 0 ? r.width : (stage.clientWidth || stage.offsetWidth || window.innerWidth || 360));
+  const height = (r.height > 0 ? r.height : (stage.clientHeight || stage.offsetHeight || 500));
+  const pad = 30;
+  const scaleX = (width - pad * 2) / contentW;
+  const scaleY = (height - pad * 2) / Math.max(contentH, 200);
+  zoom = Math.min(1.15, Math.max(ZOOM_MIN, Math.min(scaleX, scaleY)));
+  panX = (width - contentW * zoom) / 2;
+  panY = 30;
   applyCanvasTransform();
 }
 
@@ -1070,24 +1072,14 @@ function closeModal(modalId) {
 // Load Tree Data from Database API
 function loadUserTree(retryCount) {
   const loadingOverlay = document.getElementById('canvas-loading-overlay');
-  if (loadingOverlay) loadingOverlay.style.display = 'flex';
+  if (loadingOverlay) loadingOverlay.style.display = 'none';
 
   detectTelegramUser();
-  if (!userState.id) {
-    const attempts = retryCount || 0;
-    if (attempts < 3) {
-      setTimeout(() => loadUserTree(attempts + 1), 800);
-      return;
-    }
-  }
-
   const targetUid = userState.id || 0;
+
   fetch(`/api/user/tree?user_id=${targetUid}`)
     .then(res => res.json())
     .then(d => {
-      const loadingOverlay = document.getElementById('canvas-loading-overlay');
-      if (loadingOverlay) loadingOverlay.style.display = 'none';
-
       if (d.is_admin !== undefined) {
         userState.isAdmin = Boolean(d.is_admin);
       }
@@ -1138,12 +1130,10 @@ function loadUserTree(retryCount) {
 
       attachCanvasListeners();
       renderCanvasTree();
-      setTimeout(fitToScreen, 60);
+      setTimeout(fitToScreen, 50);
     })
     .catch(err => {
       console.error("Tree loading error:", err);
-      const loadingOverlay = document.getElementById('canvas-loading-overlay');
-      if (loadingOverlay) loadingOverlay.style.display = 'none';
       attachCanvasListeners();
     });
 }
