@@ -1085,6 +1085,9 @@ function loadUserTree(retryCount) {
   fetch(`/api/user/tree?user_id=${targetUid}`)
     .then(res => res.json())
     .then(d => {
+      const loadingOverlay = document.getElementById('canvas-loading-overlay');
+      if (loadingOverlay) loadingOverlay.style.display = 'none';
+
       if (d.is_admin !== undefined) {
         userState.isAdmin = Boolean(d.is_admin);
       }
@@ -1135,10 +1138,11 @@ function loadUserTree(retryCount) {
 
       attachCanvasListeners();
       renderCanvasTree();
-      requestAnimationFrame(fitToScreen);
+      setTimeout(fitToScreen, 60);
     })
     .catch(err => {
       console.error("Tree loading error:", err);
+      const loadingOverlay = document.getElementById('canvas-loading-overlay');
       if (loadingOverlay) loadingOverlay.style.display = 'none';
       attachCanvasListeners();
     });
