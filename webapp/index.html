@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=3.0">
+  <link rel="stylesheet" href="style.css?v=3.1">
   <style>
     /* =========================================================
        INLINE CRITICAL: REFERRAL TREE & STRUKTURA CANVAS
@@ -517,8 +517,8 @@
               Telegramda Yozish
             </a>
 
-            <!-- Curator Action Buttons (Shown for curator/admin) -->
-            <div id="curator-actions-box" style="display:flex; gap:8px; width:100%;">
+            <!-- Admin Action Buttons (Only shown for verified admins) -->
+            <div id="curator-actions-box" style="display:none; gap:8px; width:100%;">
               <button type="button" class="tree-btn-sm" style="flex:1; justify-content:center; padding:10px; background:rgba(201,118,28,0.15); border-color:#c9761c; color:#f2b33d;" onclick="toggleTreeActionForm('replace')">
                 🔄 Almashtirish
               </button>
@@ -690,6 +690,6 @@
   <!-- Toast Notification Container -->
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=3.0"></script>
+  <script src="app.js?v=3.1"></script>
 </body>
 </html>

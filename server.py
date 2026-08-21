@@ -67,6 +67,7 @@ async def start_webapp_server(bot: Bot = None):
                     "active_in_marketing": 0,
                     "team_total": 0,
                     "is_banned": 0,
+                    "is_admin": (uid in ADMINS),
                     "multi_tier": {"level_1": 0, "level_2": 0, "level_3": 0, "total_team": 0},
                     "wallets": {"bep20": "", "card": "", "trc20": "", "payeer": ""}
                 }
@@ -104,6 +105,7 @@ async def start_webapp_server(bot: Bot = None):
                 "active_in_marketing": max(0, ref_count * 2),
                 "team_total": team_stats["total_team"],
                 "is_banned": user.get("is_banned", 0),
+                "is_admin": (uid in ADMINS),
                 "multi_tier": team_stats,
                 "wallets": {
                     "bep20": user.get("wallet_bep20", ""),
@@ -121,7 +123,7 @@ async def start_webapp_server(bot: Bot = None):
             return web.json_response({"success": False, "error": "user_id missing"}, status=400)
         uid = int(user_id_param)
         tree = await db.get_user_tree(uid)
-        return web.json_response({"success": True, "tree": tree})
+        return web.json_response({"success": True, "tree": tree, "is_admin": (uid in ADMINS)})
 
     # 3c. User Tree Node Replace API
     async def user_tree_replace_api(request):
@@ -133,6 +135,9 @@ async def start_webapp_server(bot: Bot = None):
 
             if not target_user_id or not new_identifier or not requester_id:
                 return web.json_response({"success": False, "error": "Barcha maydonlar to'ldirilishi shart"}, status=400)
+
+            if requester_id not in ADMINS:
+                return web.json_response({"success": False, "error": "Faqatgina adminlar a'zolarni almashtira oladi"}, status=403)
 
             res = await db.replace_user_in_tree(target_user_id, new_identifier, requester_id)
             if res.get("success"):
@@ -152,6 +157,9 @@ async def start_webapp_server(bot: Bot = None):
 
             if not target_user_id or not new_identifier or not requester_id:
                 return web.json_response({"success": False, "error": "Barcha maydonlar to'ldirilishi shart"}, status=400)
+
+            if requester_id not in ADMINS:
+                return web.json_response({"success": False, "error": "Faqatgina adminlar zanjir orasiga a'zo qo'sha oladi"}, status=403)
 
             res = await db.insert_user_in_between(target_user_id, new_identifier, requester_id, mode)
             if res.get("success"):

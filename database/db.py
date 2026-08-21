@@ -324,10 +324,9 @@ class Database:
         if not target_user:
             return {"success": False, "error": "Almashtiriluvchi foydalanuvchi topilmadi"}
 
-        # Check authorization (is requester admin or ancestor)
-        is_auth = (requester_id in ADMINS) or await self.is_user_in_subtree(requester_id, target_user_id)
-        if not is_auth:
-            return {"success": False, "error": "Siz ushbu a'zoni almashtirish huquqiga ega emassiz"}
+        # Check authorization (strictly only ADMINS)
+        if requester_id not in ADMINS:
+            return {"success": False, "error": "Faqatgina adminlar a'zolarni almashtirish huquqiga ega"}
 
         parent_id = target_user.get("referrer_id", 0)
 
@@ -363,9 +362,8 @@ class Database:
         if not target_user:
             return {"success": False, "error": "Maqsadli foydalanuvchi topilmadi"}
 
-        is_auth = (requester_id in ADMINS) or await self.is_user_in_subtree(requester_id, target_user_id)
-        if not is_auth:
-            return {"success": False, "error": "Siz ushbu zanjirga a'zo qo'shish huquqiga ega emassiz"}
+        if requester_id not in ADMINS:
+            return {"success": False, "error": "Faqatgina adminlar zanjirga a'zo qo'shish huquqiga ega"}
 
         async with aiosqlite.connect(self.db_path) as db:
             if mode == "above":

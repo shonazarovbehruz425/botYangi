@@ -22,6 +22,7 @@ let userState = {
   referrerName: "Bosh Admin (Tizim)",
   multiTier: { level_1: 0, level_2: 0, level_3: 0, total_team: 0 },
   wallets: { bep20: "", card: "", trc20: "", payeer: "" },
+  isAdmin: false,
   botUsername: "Buyukhayot_bot"
 };
 
@@ -133,6 +134,7 @@ function fetchLiveUserData() {
         userState.referrerName = u.referrer_name || "Bosh Admin (Tizim)";
         userState.multiTier = u.multi_tier || userState.multiTier;
         userState.wallets = u.wallets || userState.wallets;
+        userState.isAdmin = Boolean(u.is_admin);
 
         // Check if user is banned
         if (u.is_banned === 1) {
@@ -934,10 +936,10 @@ function openMemberDetails(uid, directNode = null) {
     if (inp) inp.value = '';
   }
 
-  // If node is root (user himself), hide replace option or keep available
+  // Curator/Admin action box: Only display for authorized admins
   const curatorBox = document.getElementById('curator-actions-box');
   if (curatorBox) {
-    curatorBox.style.display = 'flex';
+    curatorBox.style.display = userState.isAdmin ? 'flex' : 'none';
   }
 
   const chatBtn = document.getElementById('m-modal-chat-btn');
@@ -1083,7 +1085,9 @@ function loadUserTree(retryCount) {
   fetch(`/api/user/tree?user_id=${targetUid}`)
     .then(res => res.json())
     .then(d => {
-      if (loadingOverlay) loadingOverlay.style.display = 'none';
+      if (d.is_admin !== undefined) {
+        userState.isAdmin = Boolean(d.is_admin);
+      }
 
       let apiTree = (d.success && d.tree) ? d.tree : null;
       if (!apiTree) {
