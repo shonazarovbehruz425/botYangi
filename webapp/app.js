@@ -374,6 +374,9 @@ let canvasListenersAttached = false;
 
 // Convert API Tree Data to Canvas Tree Model
 function buildCanvasTree(apiNode, level = 0, parent = null) {
+  if (level === 0) {
+    flatIndex = [];
+  }
   const isRoot = (level === 0);
   const fullName = isRoot
     ? (apiNode.first_name ? `${apiNode.first_name} ${apiNode.last_name || ''}`.trim() : (userState.first_name || 'Siz'))
@@ -620,16 +623,16 @@ function zoomAt(mx, my, newZoom) {
 
 function fitToScreen() {
   const stage = document.getElementById('stage');
-  if (!stage || !contentW) return;
+  if (!stage || !contentW || !canvasRoot) return;
   const r = stage.getBoundingClientRect();
   const width = (r.width > 0 ? r.width : (stage.clientWidth || stage.offsetWidth || window.innerWidth || 360));
   const height = (r.height > 0 ? r.height : (stage.clientHeight || stage.offsetHeight || 500));
-  const pad = 30;
+  const pad = 40;
   const scaleX = (width - pad * 2) / contentW;
   const scaleY = (height - pad * 2) / Math.max(contentH, 200);
-  zoom = Math.min(1.15, Math.max(ZOOM_MIN, Math.min(scaleX, scaleY)));
+  zoom = Math.min(1.2, Math.max(ZOOM_MIN, Math.min(scaleX, scaleY)));
   panX = (width - contentW * zoom) / 2;
-  panY = 30;
+  panY = 24;
   applyCanvasTransform();
 }
 
@@ -1077,6 +1080,23 @@ function loadUserTree(retryCount) {
   detectTelegramUser();
   const targetUid = userState.id || 0;
 
+  const fallbackTree = {
+    user_id: userState.id || 10475,
+    first_name: userState.first_name || 'Siz',
+    last_name: userState.last_name || '',
+    username: userState.username || '',
+    current_level: userState.level || 0,
+    children: []
+  };
+
+  // Immediate default render if no canvasRoot yet
+  if (!canvasRoot) {
+    canvasRoot = buildCanvasTree(fallbackTree, 0, null);
+    attachCanvasListeners();
+    renderCanvasTree();
+    fitToScreen();
+  }
+
   fetch(`/api/user/tree?user_id=${targetUid}`)
     .then(res => res.json())
     .then(d => {
@@ -1084,26 +1104,8 @@ function loadUserTree(retryCount) {
         userState.isAdmin = Boolean(d.is_admin);
       }
 
-      let apiTree = (d.success && d.tree) ? d.tree : null;
-      if (!apiTree) {
-        apiTree = {
-          user_id: userState.id || 10475,
-          first_name: userState.first_name || 'Siz',
-          last_name: userState.last_name || '',
-          username: userState.username || '',
-          current_level: userState.level || 0,
-          children: []
-        };
-      }
-
+      let apiTree = (d.success && d.tree) ? d.tree : fallbackTree;
       currentTreeData = apiTree;
-      flatIndex = [];
-      nodeElPool.clear();
-      const viewport = document.getElementById('viewport');
-      if (viewport) {
-        Array.from(viewport.querySelectorAll('.node')).forEach(el => el.remove());
-      }
-
       canvasRoot = buildCanvasTree(apiTree, 0, null);
 
       // Stats Update
@@ -1130,12 +1132,13 @@ function loadUserTree(retryCount) {
 
       attachCanvasListeners();
       renderCanvasTree();
-      applyCanvasTransform();       // immediate so nodes appear at default pan/zoom
-      setTimeout(fitToScreen, 120); // then fit to screen after layout is stable
+      fitToScreen();
     })
     .catch(err => {
       console.error("Tree loading error:", err);
       attachCanvasListeners();
+      renderCanvasTree();
+      fitToScreen();
     });
 }
 
