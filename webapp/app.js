@@ -1104,7 +1104,12 @@ function loadUserTree(retryCount) {
         userState.isAdmin = Boolean(d.is_admin);
       }
 
-      let apiTree = (d.success && d.tree) ? d.tree : fallbackTree;
+      if (!d.success || !d.tree) {
+        console.warn("Tree API response:", d);
+        return;
+      }
+
+      const apiTree = d.tree;
       currentTreeData = apiTree;
 
       const viewport = document.getElementById('viewport');
@@ -1144,9 +1149,6 @@ function loadUserTree(retryCount) {
     })
     .catch(err => {
       console.error("Tree loading error:", err);
-      attachCanvasListeners();
-      renderCanvasTree();
-      fitToScreen();
     });
 }
 

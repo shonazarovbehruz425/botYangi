@@ -512,8 +512,68 @@ class Database:
 
     async def get_user_tree(self, user_id: int, max_depth: int = 5) -> dict:
         """Returns deep multi-tier hierarchy structure for visual tree rendering."""
-        user = await self.get_user(user_id)
-        if not user:
+        try:
+            user = await self.get_user(user_id)
+            if not user:
+                return {
+                    "user_id": user_id,
+                    "first_name": "Siz",
+                    "last_name": "",
+                    "username": "",
+                    "current_level": 0,
+                    "status": "🌱 Boshlang'ich",
+                    "total_earned": 0,
+                    "registered_at": "",
+                    "children": []
+                }
+
+            async with aiosqlite.connect(self.db_path) as db_conn:
+                db_conn.row_factory = aiosqlite.Row
+
+                async def _fetch_children(parent_id: int, depth: int) -> list:
+                    if depth > max_depth:
+                        return []
+                    try:
+                        cursor = await db_conn.execute(
+                            "SELECT * FROM users WHERE referrer_id = ? OR CAST(referrer_id AS TEXT) = ? ORDER BY registered_at ASC",
+                            (parent_id, str(parent_id))
+                        )
+                        rows = [dict(r) for r in await cursor.fetchall()]
+                    except Exception:
+                        return []
+
+                    res = []
+                    for row in rows:
+                        if row.get("is_banned", 0) == 1:
+                            continue
+                        sub_children = await _fetch_children(row.get("user_id", 0), depth + 1)
+                        res.append({
+                            "user_id": row.get("user_id", 0),
+                            "first_name": row.get("first_name", ""),
+                            "last_name": row.get("last_name", ""),
+                            "username": row.get("username", ""),
+                            "current_level": row.get("current_level", 1),
+                            "status": row.get("status", "🌱 Boshlang'ich"),
+                            "total_earned": row.get("total_earned", 0.0),
+                            "registered_at": row.get("registered_at", ""),
+                            "children": sub_children
+                        })
+                    return res
+
+                children = await _fetch_children(user.get("user_id", user_id), 1)
+
+                return {
+                    "user_id": user.get("user_id", user_id),
+                    "first_name": user.get("first_name", "Siz"),
+                    "last_name": user.get("last_name", ""),
+                    "username": user.get("username", ""),
+                    "current_level": user.get("current_level", 1),
+                    "status": user.get("status", "🌱 Boshlang'ich"),
+                    "total_earned": user.get("total_earned", 0.0),
+                    "registered_at": user.get("registered_at", ""),
+                    "children": children
+                }
+        except Exception:
             return {
                 "user_id": user_id,
                 "first_name": "Siz",
@@ -524,49 +584,6 @@ class Database:
                 "total_earned": 0,
                 "registered_at": "",
                 "children": []
-            }
-
-        async with aiosqlite.connect(self.db_path) as db_conn:
-            db_conn.row_factory = aiosqlite.Row
-
-            async def _fetch_children(parent_id: int, depth: int) -> list:
-                if depth > max_depth:
-                    return []
-                cursor = await db_conn.execute(
-                    "SELECT * FROM users WHERE referrer_id = ? OR CAST(referrer_id AS TEXT) = ? ORDER BY registered_at ASC",
-                    (parent_id, str(parent_id))
-                )
-                rows = [dict(r) for r in await cursor.fetchall()]
-                res = []
-                for row in rows:
-                    if row.get("is_banned", 0) == 1:
-                        continue
-                    row["children"] = await _fetch_children(row["user_id"], depth + 1)
-                    res.append({
-                        "user_id": row.get("user_id", 0),
-                        "first_name": row.get("first_name", ""),
-                        "last_name": row.get("last_name", ""),
-                        "username": row.get("username", ""),
-                        "current_level": row.get("current_level", 1),
-                        "status": row.get("status", "🌱 Boshlang'ich"),
-                        "total_earned": row.get("total_earned", 0.0),
-                        "registered_at": row.get("registered_at", ""),
-                        "children": row["children"]
-                    })
-                return res
-
-            children = await _fetch_children(user_id, 1)
-
-            return {
-                "user_id": user.get("user_id", user_id),
-                "first_name": user.get("first_name", ""),
-                "last_name": user.get("last_name", ""),
-                "username": user.get("username", ""),
-                "current_level": user.get("current_level", 1),
-                "status": user.get("status", "🌱 Boshlang'ich"),
-                "total_earned": user.get("total_earned", 0.0),
-                "registered_at": user.get("registered_at", ""),
-                "children": children
             }
 
     async def get_top_leaders(self, limit: int = 20):
