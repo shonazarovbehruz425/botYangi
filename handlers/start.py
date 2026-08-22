@@ -76,10 +76,13 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
         await message.answer("⛔️ <b>Sizning hisobingiz qoidabuzarlik sababli bloklangan.</b>", parse_mode="HTML")
         return
 
-    # If user is already registered, take them straight to the main menu
+    # If user is already registered with a valid referrer (or is admin or without ref link), go to main menu
     if existing_user:
-        await send_main_menu(message)
-        return
+        user_ref = existing_user.get("referrer_id")
+        if (user_ref and user_ref != 0) or user.id in ADMINS or not args:
+            await send_main_menu(message)
+            return
+        # Otherwise, if user has no referrer (referrer_id == 0) and came with referral link, proceed to registration card below
 
     # User is not registered. Check if referral parameter is provided
     if not args:
