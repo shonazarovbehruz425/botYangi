@@ -5,7 +5,7 @@ from datetime import datetime
 from aiohttp import web
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, URLInputFile
-from config import WEBAPP_PORT, ADMIN_PANEL_PASSWORD, BOT_TOKEN, BACKUP_CHANNEL_ID
+from config import WEBAPP_PORT, ADMIN_PANEL_PASSWORD, BOT_TOKEN, BACKUP_CHANNEL_ID, ADMINS
 from database.db import db
 from database.backup import export_database_to_js_bytes
 
