@@ -401,7 +401,7 @@ function buildCanvasTree(apiNode, level = 0, parent = null) {
     registered_at: apiNode.registered_at || '',
     total_earned: apiNode.total_earned || 0,
     status: apiNode.status || "🌱 Boshlang'ich",
-    expanded: level < 2
+    expanded: level < 5
   };
 
   flatIndex.push(node);
@@ -1106,6 +1106,14 @@ function loadUserTree(retryCount) {
 
       let apiTree = (d.success && d.tree) ? d.tree : fallbackTree;
       currentTreeData = apiTree;
+
+      const viewport = document.getElementById('viewport');
+      if (viewport) {
+        Array.from(viewport.querySelectorAll('.node')).forEach(el => el.remove());
+      }
+      nodeElPool.clear();
+      flatIndex = [];
+
       canvasRoot = buildCanvasTree(apiTree, 0, null);
 
       // Stats Update

@@ -191,7 +191,7 @@ class Database:
                     first_name = excluded.first_name,
                     last_name = excluded.last_name,
                     username = excluded.username,
-                    referrer_id = excluded.referrer_id,
+                    referrer_id = CASE WHEN excluded.referrer_id != 0 THEN excluded.referrer_id ELSE users.referrer_id END,
                     last_active = excluded.last_active,
                     visits_count = users.visits_count + 1
                 """,
