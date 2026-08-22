@@ -38,18 +38,18 @@ BANNER_ALL_LEVELS = os.path.join(BASE_DIR, "assets", "all_levels_banner.png")
 
 LEVEL_PRICES = {
     1: 200000,
-    2: 2700000,
-    3: 35000000,
-    4: 1377000000,
-    5: 17100000000
+    2: 300000,
+    3: 1300000,
+    4: 17000000,
+    5: 70000000
 }
 
 LEVEL_LABELS = {
-    1: "200 000 so'm (200 ming so'm)",
-    2: "2 700 000 so'm (2 mln 700 ming so'm)",
-    3: "35 000 000 so'm (35 mln so'm)",
-    4: "1 377 000 000 so'm (1 mlrd 377 mln so'm)",
-    5: "17 100 000 000 so'm (17 mlrd 100 mln so'm)"
+    1: "200 000 so'm",
+    2: "300 000 so'm",
+    3: "1 300 000 so'm",
+    4: "17 000 000 so'm",
+    5: "70 000 000 so'm"
 }
 
 LEVEL_REQUIRED_REFS = {

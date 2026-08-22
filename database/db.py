@@ -71,11 +71,11 @@ class Database:
             await db.execute("DELETE FROM level_settings WHERE level > 5")
 
             default_levels = [
-                (1, 200000, "1-Daraja (200 ming so'm)"),
-                (2, 2700000, "2-Daraja (2 mln 700 ming so'm)"),
-                (3, 35000000, "3-Daraja (35 mln so'm)"),
-                (4, 1377000000, "4-Daraja (1 mlrd 377 mln so'm)"),
-                (5, 17100000000, "5-Daraja (17 mlrd 100 mln so'm)"),
+                (1, 200000, "1-Daraja (200 000 so'm)"),
+                (2, 300000, "2-Daraja (300 000 so'm)"),
+                (3, 1300000, "3-Daraja (1 300 000 so'm)"),
+                (4, 17000000, "4-Daraja (17 000 000 so'm)"),
+                (5, 70000000, "5-Daraja (70 000 000 so'm)"),
             ]
             for lvl, prc, name in default_levels:
                 await db.execute(
