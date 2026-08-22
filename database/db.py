@@ -445,25 +445,25 @@ class Database:
 
     async def get_referral_count(self, user_id: int) -> int:
         async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ? AND is_banned = 0", (user_id,))
+            cursor = await db.execute("SELECT COUNT(*) FROM users WHERE (referrer_id = ? OR CAST(referrer_id AS TEXT) = ?) AND (is_banned IS NULL OR is_banned = 0)", (user_id, str(user_id)))
             row = await cursor.fetchone()
             return row[0] if row else 0
 
     async def get_multi_tier_stats(self, user_id: int) -> dict:
         async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute("SELECT user_id FROM users WHERE referrer_id = ? AND is_banned = 0", (user_id,))
+            cursor = await db.execute("SELECT user_id FROM users WHERE (referrer_id = ? OR CAST(referrer_id AS TEXT) = ?) AND (is_banned IS NULL OR is_banned = 0)", (user_id, str(user_id)))
             l1_ids = [row[0] for row in await cursor.fetchall()]
             
             l2_ids = []
             if l1_ids:
                 placeholders = ",".join("?" for _ in l1_ids)
-                cursor = await db.execute(f"SELECT user_id FROM users WHERE referrer_id IN ({placeholders}) AND is_banned = 0", l1_ids)
+                cursor = await db.execute(f"SELECT user_id FROM users WHERE referrer_id IN ({placeholders}) AND (is_banned IS NULL OR is_banned = 0)", l1_ids)
                 l2_ids = [row[0] for row in await cursor.fetchall()]
 
             l3_ids = []
             if l2_ids:
                 placeholders = ",".join("?" for _ in l2_ids)
-                cursor = await db.execute(f"SELECT user_id FROM users WHERE referrer_id IN ({placeholders}) AND is_banned = 0", l2_ids)
+                cursor = await db.execute(f"SELECT user_id FROM users WHERE referrer_id IN ({placeholders}) AND (is_banned IS NULL OR is_banned = 0)", l2_ids)
                 l3_ids = [row[0] for row in await cursor.fetchall()]
 
             total_team = len(l1_ids) + len(l2_ids) + len(l3_ids)
@@ -533,8 +533,8 @@ class Database:
                 if depth > max_depth:
                     return []
                 cursor = await db_conn.execute(
-                    "SELECT * FROM users WHERE referrer_id = ? ORDER BY registered_at ASC",
-                    (parent_id,)
+                    "SELECT * FROM users WHERE referrer_id = ? OR CAST(referrer_id AS TEXT) = ? ORDER BY registered_at ASC",
+                    (parent_id, str(parent_id))
                 )
                 rows = [dict(r) for r in await cursor.fetchall()]
                 res = []
