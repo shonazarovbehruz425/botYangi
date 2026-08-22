@@ -468,6 +468,42 @@ class Database:
                 "total_team": total_team
             }
 
+    async def get_curator_for_level(self, user_id: int, target_level: int) -> int:
+        """
+        Finds the upline curator for a specific level upgrade.
+        Level 1 -> 1st upline (direct referrer)
+        Level 2 -> 2nd upline (referrer's referrer)
+        Level 3 -> 3rd upline
+        ...
+        Level N -> N-th upline
+        If upline chain breaks or reaches 0, falls back to ADMINS[0].
+        """
+        admin_default = ADMINS[0] if ADMINS else 0
+        if target_level <= 0:
+            target_level = 1
+
+        curr_id = user_id
+        last_valid_curator = admin_default
+
+        for _ in range(target_level):
+            user = await self.get_user(curr_id)
+            if not user:
+                break
+            ref_id = user.get("referrer_id", 0)
+            if not ref_id or ref_id == 0:
+                break
+
+            last_valid_curator = ref_id
+            curr_id = ref_id
+
+            if ref_id in ADMINS:
+                return ref_id
+
+        if curr_id and curr_id != user_id and curr_id != 0:
+            return curr_id
+
+        return last_valid_curator if last_valid_curator != user_id else admin_default
+
     async def get_user_tree(self, user_id: int, max_depth: int = 5) -> dict:
         """Returns deep multi-tier hierarchy structure for visual tree rendering."""
         user = await self.get_user(user_id)

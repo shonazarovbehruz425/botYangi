@@ -196,11 +196,8 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
                 await callback.message.edit_text(text=caption, reply_markup=keyboard, parse_mode="HTML")
         return
 
-    # Case 3: Payment details formatted exactly like screenshot
-    curator_id = user_data.get("referrer_id", 0) if user_data else 0
-    if not curator_id or curator_id == 0:
-        curator_id = ADMINS[0] if ADMINS else user.id
-
+    # Case 3: Payment details formatted for the specific level's upline curator
+    curator_id = await db.get_curator_for_level(user.id, level)
     curator_data = await db.get_user(curator_id)
 
     # Always try Telegram API for fresh real info
@@ -228,7 +225,6 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
     curator_first = curator_data.get("first_name", "")
     curator_last = curator_data.get("last_name", "")
     curator_full_name = f"{curator_first} {curator_last}".strip() or f"ID: {curator_id}"
-    # Show real name, not username (username can be wrong/placeholder)
     curator_tag = curator_full_name
     price_label = LEVEL_LABELS.get(level, f"{LEVEL_PRICES.get(level, 200000):,} so'm")
 
@@ -238,10 +234,11 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
         f"💎 <b>USDT BEP20:</b>\n<code>{bep20}</code>\n\n"
         f"💎 <b>USDT TRC20:</b>\n<code>{trc20}</code>\n\n"
         f"🅿️ <b>PAYEER:</b>\n<code>{payeer}</code>\n\n"
-        f"пользователю <b>{curator_tag}</b>\n"
+        f"пользователю <b>{curator_tag}</b> ({level}-darajali kurator)\n"
         "После перевода нажмите кнопку <b>'я оплатил'</b> и свяжитесь с пользователем по кнопке <b>'Написать'</b>\n\n"
         "────────────────────\n"
         f"<i>(Siz ko'rsatilgan hamyonlardan biriga <b>{price_label}</b> to'lov qilishingiz kerak. "
+        f"Ushbu to'lov sizning <b>{level}-darajali kuratoringiz ({curator_tag})</b>ga yuboriladi. "
         "O'tkazmani amalga oshirgandan so'ng 'Я оплатил' tugmasini bosing va 'Написать' tugmasi orqali foydalanuvchining lichkasiga yozing.)</i>"
     )
 
@@ -305,7 +302,7 @@ async def marketing_paid_click_handler(callback: CallbackQuery, bot: Bot):
                 "🔔 <b>YANGI TO'LOV BILDIRISHNOMASI!</b>\n\n"
                 f"👤 <b>Foydalanuvchi:</b> {user.full_name} ({user_uname})\n"
                 f"🆔 <b>ID:</b> <code>{user.id}</code>\n"
-                f"⚡️ <b>Daraja:</b> {level}-Bosqich\n"
+                f"⚡️ <b>Daraja:</b> {level}-Bosqich ({level}-darajali tarmog'ingizdagi hamkor)\n"
                 f"💰 <b>Summa:</b> {price_label}\n\n"
                 "Foydalanuvchi sizning hamyoningizga to'lov o'tkazganini bildirdi. "
                 "Hamyoningizga pul tushganini tekshirib, darajani tasdiqlang 👇"
