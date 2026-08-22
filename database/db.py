@@ -35,19 +35,25 @@ class Database:
                 """
             )
 
-            # Ensure columns exist if table was created previously
-            try:
-                await db.execute("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0")
-            except Exception:
-                pass
-            try:
-                await db.execute("ALTER TABLE users ADD COLUMN visits_count INTEGER DEFAULT 1")
-            except Exception:
-                pass
-            try:
-                await db.execute("ALTER TABLE users ADD COLUMN last_active TEXT DEFAULT ''")
-            except Exception:
-                pass
+            # Ensure all columns exist if table was created previously
+            for col_sql in [
+                "ALTER TABLE users ADD COLUMN status TEXT DEFAULT '🌱 Boshlang''ich'",
+                "ALTER TABLE users ADD COLUMN balance REAL DEFAULT 0.0",
+                "ALTER TABLE users ADD COLUMN total_earned REAL DEFAULT 0.0",
+                "ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0",
+                "ALTER TABLE users ADD COLUMN visits_count INTEGER DEFAULT 1",
+                "ALTER TABLE users ADD COLUMN last_active TEXT DEFAULT ''",
+                "ALTER TABLE users ADD COLUMN wallet_bep20 TEXT DEFAULT ''",
+                "ALTER TABLE users ADD COLUMN wallet_card TEXT DEFAULT ''",
+                "ALTER TABLE users ADD COLUMN wallet_trc20 TEXT DEFAULT ''",
+                "ALTER TABLE users ADD COLUMN wallet_payeer TEXT DEFAULT ''",
+                "ALTER TABLE users ADD COLUMN current_level INTEGER DEFAULT 1"
+            ]:
+                try:
+                    await db.execute(col_sql)
+                except Exception:
+                    pass
+            await db.commit()
 
             # 2. Level Settings Table (5 Levels in So'm)
             await db.execute(
@@ -527,24 +533,38 @@ class Database:
                 if depth > max_depth:
                     return []
                 cursor = await db_conn.execute(
-                    "SELECT user_id, first_name, last_name, username, current_level, status, total_earned, registered_at FROM users WHERE referrer_id = ? AND is_banned = 0 ORDER BY registered_at ASC",
+                    "SELECT * FROM users WHERE referrer_id = ? ORDER BY registered_at ASC",
                     (parent_id,)
                 )
                 rows = [dict(r) for r in await cursor.fetchall()]
+                res = []
                 for row in rows:
+                    if row.get("is_banned", 0) == 1:
+                        continue
                     row["children"] = await _fetch_children(row["user_id"], depth + 1)
-                return rows
+                    res.append({
+                        "user_id": row.get("user_id", 0),
+                        "first_name": row.get("first_name", ""),
+                        "last_name": row.get("last_name", ""),
+                        "username": row.get("username", ""),
+                        "current_level": row.get("current_level", 1),
+                        "status": row.get("status", "🌱 Boshlang'ich"),
+                        "total_earned": row.get("total_earned", 0.0),
+                        "registered_at": row.get("registered_at", ""),
+                        "children": row["children"]
+                    })
+                return res
 
             children = await _fetch_children(user_id, 1)
 
             return {
-                "user_id": user["user_id"],
+                "user_id": user.get("user_id", user_id),
                 "first_name": user.get("first_name", ""),
                 "last_name": user.get("last_name", ""),
                 "username": user.get("username", ""),
-                "current_level": user.get("current_level", 0),
+                "current_level": user.get("current_level", 1),
                 "status": user.get("status", "🌱 Boshlang'ich"),
-                "total_earned": user.get("total_earned", 0),
+                "total_earned": user.get("total_earned", 0.0),
                 "registered_at": user.get("registered_at", ""),
                 "children": children
             }
