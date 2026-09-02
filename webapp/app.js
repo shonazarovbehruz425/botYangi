@@ -358,7 +358,7 @@ const CANVAS_NODE_GAP  = 26;
 const CANVAS_LEVEL_H   = 128;
 const CANVAS_MIN_LEAF_W = CANVAS_NODE_W + CANVAS_NODE_GAP;
 const CANVAS_CARD_H    = 64;
-const ZOOM_MIN         = 0.15;
+const ZOOM_MIN         = 0.35;
 const ZOOM_MAX         = 2.2;
 
 let canvasRoot = null;
@@ -401,7 +401,7 @@ function buildCanvasTree(apiNode, level = 0, parent = null) {
     registered_at: apiNode.registered_at || '',
     total_earned: apiNode.total_earned || 0,
     status: apiNode.status || "🌱 Boshlang'ich",
-    expanded: level < 5
+    expanded: level < 2 // Expand root and 1st level by default for clean presentation
   };
 
   flatIndex.push(node);
@@ -473,7 +473,9 @@ function makeNodeEl(node) {
   if (node.children.length) {
     const badge = document.createElement('span');
     badge.className = 'badge';
-    badge.textContent = node.children.length;
+    const totalD = countTreeDescendants(node);
+    badge.textContent = totalD > node.children.length ? `${node.children.length}+${totalD - node.children.length}` : node.children.length;
+    badge.title = `${totalD} ta jamoa a'zosi`;
     idPill.appendChild(badge);
   }
 
@@ -627,12 +629,14 @@ function fitToScreen() {
   const r = stage.getBoundingClientRect();
   const width = (r.width > 0 ? r.width : (stage.clientWidth || stage.offsetWidth || window.innerWidth || 360));
   const height = (r.height > 0 ? r.height : (stage.clientHeight || stage.offsetHeight || 500));
-  const pad = 40;
-  const scaleX = (width - pad * 2) / contentW;
+  const pad = 30;
+  const scaleX = (width - pad * 2) / Math.max(contentW, 1);
   const scaleY = (height - pad * 2) / Math.max(contentH, 200);
-  zoom = Math.min(1.2, Math.max(ZOOM_MIN, Math.min(scaleX, scaleY)));
-  panX = (width - contentW * zoom) / 2;
-  panY = 24;
+  
+  zoom = Math.min(1.1, Math.max(ZOOM_MIN, Math.min(scaleX, scaleY)));
+  const rootX = canvasRoot._x || (contentW / 2);
+  panX = (width / 2) - (rootX * zoom);
+  panY = 28;
   applyCanvasTransform();
 }
 

@@ -692,11 +692,16 @@ async def cab_multi_tier_handler(callback: CallbackQuery):
     user = callback.from_user
     stats = await db.get_multi_tier_stats(user.id)
 
+    l4_line = f"🎖 <b>4-Daraja:</b> <b>{stats.get('level_4', 0)}</b> ta hamkor\n" if stats.get('level_4', 0) > 0 else ""
+    l5_line = f"👑 <b>5-Daraja:</b> <b>{stats.get('level_5', 0)}</b> ta hamkor\n" if stats.get('level_5', 0) > 0 else ""
+
     text = (
-        "🌳 <b>3-DARAJALI JAMOA STRUKTURASI</b>\n\n"
-        f"🥇 <b>1-Daraja (To'g'ridan-to'g'ri takliflar):</b> <b>{stats['level_1']}</b> ta hamkor\n"
-        f"🥈 <b>2-Daraja (Bilvosita takliflar):</b> <b>{stats['level_2']}</b> ta hamkor\n"
-        f"🥉 <b>3-Daraja (Chuqur jamoa):</b> <b>{stats['level_3']}</b> ta hamkor\n"
+        "🌳 <b>JAMOA STRUKTURASI</b>\n\n"
+        f"🥇 <b>1-Daraja (To'g'ridan-to'g'ri):</b> <b>{stats['level_1']} / 3</b> ta hamkor\n"
+        f"🥈 <b>2-Daraja:</b> <b>{stats['level_2']}</b> ta hamkor\n"
+        f"🥉 <b>3-Daraja:</b> <b>{stats['level_3']}</b> ta hamkor\n"
+        f"{l4_line}"
+        f"{l5_line}"
         "────────────────────\n"
         f"🌐 <b>JAMI JAMOA:</b> <b>{stats['total_team']}</b> ta hamkor"
     )

@@ -1,7 +1,7 @@
 import os
 from aiogram import Router, F, Bot
 from aiogram.filters import CommandStart, CommandObject
-from aiogram.types import Message, CallbackQuery, FSInputFile
+from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
 from database import db
 from keyboards import (
     get_register_keyboard,

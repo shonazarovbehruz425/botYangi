@@ -450,27 +450,68 @@ class Database:
             return row[0] if row else 0
 
     async def get_multi_tier_stats(self, user_id: int) -> dict:
+        """Calculates multi-tier team statistics for all 5 marketing levels."""
         async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute("SELECT user_id FROM users WHERE (referrer_id = ? OR CAST(referrer_id AS TEXT) = ?) AND (is_banned IS NULL OR is_banned = 0)", (user_id, str(user_id)))
-            l1_ids = [row[0] for row in await cursor.fetchall()]
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT user_id, referrer_id FROM users WHERE is_banned IS NULL OR is_banned = 0")
+            rows = await cursor.fetchall()
+
+            # Build children lookup map in memory
+            children_map: dict[int, list[int]] = {}
+            for r in rows:
+                u_id = r["user_id"]
+                raw_ref = r["referrer_id"]
+                ref_id = int(raw_ref) if raw_ref and str(raw_ref).isdigit() else 0
+                if ref_id not in children_map:
+                    children_map[ref_id] = []
+                children_map[ref_id].append(u_id)
+
+            visited = set([user_id])
+            current_tier = children_map.get(user_id, [])
+            for c in current_tier:
+                visited.add(c)
+
+            l1_ids = list(current_tier)
             
+            # Level 2
             l2_ids = []
-            if l1_ids:
-                placeholders = ",".join("?" for _ in l1_ids)
-                cursor = await db.execute(f"SELECT user_id FROM users WHERE referrer_id IN ({placeholders}) AND (is_banned IS NULL OR is_banned = 0)", l1_ids)
-                l2_ids = [row[0] for row in await cursor.fetchall()]
+            for p in l1_ids:
+                for c in children_map.get(p, []):
+                    if c not in visited:
+                        visited.add(c)
+                        l2_ids.append(c)
 
+            # Level 3
             l3_ids = []
-            if l2_ids:
-                placeholders = ",".join("?" for _ in l2_ids)
-                cursor = await db.execute(f"SELECT user_id FROM users WHERE referrer_id IN ({placeholders}) AND (is_banned IS NULL OR is_banned = 0)", l2_ids)
-                l3_ids = [row[0] for row in await cursor.fetchall()]
+            for p in l2_ids:
+                for c in children_map.get(p, []):
+                    if c not in visited:
+                        visited.add(c)
+                        l3_ids.append(c)
 
-            total_team = len(l1_ids) + len(l2_ids) + len(l3_ids)
+            # Level 4
+            l4_ids = []
+            for p in l3_ids:
+                for c in children_map.get(p, []):
+                    if c not in visited:
+                        visited.add(c)
+                        l4_ids.append(c)
+
+            # Level 5
+            l5_ids = []
+            for p in l4_ids:
+                for c in children_map.get(p, []):
+                    if c not in visited:
+                        visited.add(c)
+                        l5_ids.append(c)
+
+            total_team = len(l1_ids) + len(l2_ids) + len(l3_ids) + len(l4_ids) + len(l5_ids)
             return {
                 "level_1": len(l1_ids),
                 "level_2": len(l2_ids),
                 "level_3": len(l3_ids),
+                "level_4": len(l4_ids),
+                "level_5": len(l5_ids),
                 "total_team": total_team
             }
 
@@ -510,11 +551,29 @@ class Database:
 
         return last_valid_curator if last_valid_curator != user_id else admin_default
 
-    async def get_user_tree(self, user_id: int, max_depth: int = 5) -> dict:
-        """Returns deep multi-tier hierarchy structure for visual tree rendering."""
+    async def get_user_tree(self, user_id: int, max_depth: int = 15) -> dict:
+        """Returns deep multi-tier hierarchy structure for visual tree rendering (fast in-memory builder)."""
         try:
-            user = await self.get_user(user_id)
-            if not user:
+            async with aiosqlite.connect(self.db_path) as db_conn:
+                db_conn.row_factory = aiosqlite.Row
+                # Fetch all unbanned users in one single query
+                cursor = await db_conn.execute("SELECT * FROM users WHERE is_banned IS NULL OR is_banned = 0 ORDER BY registered_at ASC")
+                all_users = [dict(r) for r in await cursor.fetchall()]
+
+            users_by_id: dict[int, dict] = {}
+            children_map: dict[int, list[dict]] = {}
+
+            for u in all_users:
+                uid = u["user_id"]
+                users_by_id[uid] = u
+                raw_ref = u.get("referrer_id", 0)
+                ref_id = int(raw_ref) if raw_ref and str(raw_ref).isdigit() else 0
+                if ref_id not in children_map:
+                    children_map[ref_id] = []
+                children_map[ref_id].append(u)
+
+            root_user = users_by_id.get(user_id)
+            if not root_user:
                 return {
                     "user_id": user_id,
                     "first_name": "Siz",
@@ -527,53 +586,32 @@ class Database:
                     "children": []
                 }
 
-            async with aiosqlite.connect(self.db_path) as db_conn:
-                db_conn.row_factory = aiosqlite.Row
+            visited = set()
 
-                async def _fetch_children(parent_id: int, depth: int) -> list:
-                    if depth > max_depth:
-                        return []
-                    try:
-                        cursor = await db_conn.execute(
-                            "SELECT * FROM users WHERE referrer_id = ? OR CAST(referrer_id AS TEXT) = ? ORDER BY registered_at ASC",
-                            (parent_id, str(parent_id))
-                        )
-                        rows = [dict(r) for r in await cursor.fetchall()]
-                    except Exception:
-                        return []
-
-                    res = []
-                    for row in rows:
-                        if row.get("is_banned", 0) == 1:
-                            continue
-                        sub_children = await _fetch_children(row.get("user_id", 0), depth + 1)
-                        res.append({
-                            "user_id": row.get("user_id", 0),
-                            "first_name": row.get("first_name", ""),
-                            "last_name": row.get("last_name", ""),
-                            "username": row.get("username", ""),
-                            "current_level": row.get("current_level", 1),
-                            "status": row.get("status", "🌱 Boshlang'ich"),
-                            "total_earned": row.get("total_earned", 0.0),
-                            "registered_at": row.get("registered_at", ""),
-                            "children": sub_children
-                        })
-                    return res
-
-                children = await _fetch_children(user.get("user_id", user_id), 1)
+            def _build_node(u_dict: dict, depth: int) -> dict:
+                uid = u_dict.get("user_id", 0)
+                visited.add(uid)
+                children_nodes = []
+                if depth < max_depth:
+                    for ch in children_map.get(uid, []):
+                        ch_id = ch.get("user_id", 0)
+                        if ch_id not in visited:
+                            children_nodes.append(_build_node(ch, depth + 1))
 
                 return {
-                    "user_id": user.get("user_id", user_id),
-                    "first_name": user.get("first_name", "Siz"),
-                    "last_name": user.get("last_name", ""),
-                    "username": user.get("username", ""),
-                    "current_level": user.get("current_level", 1),
-                    "status": user.get("status", "🌱 Boshlang'ich"),
-                    "total_earned": user.get("total_earned", 0.0),
-                    "registered_at": user.get("registered_at", ""),
-                    "children": children
+                    "user_id": uid,
+                    "first_name": u_dict.get("first_name", ""),
+                    "last_name": u_dict.get("last_name", ""),
+                    "username": u_dict.get("username", ""),
+                    "current_level": u_dict.get("current_level", 1),
+                    "status": u_dict.get("status", "🌱 Boshlang'ich"),
+                    "total_earned": u_dict.get("total_earned", 0.0),
+                    "registered_at": u_dict.get("registered_at", ""),
+                    "children": children_nodes
                 }
-        except Exception:
+
+            return _build_node(root_user, 0)
+        except Exception as e:
             return {
                 "user_id": user_id,
                 "first_name": "Siz",

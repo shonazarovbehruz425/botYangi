@@ -7,7 +7,7 @@ from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, URLInputFile
 from config import WEBAPP_PORT, ADMIN_PANEL_PASSWORD, BOT_TOKEN, BACKUP_CHANNEL_ID, ADMINS
 from database.db import db
-from database.backup import export_database_to_js_bytes
+from database.backup import export_database_to_js_bytes, send_database_backup_to_channel
 
 logger = logging.getLogger(__name__)
 
@@ -157,8 +157,8 @@ async def start_webapp_server(bot: Bot = None):
                 return web.json_response({"success": False, "error": "Faqatgina adminlar a'zolarni almashtira oladi"}, status=403)
 
             res = await db.replace_user_in_tree(target_user_id, new_identifier, requester_id)
-            if res.get("success"):
-                asyncio.create_task(db_backup_manager.backup_and_send(bot_instance))
+            if res.get("success") and _bot_instance:
+                asyncio.create_task(send_database_backup_to_channel(_bot_instance, reason=f"Shajarada a'zo almashtirildi: {target_user_id} -> {new_identifier}"))
             return web.json_response(res)
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=400)
@@ -179,8 +179,8 @@ async def start_webapp_server(bot: Bot = None):
                 return web.json_response({"success": False, "error": "Faqatgina adminlar zanjir orasiga a'zo qo'sha oladi"}, status=403)
 
             res = await db.insert_user_in_between(target_user_id, new_identifier, requester_id, mode)
-            if res.get("success"):
-                asyncio.create_task(db_backup_manager.backup_and_send(bot_instance))
+            if res.get("success") and _bot_instance:
+                asyncio.create_task(send_database_backup_to_channel(_bot_instance, reason=f"Shajaraga a'zo qo'shildi: {new_identifier} ({mode})"))
             return web.json_response(res)
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=400)
