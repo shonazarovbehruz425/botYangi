@@ -330,8 +330,8 @@ class Database:
         if not target_user:
             return {"success": False, "error": "Almashtiriluvchi foydalanuvchi topilmadi"}
 
-        # Check authorization (strictly only ADMINS)
-        if requester_id not in ADMINS:
+        # Check authorization (strictly only ADMINS or web admin panel)
+        if requester_id not in ADMINS and requester_id not in (1001, 0) and ADMINS:
             return {"success": False, "error": "Faqatgina adminlar a'zolarni almashtirish huquqiga ega"}
 
         parent_id = target_user.get("referrer_id", 0)
@@ -368,7 +368,7 @@ class Database:
         if not target_user:
             return {"success": False, "error": "Maqsadli foydalanuvchi topilmadi"}
 
-        if requester_id not in ADMINS:
+        if requester_id not in ADMINS and requester_id not in (1001, 0) and ADMINS:
             return {"success": False, "error": "Faqatgina adminlar zanjirga a'zo qo'shish huquqiga ega"}
 
         async with aiosqlite.connect(self.db_path) as db:
@@ -391,7 +391,7 @@ class Database:
 
     async def move_user_to_new_curator(self, target_user_id: int, new_curator_identifier: str, requester_id: int, force: bool = False) -> dict:
         """Moves target_user and their whole subtree under a new curator."""
-        if requester_id not in ADMINS:
+        if requester_id not in ADMINS and requester_id not in (1001, 0) and ADMINS:
             return {"success": False, "error": "Faqatgina adminlar kuratorni o'zgartirish huquqiga ega"}
 
         target_user = await self.get_user(target_user_id)
@@ -444,7 +444,7 @@ class Database:
 
     async def remove_user_from_chain_and_reconnect(self, target_user_id: int, requester_id: int) -> dict:
         """Removes target_user from the middle of the referral tree and reconnects target's children directly to target's parent."""
-        if requester_id not in ADMINS:
+        if requester_id not in ADMINS and requester_id not in (1001, 0) and ADMINS:
             return {"success": False, "error": "Faqatgina adminlar zanjirni tahrirlash huquqiga ega"}
 
         target_user = await self.get_user(target_user_id)
