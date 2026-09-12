@@ -955,21 +955,30 @@ function openMemberDetails(uid, directNode = null) {
 
   // 2. Quyi a'zolari (Bolalari) display
   const childrenListEl = document.getElementById('m-modal-children-list');
+  const parentRefId = node.referrer_id || (node.parent ? (node.parent.user_id || node.parent.id) : 0);
   if (childrenListEl) {
     if (node.children && node.children.length > 0) {
       const itemsHtml = node.children.map((ch, idx) => {
         const chName = ch.fullName || ch.name || 'Hamkor';
         const chUname = ch.username ? `@${ch.username}` : '';
-        const chId = ch.fullId || ch.user_id || ch.id || '';
+        const chId = ch.user_id || ch.fullId || ch.id || '';
         const chLvl = ch.level !== undefined ? ch.level : (ch.current_level || 1);
+        const canMoveUp = userState.isAdmin && parentRefId && parentRefId != 0;
         return `
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:3px 0; border-bottom:1px dashed rgba(255,255,255,0.08);">
-            <div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:4px 0; border-bottom:1px dashed rgba(255,255,255,0.08);">
+            <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:4px;">
               <span style="color:#f2b33d; font-weight:700;">${idx + 1}.</span> <b>${chName}</b>
               ${chUname ? `<span style="color:#38bdf8; font-size:11px;">(${chUname})</span>` : ''}
               <code style="font-size:10px; color:#94a3b8; margin-left:3px;">[ID: ${chId}]</code>
             </div>
-            <span style="font-size:10px; background:rgba(34,197,94,0.2); color:#86efac; padding:1px 5px; border-radius:5px; font-weight:700;">${chLvl}-daraja</span>
+            <div style="display:flex; align-items:center; gap:4px;">
+              <span style="font-size:10px; background:rgba(34,197,94,0.2); color:#86efac; padding:1px 5px; border-radius:5px; font-weight:700;">${chLvl}-daraja</span>
+              ${canMoveUp ? `
+                <button type="button" onclick="moveChildToParent(${ch.user_id || chId}, ${parentRefId}, '${chName.replace(/'/g, "\\'")}')" style="background:rgba(56,189,248,0.2); border:1px solid #38bdf8; color:#38bdf8; border-radius:6px; font-size:10.5px; padding:2px 6px; cursor:pointer; font-weight:700; white-space:nowrap;" title="Ushbu a'zoni ${node.name} dan chiqarib, to'g'ridan-to'g'ri Kuratoriga o'tkazish">
+                  ⬆️ Kuratorga
+                </button>
+              ` : ''}
+            </div>
           </div>
         `;
       }).join('');
@@ -1012,6 +1021,41 @@ function openMemberDetails(uid, directNode = null) {
 
   const modal = document.getElementById('member-detail-modal');
   if (modal) modal.style.display = 'flex';
+}
+
+function moveChildToParent(childId, parentId, childName) {
+  if (!childId || !parentId) {
+    showToast("⚠️ Kurator ID si topilmadi");
+    return;
+  }
+  
+  if (!confirm(`${childName || 'Ushbu a\'zo'}ni tepasidagi Kurator (ID: ${parentId}) ga qaytarishni tasdiqlaysizmi?`)) {
+    return;
+  }
+
+  showToast("⏳ Kuratorga o'tkazilmoqda...");
+  fetch('/api/user/tree/move', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      target_user_id: Number(childId),
+      new_curator_identifier: String(parentId),
+      requester_id: userState.id || 0
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showToast("✅ " + (data.message || "Muvaffaqiyatli o'tkazildi!"));
+      closeModal('member-detail-modal');
+      loadUserTree();
+    } else {
+      showToast("❌ Xatolik: " + (data.error || "O'tkazib bo'lmadi"));
+    }
+  })
+  .catch(err => {
+    showToast("❌ Server xatoligi yuz berdi");
+  });
 }
 
 let currentSelectedMemberNode = null;
