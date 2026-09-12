@@ -389,6 +389,81 @@ class Database:
         await self.log_activity(requester_id, "TREE_INSERT_USER", f"Zanjir orasiga yangi a'zo {new_user_id} ({mode}) qo'shildi")
         return {"success": True, "message": f"Zanjirga yangi hamkor muvaffaqiyatli qo'shildi: {new_user.get('first_name', '')} (ID: {new_user_id})", "new_user": new_user}
 
+    async def move_user_to_new_curator(self, target_user_id: int, new_curator_identifier: str, requester_id: int) -> dict:
+        """Moves target_user and their whole subtree under a new curator."""
+        if requester_id not in ADMINS:
+            return {"success": False, "error": "Faqatgina adminlar kuratorni o'zgartirish huquqiga ega"}
+
+        target_user = await self.get_user(target_user_id)
+        if not target_user:
+            return {"success": False, "error": "Ko'chiriluvchi foydalanuvchi topilmadi"}
+
+        new_curator = await self.find_or_create_user_by_identifier(new_curator_identifier)
+        if not new_curator:
+            return {"success": False, "error": "Yangi kurator topilmadi yoki kiritilmadi"}
+
+        new_curator_id = new_curator["user_id"]
+        if new_curator_id == target_user_id:
+            return {"success": False, "error": "Foydalanuvchini o'ziga kurator qilib bo'lmaydi"}
+
+        # Check for circular loops
+        if await self.is_user_in_subtree(target_user_id, new_curator_id):
+            return {"success": False, "error": "Xatolik: Yangi kurator ushbu a'zoning quyi tarmog'ida joylashgan (aylana zanjir bo'lib qoladi)."}
+
+        old_parent_id = target_user.get("referrer_id", 0)
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("UPDATE users SET referrer_id = ? WHERE user_id = ?", (new_curator_id, target_user_id))
+            await db.commit()
+
+        if old_parent_id:
+            await self.update_user_rank(old_parent_id)
+        await self.update_user_rank(new_curator_id)
+        await self.update_user_rank(target_user_id)
+
+        target_name = f"{target_user.get('first_name', '')} {target_user.get('last_name', '')}".strip() or str(target_user_id)
+        curator_name = f"{new_curator.get('first_name', '')} {new_curator.get('last_name', '')}".strip() or str(new_curator_id)
+
+        await self.log_activity(requester_id, "TREE_MOVE_CURATOR", f"Foydalanuvchi {target_name} ({target_user_id}) yangi kurator {curator_name} ({new_curator_id}) tagiga ko'chirildi")
+        return {
+            "success": True,
+            "message": f"Foydalanuvchi ({target_name}) muvaffaqiyatli yangi kurator ({curator_name}) tagiga ko'chirildi.",
+            "curator": new_curator
+        }
+
+    async def remove_user_from_chain_and_reconnect(self, target_user_id: int, requester_id: int) -> dict:
+        """Removes target_user from the middle of the referral tree and reconnects target's children directly to target's parent."""
+        if requester_id not in ADMINS:
+            return {"success": False, "error": "Faqatgina adminlar zanjirni tahrirlash huquqiga ega"}
+
+        target_user = await self.get_user(target_user_id)
+        if not target_user:
+            return {"success": False, "error": "Foydalanuvchi topilmadi"}
+
+        parent_id = target_user.get("referrer_id", 0)
+
+        async with aiosqlite.connect(self.db_path) as db:
+            # 1. Reassign target's children to target's parent
+            await db.execute("UPDATE users SET referrer_id = ? WHERE referrer_id = ? AND user_id != ?", (parent_id, target_user_id, parent_id))
+
+            # 2. Detach target_user
+            await db.execute("UPDATE users SET referrer_id = 0 WHERE user_id = ?", (target_user_id,))
+            await db.commit()
+
+        if parent_id:
+            await self.update_user_rank(parent_id)
+        await self.update_user_rank(target_user_id)
+
+        target_name = f"{target_user.get('first_name', '')} {target_user.get('last_name', '')}".strip() or str(target_user_id)
+        parent_user = await self.get_user(parent_id) if parent_id else None
+        parent_name = f"{parent_user.get('first_name', '')} {parent_user.get('last_name', '')}".strip() if parent_user else f"Bosh Admin (ID: {parent_id})"
+
+        await self.log_activity(requester_id, "TREE_REMOVE_AND_RECONNECT", f"Foydalanuvchi {target_name} ({target_user_id}) zanjir orasidan chiqarildi va bolalari {parent_id} ga ulandi")
+        return {
+            "success": True,
+            "message": f"Foydalanuvchi ({target_name}) zanjir orasidan xavfsiz chiqarildi. Uning bolalari to'g'ridan-to'g'ri kuratori ({parent_name})ga ulandi."
+        }
+
     async def change_user_referrer(self, user_id: int, new_referrer_id: int):
         async with aiosqlite.connect(self.db_path) as db:
             old_user = await self.get_user(user_id)
@@ -607,6 +682,7 @@ class Database:
                     "status": u_dict.get("status", "🌱 Boshlang'ich"),
                     "total_earned": u_dict.get("total_earned", 0.0),
                     "registered_at": u_dict.get("registered_at", ""),
+                    "referrer_id": u_dict.get("referrer_id", 0),
                     "children": children_nodes
                 }
 

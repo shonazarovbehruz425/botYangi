@@ -508,9 +508,25 @@
               </span>
               <span class="struct-info-value" id="m-modal-date">-</span>
             </div>
+
+            <!-- Kuratori (Tepasidagi a'zo) -->
+            <div class="struct-info-row" style="background:rgba(253,224,71,0.06); border-radius:8px; padding:6px 8px;">
+              <span class="struct-info-label" style="color:#fde047; font-weight:700;">
+                👑 Kuratori (Tepasida):
+              </span>
+              <span class="struct-info-value" id="m-modal-curator" style="color:#fde047; font-weight:700; text-align:right;">-</span>
+            </div>
+
+            <!-- Quyi a'zolari (Bolalari) -->
+            <div class="struct-info-row" style="flex-direction:column; align-items:flex-start; gap:4px; background:rgba(34,197,94,0.05); border-radius:8px; padding:6px 8px;">
+              <div class="struct-info-label" style="color:#86efac; font-weight:700;">
+                👥 Quyi a'zolari (Bolalari):
+              </div>
+              <div id="m-modal-children-list" style="width:100%; font-size:11.5px; color:#cbd5e1; line-height:1.5;">-</div>
+            </div>
           </div>
 
-          <!-- Actions: Chat, Replace, Insert -->
+          <!-- Actions: Chat, Replace, Move, Remove, Insert -->
           <div style="width:100%; display:flex; flex-direction:column; gap:8px; margin-top:4px;">
             <a href="#" id="m-modal-chat-btn" target="_blank" class="struct-modal-btn" style="margin-top:0;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m22 2-7 20-4-9-9-4 20-7z"/><path d="M22 2 11 13"/></svg>
@@ -518,31 +534,64 @@
             </a>
 
             <!-- Admin Action Buttons (Only shown for verified admins) -->
-            <div id="curator-actions-box" style="display:none; gap:8px; width:100%;">
-              <button type="button" class="tree-btn-sm" style="flex:1; justify-content:center; padding:10px; background:rgba(201,118,28,0.15); border-color:#c9761c; color:#f2b33d;" onclick="toggleTreeActionForm('replace')">
-                🔄 Almashtirish
-              </button>
-              <button type="button" class="tree-btn-sm" style="flex:1; justify-content:center; padding:10px; background:rgba(34,197,94,0.15); border-color:#22c55e; color:#86efac;" onclick="toggleTreeActionForm('insert')">
-                ➕ Orasiga qo'shish
-              </button>
+            <div id="curator-actions-box" style="display:none; flex-direction:column; gap:6px; width:100%;">
+              <div style="font-size:11px; color:#86efac; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; margin-top:2px;">
+                ⚡️ Zanjirni boshqarish (Admin):
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; width:100%;">
+                <button type="button" class="tree-btn-sm" style="justify-content:center; padding:9px; background:rgba(201,118,28,0.15); border-color:#c9761c; color:#f2b33d;" onclick="toggleTreeActionForm('replace')">
+                  🔄 Almashtirish
+                </button>
+                <button type="button" class="tree-btn-sm" style="justify-content:center; padding:9px; background:rgba(56,189,248,0.15); border-color:#38bdf8; color:#38bdf8;" onclick="toggleTreeActionForm('move')">
+                  🔗 Kuratorni o'zgartirish
+                </button>
+                <button type="button" class="tree-btn-sm" style="justify-content:center; padding:9px; background:rgba(239,68,68,0.15); border-color:#ef4444; color:#f87171;" onclick="toggleTreeActionForm('remove')">
+                  ✂️ Zanjirdan uzish
+                </button>
+                <button type="button" class="tree-btn-sm" style="justify-content:center; padding:9px; background:rgba(34,197,94,0.15); border-color:#22c55e; color:#86efac;" onclick="toggleTreeActionForm('insert')">
+                  ➕ Orasiga qo'shish
+                </button>
+              </div>
             </div>
 
-            <!-- Replace User Form -->
+            <!-- Form 1: Replace User -->
             <div id="form-tree-replace" style="display:none; background:rgba(0,0,0,0.5); border:1px solid #c9761c; border-radius:14px; padding:12px; margin-top:4px;">
-              <div style="font-size:12px; color:#f2b33d; font-weight:700; margin-bottom:6px;">🔄 Ushbu hamkor o'rniga boshqasini qo'yish:</div>
+              <div style="font-size:12px; color:#f2b33d; font-weight:700; margin-bottom:4px;">🔄 Ushbu a'zo o'rniga boshqasini qo'yish:</div>
+              <div style="font-size:11px; color:#94a3b8; margin-bottom:8px; line-height:1.3;">Yangi a'zo ushbu o'ringa o'tiradi (uning kuratori va barcha bolalarini o'ziga oladi).</div>
               <input type="text" id="input-replace-target" placeholder="Yangi Telegram @username yoki ID" style="width:100%; padding:9px 12px; border-radius:10px; border:1px solid #c9761c; background:#0b2318; color:#fff; font-size:13px; outline:none; box-sizing:border-box; margin-bottom:8px;">
               <button type="button" class="action-btn" style="width:100%; padding:9px; background:linear-gradient(135deg,#c9761c,#e08f2e); color:#fff; border:none; border-radius:10px; font-weight:800; cursor:pointer;" onclick="submitTreeReplace()">
                 Tasdiqlash va Almashtirish
               </button>
             </div>
 
-            <!-- Insert User Form -->
+            <!-- Form 2: Move Curator -->
+            <div id="form-tree-move" style="display:none; background:rgba(0,0,0,0.5); border:1px solid #38bdf8; border-radius:14px; padding:12px; margin-top:4px;">
+              <div style="font-size:12px; color:#38bdf8; font-weight:700; margin-bottom:4px;">🔗 Kuratorini o'zgartirish (Ko'chirish):</div>
+              <div style="font-size:11px; color:#94a3b8; margin-bottom:8px; line-height:1.3;">Ushbu a'zo va uning barcha quyi bolalari ko'rsatilgan yangi kurator ostiga ko'chiriladi.</div>
+              <input type="text" id="input-move-curator" placeholder="Yangi Kurator @username yoki ID" style="width:100%; padding:9px 12px; border-radius:10px; border:1px solid #38bdf8; background:#0b2318; color:#fff; font-size:13px; outline:none; box-sizing:border-box; margin-bottom:8px;">
+              <button type="button" class="action-btn" style="width:100%; padding:9px; background:linear-gradient(135deg,#0284c7,#38bdf8); color:#fff; border:none; border-radius:10px; font-weight:800; cursor:pointer;" onclick="submitTreeMove()">
+                Kuratorni o'zgartirish
+              </button>
+            </div>
+
+            <!-- Form 3: Remove & Reconnect -->
+            <div id="form-tree-remove" style="display:none; background:rgba(0,0,0,0.5); border:1px solid #ef4444; border-radius:14px; padding:12px; margin-top:4px;">
+              <div style="font-size:12px; color:#f87171; font-weight:700; margin-bottom:4px;">✂️ Zanjir orasidan chiqarish va to'g'rilash:</div>
+              <div style="font-size:11px; color:#cbd5e1; margin-bottom:8px; line-height:1.4;">
+                Ushbu a'zo zanjir orasidan chiqariladi. Uning bolalari avtomatik ravishda uning tepasidagi <b>Kuratori</b>ga ulanadi (zanjir uzilmaydi). Foydalanuvchi bazadan o'chirilmaydi.
+              </div>
+              <button type="button" class="action-btn" style="width:100%; padding:9px; background:linear-gradient(135deg,#b91c1c,#ef4444); color:#fff; border:none; border-radius:10px; font-weight:800; cursor:pointer;" onclick="submitTreeRemove()">
+                Zanjirdan chiqarish va bolalarini kuratorga ulash
+              </button>
+            </div>
+
+            <!-- Form 4: Insert User -->
             <div id="form-tree-insert" style="display:none; background:rgba(0,0,0,0.5); border:1px solid #22c55e; border-radius:14px; padding:12px; margin-top:4px;">
-              <div style="font-size:12px; color:#86efac; font-weight:700; margin-bottom:6px;">➕ Zanjir orasiga yangi a'zo kiritish:</div>
+              <div style="font-size:12px; color:#86efac; font-weight:700; margin-bottom:4px;">➕ Zanjir orasiga yangi a'zo kiritish:</div>
               <input type="text" id="input-insert-target" placeholder="Yangi Telegram @username yoki ID" style="width:100%; padding:9px 12px; border-radius:10px; border:1px solid #22c55e; background:#0b2318; color:#fff; font-size:13px; outline:none; box-sizing:border-box; margin-bottom:8px;">
               <div style="display:flex; gap:10px; font-size:12px; color:#e2e8f0; margin-bottom:10px;">
                 <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
-                  <input type="radio" name="insert-mode" value="above" checked> 🔼 Yuqorisiga
+                  <input type="radio" name="insert-mode" value="above" checked> 🔼 Yuqorisiga (kuratori orasiga)
                 </label>
                 <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
                   <input type="radio" name="insert-mode" value="below"> 🔽 Pastiga (bolalari oldiga)

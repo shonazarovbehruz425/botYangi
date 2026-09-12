@@ -929,21 +929,69 @@ function openMemberDetails(uid, directNode = null) {
   const avatarEl = document.getElementById('m-modal-avatar');
   if (avatarEl) avatarEl.innerText = getUserLvlEmoji(lvl);
 
+  // 1. Kurator (Tepasidagi a'zo) display
+  const curatorEl = document.getElementById('m-modal-curator');
+  if (curatorEl) {
+    if (node.parent) {
+      const pUname = node.parent.username ? `@${node.parent.username}` : '';
+      const pName = node.parent.fullName || node.parent.name || 'Kurator';
+      const pId = node.parent.fullId || node.parent.id || '';
+      curatorEl.innerHTML = `${pName} ${pUname ? `<span style="color:#38bdf8;">(${pUname})</span>` : ''} <code style="font-size:10px; color:#cbd5e1;">[ID: ${pId}]</code>`;
+    } else if (node.treeDepth === 0) {
+      curatorEl.innerHTML = `<span style="color:#22c55e;">👑 Bosh Admin (Tizim)</span>`;
+    } else if (node.referrer_id) {
+      const pNode = flatIndex.find(n => n.user_id === node.referrer_id || n.id === String(node.referrer_id));
+      if (pNode) {
+        const pUname = pNode.username ? `@${pNode.username}` : '';
+        const pName = pNode.fullName || pNode.name || 'Kurator';
+        curatorEl.innerHTML = `${pName} ${pUname ? `<span style="color:#38bdf8;">(${pUname})</span>` : ''} <code style="font-size:10px; color:#cbd5e1;">[ID: ${pNode.fullId || pNode.id}]</code>`;
+      } else {
+        curatorEl.innerHTML = `Kurator ID: <code>${node.referrer_id}</code>`;
+      }
+    } else {
+      curatorEl.innerHTML = `<span style="color:#22c55e;">👑 Bosh Admin (Tizim)</span>`;
+    }
+  }
+
+  // 2. Quyi a'zolari (Bolalari) display
+  const childrenListEl = document.getElementById('m-modal-children-list');
+  if (childrenListEl) {
+    if (node.children && node.children.length > 0) {
+      const itemsHtml = node.children.map((ch, idx) => {
+        const chName = ch.fullName || ch.name || 'Hamkor';
+        const chUname = ch.username ? `@${ch.username}` : '';
+        const chId = ch.fullId || ch.user_id || ch.id || '';
+        const chLvl = ch.level !== undefined ? ch.level : (ch.current_level || 1);
+        return `
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:3px 0; border-bottom:1px dashed rgba(255,255,255,0.08);">
+            <div>
+              <span style="color:#f2b33d; font-weight:700;">${idx + 1}.</span> <b>${chName}</b>
+              ${chUname ? `<span style="color:#38bdf8; font-size:11px;">(${chUname})</span>` : ''}
+              <code style="font-size:10px; color:#94a3b8; margin-left:3px;">[ID: ${chId}]</code>
+            </div>
+            <span style="font-size:10px; background:rgba(34,197,94,0.2); color:#86efac; padding:1px 5px; border-radius:5px; font-weight:700;">${chLvl}-daraja</span>
+          </div>
+        `;
+      }).join('');
+      childrenListEl.innerHTML = itemsHtml;
+    } else {
+      childrenListEl.innerHTML = `<span style="color:#94a3b8; font-style:italic;">Bevosita quyi hamkorlar yo'q (0 ta)</span>`;
+    }
+  }
+
   currentSelectedMemberNode = node;
 
-  // Reset forms in modal
-  const replaceForm = document.getElementById('form-tree-replace');
-  const insertForm = document.getElementById('form-tree-insert');
-  if (replaceForm) {
-    replaceForm.style.display = 'none';
-    const inp = document.getElementById('input-replace-target');
-    if (inp) inp.value = '';
-  }
-  if (insertForm) {
-    insertForm.style.display = 'none';
-    const inp = document.getElementById('input-insert-target');
-    if (inp) inp.value = '';
-  }
+  // Reset all 4 forms in modal
+  ['form-tree-replace', 'form-tree-move', 'form-tree-remove', 'form-tree-insert'].forEach(id => {
+    const f = document.getElementById(id);
+    if (f) f.style.display = 'none';
+  });
+  const inpR = document.getElementById('input-replace-target');
+  if (inpR) inpR.value = '';
+  const inpM = document.getElementById('input-move-curator');
+  if (inpM) inpM.value = '';
+  const inpI = document.getElementById('input-insert-target');
+  if (inpI) inpI.value = '';
 
   // Curator/Admin action box: Only display for authorized admins
   const curatorBox = document.getElementById('curator-actions-box');
@@ -969,25 +1017,28 @@ function openMemberDetails(uid, directNode = null) {
 let currentSelectedMemberNode = null;
 
 function toggleTreeActionForm(type) {
-  const replaceForm = document.getElementById('form-tree-replace');
-  const insertForm = document.getElementById('form-tree-insert');
+  const formMap = {
+    replace: 'form-tree-replace',
+    move: 'form-tree-move',
+    remove: 'form-tree-remove',
+    insert: 'form-tree-insert'
+  };
 
-  if (type === 'replace') {
-    if (replaceForm && replaceForm.style.display === 'block') {
-      replaceForm.style.display = 'none';
-    } else if (replaceForm) {
-      replaceForm.style.display = 'block';
-      if (insertForm) insertForm.style.display = 'none';
-      document.getElementById('input-replace-target')?.focus();
-    }
-  } else if (type === 'insert') {
-    if (insertForm && insertForm.style.display === 'block') {
-      insertForm.style.display = 'none';
-    } else if (insertForm) {
-      insertForm.style.display = 'block';
-      if (replaceForm) replaceForm.style.display = 'none';
-      document.getElementById('input-insert-target')?.focus();
-    }
+  const targetFormId = formMap[type];
+  const targetForm = document.getElementById(targetFormId);
+  const isCurrentlyOpen = targetForm && targetForm.style.display === 'block';
+
+  // Hide all
+  Object.values(formMap).forEach(id => {
+    const f = document.getElementById(id);
+    if (f) f.style.display = 'none';
+  });
+
+  if (!isCurrentlyOpen && targetForm) {
+    targetForm.style.display = 'block';
+    if (type === 'replace') document.getElementById('input-replace-target')?.focus();
+    if (type === 'move') document.getElementById('input-move-curator')?.focus();
+    if (type === 'insert') document.getElementById('input-insert-target')?.focus();
   }
 }
 
@@ -1020,6 +1071,75 @@ function submitTreeReplace() {
       loadUserTree();
     } else {
       showToast("❌ Xatolik: " + (data.error || "Almashtirib bo'lmadi"));
+    }
+  })
+  .catch(err => {
+    showToast("❌ Server xatoligi yuz berdi");
+  });
+}
+
+function submitTreeMove() {
+  if (!currentSelectedMemberNode) return;
+  const targetUid = currentSelectedMemberNode.user_id;
+  const inputEl = document.getElementById('input-move-curator');
+  const val = inputEl ? inputEl.value.trim() : '';
+
+  if (!val) {
+    showToast("⚠️ Yangi Kurator username yoki ID sini kiriting");
+    return;
+  }
+
+  showToast("⏳ Kurator o'zgartirilmoqda...");
+  fetch('/api/user/tree/move', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      target_user_id: targetUid,
+      new_curator_identifier: val,
+      requester_id: userState.id || targetUid
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showToast("✅ " + (data.message || "Kurator muvaffaqiyatli o'zgartirildi!"));
+      closeModal('member-detail-modal');
+      loadUserTree();
+    } else {
+      showToast("❌ Xatolik: " + (data.error || "O'zgartirib bo'lmadi"));
+    }
+  })
+  .catch(err => {
+    showToast("❌ Server xatoligi yuz berdi");
+  });
+}
+
+function submitTreeRemove() {
+  if (!currentSelectedMemberNode) return;
+  const targetUid = currentSelectedMemberNode.user_id;
+  const targetName = currentSelectedMemberNode.fullName || currentSelectedMemberNode.name || targetUid;
+
+  if (!confirm(`Haqiqatan ham ${targetName} ni zanjir orasidan chiqarib, uning bolalarini to'g'ridan-to'g'ri kuratoriga ulamoqchimisiz?`)) {
+    return;
+  }
+
+  showToast("⏳ Zanjirdan chiqarilmoqda...");
+  fetch('/api/user/tree/remove', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      target_user_id: targetUid,
+      requester_id: userState.id || targetUid
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showToast("✅ " + (data.message || "Zanjirdan muvaffaqiyatli chiqarildi!"));
+      closeModal('member-detail-modal');
+      loadUserTree();
+    } else {
+      showToast("❌ Xatolik: " + (data.error || "Zanjirdan chiqarib bo'lmadi"));
     }
   })
   .catch(err => {

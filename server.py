@@ -185,6 +185,47 @@ async def start_webapp_server(bot: Bot = None):
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=400)
 
+    # 3e. User Tree Node Move Curator API
+    async def user_tree_move_api(request):
+        try:
+            data = await request.json()
+            target_user_id = int(data.get("target_user_id", 0))
+            new_curator_identifier = str(data.get("new_curator_identifier", "")).strip()
+            requester_id = int(data.get("requester_id", 0))
+
+            if not target_user_id or not new_curator_identifier or not requester_id:
+                return web.json_response({"success": False, "error": "Barcha maydonlar to'ldirilishi shart"}, status=400)
+
+            if requester_id not in ADMINS:
+                return web.json_response({"success": False, "error": "Faqatgina adminlar kuratorni o'zgartira oladi"}, status=403)
+
+            res = await db.move_user_to_new_curator(target_user_id, new_curator_identifier, requester_id)
+            if res.get("success") and _bot_instance:
+                asyncio.create_task(send_database_backup_to_channel(_bot_instance, reason=f"Kurator o'zgartirildi: user {target_user_id} -> kurator {new_curator_identifier}"))
+            return web.json_response(res)
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=400)
+
+    # 3f. User Tree Node Remove & Reconnect API (Bypass middle node)
+    async def user_tree_remove_api(request):
+        try:
+            data = await request.json()
+            target_user_id = int(data.get("target_user_id", 0))
+            requester_id = int(data.get("requester_id", 0))
+
+            if not target_user_id or not requester_id:
+                return web.json_response({"success": False, "error": "Foydalanuvchi ID si ko'rsatilmadi"}, status=400)
+
+            if requester_id not in ADMINS:
+                return web.json_response({"success": False, "error": "Faqatgina adminlar zanjirni tahrirlay oladi"}, status=403)
+
+            res = await db.remove_user_from_chain_and_reconnect(target_user_id, requester_id)
+            if res.get("success") and _bot_instance:
+                asyncio.create_task(send_database_backup_to_channel(_bot_instance, reason=f"A'zo zanjir orasidan chiqarildi va bolalari ulandi: ID {target_user_id}"))
+            return web.json_response(res)
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=400)
+
     # 4. Admin Auth API
     async def admin_auth(request):
         try:
@@ -474,6 +515,8 @@ async def start_webapp_server(bot: Bot = None):
     app.router.add_get("/api/user/tree", get_user_tree_api)
     app.router.add_post("/api/user/tree/replace", user_tree_replace_api)
     app.router.add_post("/api/user/tree/insert", user_tree_insert_api)
+    app.router.add_post("/api/user/tree/move", user_tree_move_api)
+    app.router.add_post("/api/user/tree/remove", user_tree_remove_api)
     app.router.add_get("/api/announcements/active", get_active_announcement)
 
     # Admin APIs
