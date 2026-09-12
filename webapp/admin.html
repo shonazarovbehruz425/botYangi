@@ -396,9 +396,22 @@
     <!-- TAB 2: USERS MANAGEMENT -->
     <div class="tab-content" id="tab-users">
       <div class="card-section">
-        <div class="section-title">
-          <span>👥 Barcha Foydalanuvchilar Ro'yxati</span>
-          <input type="text" class="form-control" id="user-search" placeholder="Qidiruv (Ism, Username, ID)..." style="width: 280px;" oninput="filterUsers()">
+        <div class="section-title" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <span>👥 Barcha Foydalanuvchilar Ro'yxati</span>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-gold" onclick="downloadTreeReportPDF()" title="Jamoa shajarasini to'liq PDF formatida yuklab olish yoki chop etish" style="padding: 7px 14px; font-size: 12.5px;">
+                📄 Shajarani PDF / Chop etish
+              </button>
+              <button type="button" class="btn btn-blue" onclick="downloadTreeReportDoc()" title="Jamoa shajarasini Word (.doc) hujjati sifatida yuklab olish" style="padding: 7px 14px; font-size: 12.5px;">
+                📝 Word (.doc)
+              </button>
+              <button type="button" class="btn btn-green" onclick="exportUsersCSV()" title="Barcha a'zolar ro'yxatini Excel (.csv) jadvalida yuklab olish" style="padding: 7px 14px; font-size: 12.5px;">
+                📊 Excel (.csv)
+              </button>
+            </div>
+          </div>
+          <input type="text" class="form-control" id="user-search" placeholder="Qidiruv (Ism, Username, ID)..." style="width: 250px;" oninput="filterUsers()">
         </div>
 
         <div class="table-responsive">
@@ -1247,6 +1260,277 @@
           alert("Xatolik: Kanaldan tiklash amalga oshmadi.");
         }
       });
+    }
+
+    // Tree Export Engine (PDF, Word, Excel)
+    function buildTreeFromUsersList(users) {
+      if (!users || !users.length) return null;
+      const usersMap = {};
+      const childrenMap = {};
+      
+      users.forEach(u => {
+        const uid = Number(u.user_id);
+        usersMap[uid] = u;
+        const ref = Number(u.referrer_id || 0);
+        if (!childrenMap[ref]) childrenMap[ref] = [];
+        childrenMap[ref].push(u);
+      });
+      
+      let root = users.find(u => !u.referrer_id || Number(u.referrer_id) === 0) || users[0];
+      
+      const visited = new Set();
+      function buildSubtree(u, depth = 0) {
+        const uid = Number(u.user_id);
+        visited.add(uid);
+        const chList = childrenMap[uid] || [];
+        const children = [];
+        if (depth < 15) {
+          chList.forEach(ch => {
+            if (!visited.has(Number(ch.user_id))) {
+              children.push(buildSubtree(ch, depth + 1));
+            }
+          });
+        }
+        return {
+          ...u,
+          treeDepth: depth,
+          children: children
+        };
+      }
+      
+      return buildSubtree(root, 0);
+    }
+
+    function renderTreeTextIndented(node, prefix = "", isLast = true) {
+      if (!node) return "";
+      const branch = prefix ? (prefix + (isLast ? "└── " : "├── ")) : "👑 ";
+      const fullName = `${node.first_name || ""} ${node.last_name || ""}`.trim() || "Hamkor";
+      const uname = node.username ? ` (@${node.username})` : "";
+      const lvl = node.current_level || 1;
+      const childCount = node.children ? node.children.length : 0;
+      
+      let line = `${branch}${fullName}${uname} [ID: ${node.user_id}] — ${lvl}-Daraja (👥 ${childCount} ta bevosita bola)\n`;
+      
+      if (node.children && node.children.length) {
+        const nextPrefix = prefix ? (prefix + (isLast ? "    " : "│   ")) : "    ";
+        node.children.forEach((c, idx) => {
+          line += renderTreeTextIndented(c, nextPrefix, idx === node.children.length - 1);
+        });
+      }
+      return line;
+    }
+
+    function downloadTreeReportPDF() {
+      if (!allUsers || !allUsers.length) {
+        alert("Yuklash uchun foydalanuvchilar ma'lumotlari topilmadi!");
+        return;
+      }
+      
+      const tree = buildTreeFromUsersList(allUsers);
+      const treeText = renderTreeTextIndented(tree);
+      
+      const printWindow = window.open('', '_blank', 'width=950,height=750');
+      if (!printWindow) {
+        alert("Brauzerda pop-up (yangi oyna) bloklangan. Iltimos, unga ruxsat bering!");
+        return;
+      }
+      
+      const html = `
+        <!DOCTYPE html>
+        <html lang="uz">
+        <head>
+          <meta charset="UTF-8">
+          <title>BUYUK HAYOTGA YO'L — Jamoa Shajarasi Hisoboti</title>
+          <style>
+            @page { size: A4; margin: 12mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; padding: 12px; margin: 0; background: #fff; }
+            .header { text-align: center; border-bottom: 2px solid #ca8a04; padding-bottom: 12px; margin-bottom: 16px; }
+            .header h1 { margin: 0 0 4px; font-size: 20px; color: #854d0e; }
+            .header p { margin: 0; font-size: 12px; color: #64748b; }
+            .summary-boxes { display: flex; gap: 10px; margin-bottom: 16px; }
+            .s-box { flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; background: #f8fafc; text-align: center; }
+            .s-val { font-size: 18px; font-weight: 800; color: #0f172a; }
+            .s-lbl { font-size: 11px; color: #64748b; margin-top: 2px; }
+            h2 { font-size: 15px; color: #1e293b; margin: 18px 0 8px; border-left: 4px solid #ca8a04; padding-left: 8px; }
+            pre { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+            table { width: 100%; border-collapse: collapse; font-size: 10.5px; margin-top: 8px; }
+            th { background: #fef08a; color: #854d0e; border: 1px solid #cbd5e1; padding: 6px 5px; text-align: left; font-weight: 700; }
+            td { border: 1px solid #cbd5e1; padding: 5px; }
+            tr:nth-child(even) td { background: #f8fafc; }
+            .no-print { margin-bottom: 16px; padding: 12px 16px; background: #e0f2fe; border: 1px solid #38bdf8; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; }
+            .print-btn { background: #0284c7; color: #fff; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 800; cursor: pointer; font-size: 13px; }
+            @media print {
+              .no-print { display: none !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="no-print">
+            <span>📄 <b>Rasmiy Jamoa Shajarasi Tayyor!</b> Ushbu hisobotni PDF qilib saqlashingiz yoki printerdan chop etishingiz mumkin.</span>
+            <button class="print-btn" onclick="window.print()">🖨 PDF Saqlash / Chop etish</button>
+          </div>
+
+          <div class="header">
+            <h1>👑 BUYUK HAYOTGA YO'L — RASMIY JAMOA SHAJARASI</h1>
+            <p>Hisobot shakllantirilgan vaqt: ${new Date().toLocaleString('uz-UZ')} | Rasmiy Bot: @Buyukhayot_bot</p>
+          </div>
+
+          <div class="summary-boxes">
+            <div class="s-box">
+              <div class="s-val">${allUsers.length} nafar</div>
+              <div class="s-lbl">Jami A'zolar Soni</div>
+            </div>
+            <div class="s-box">
+              <div class="s-val">1 - 5 Bosqich</div>
+              <div class="s-lbl">Marketing Pog'onalari</div>
+            </div>
+            <div class="s-box">
+              <div class="s-val">${tree && tree.children ? tree.children.length : 0} ta</div>
+              <div class="s-lbl">Bosh Admin 1-Daraja Shoxlari</div>
+            </div>
+          </div>
+
+          <h2>🌳 Iyerarxik Shajara Daraxti (Zanjir Tartibi)</h2>
+          <pre>${treeText}</pre>
+
+          <h2 style="page-break-before: auto;">👥 Barcha Hamkorlar To'liq Reestri</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>№</th>
+                <th>ID</th>
+                <th>Ism & Familiya</th>
+                <th>Username</th>
+                <th>Kurator ID</th>
+                <th>Daraja</th>
+                <th>Balans (so'm)</th>
+                <th>Jami Daromad</th>
+                <th>A'zo Bo'lgan Sana</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allUsers.map((u, i) => `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td><b>${u.user_id}</b></td>
+                  <td>${u.first_name || ''} ${u.last_name || ''}</td>
+                  <td>${u.username ? '@' + u.username : '-'}</td>
+                  <td>${u.referrer_id || 0}</td>
+                  <td>${u.current_level || 1}-Daraja</td>
+                  <td>${Number(u.balance || 0).toLocaleString('uz-UZ')}</td>
+                  <td>${Number(u.total_earned || 0).toLocaleString('uz-UZ')}</td>
+                  <td>${u.registered_at || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
+      
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+    }
+
+    function downloadTreeReportDoc() {
+      if (!allUsers || !allUsers.length) {
+        alert("Yuklash uchun ma'lumot topilmadi!");
+        return;
+      }
+      
+      const tree = buildTreeFromUsersList(allUsers);
+      const treeText = renderTreeTextIndented(tree);
+      
+      const docHtml = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>BUYUK HAYOTGA YO'L — Jamoa Shajarasi</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #1e293b; }
+          h1 { color: #b45309; text-align: center; font-size: 18pt; margin-bottom: 4px; }
+          .meta { text-align: center; color: #64748b; font-size: 10pt; margin-bottom: 20px; }
+          pre { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; font-family: 'Consolas', monospace; font-size: 10pt; line-height: 1.6; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 9.5pt; }
+          th { background: #fef3c7; color: #92400e; border: 1px solid #d97706; padding: 6px 8px; text-align: left; }
+          td { border: 1px solid #cbd5e1; padding: 5px 8px; }
+        </style>
+        </head>
+        <body>
+          <h1>👑 BUYUK HAYOTGA YO'L — JAMOA SHAJARASI</h1>
+          <div class='meta'>Hisobot sanasi: ${new Date().toLocaleString('uz-UZ')} | Jami hamkorlar: ${allUsers.length} nafar</div>
+          
+          <h2>🌳 Iyerarxik Shajara Tuzilmasi:</h2>
+          <pre>${treeText}</pre>
+          
+          <h2>👥 Barcha Hamkorlar Ro'yxati:</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>№</th><th>ID</th><th>Ism & Familiya</th><th>Username</th><th>Kurator ID</th><th>Daraja</th><th>Balans (so'm)</th><th>Jami Daromad (so'm)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allUsers.map((u, i) => `
+                <tr>
+                  <td>${i+1}</td>
+                  <td>${u.user_id}</td>
+                  <td><b>${u.first_name || ''} ${u.last_name || ''}</b></td>
+                  <td>${u.username ? '@' + u.username : '-'}</td>
+                  <td>${u.referrer_id || 0}</td>
+                  <td>${u.current_level || 1}-Daraja</td>
+                  <td>${Number(u.balance || 0).toLocaleString('uz-UZ')}</td>
+                  <td>${Number(u.total_earned || 0).toLocaleString('uz-UZ')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
+      
+      const blob = new Blob(['\ufeff', docHtml], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `BuyukHayot_Jamoa_Shajarasi_${new Date().toISOString().slice(0, 10)}.doc`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function exportUsersCSV() {
+      if (!allUsers || !allUsers.length) {
+        alert("Yuklash uchun ma'lumot topilmadi!");
+        return;
+      }
+      
+      const headers = ["№", "Telegram ID", "Ism", "Familiya", "Username", "Kurator ID", "Daraja", "Balans (so'm)", "Jami Ishlagan (so'm)", "Holat", "Ro'yxatdan o'tgan sana"];
+      const rows = allUsers.map((u, i) => [
+        i + 1,
+        u.user_id,
+        `"${(u.first_name || "").replace(/"/g, '""')}"`,
+        `"${(u.last_name || "").replace(/"/g, '""')}"`,
+        u.username ? `@${u.username}` : "",
+        u.referrer_id || 0,
+        `${u.current_level || 1}-Daraja`,
+        u.balance || 0,
+        u.total_earned || 0,
+        u.status || "Faol",
+        `"${u.registered_at || ""}"`
+      ]);
+      
+      const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `BuyukHayot_Foydalanuvchilar_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
 
     function closeModal(id) {
