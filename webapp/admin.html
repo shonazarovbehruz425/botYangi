@@ -687,6 +687,7 @@
         <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
           Ushbu a'zo va uning barcha bolalari ko'rsatilgan yangi Kurator ostiga ko'chiriladi.
         </div>
+        <div id="admin-move-quick-helper" style="display: none; margin-bottom: 10px;"></div>
         <div class="form-group">
           <label>Yangi Kurator @username yoki ID raqami:</label>
           <input type="text" id="admin-move-input" class="form-control" placeholder="Masalan: @yangi_kurator yoki 1001">
@@ -1000,10 +1001,24 @@
       document.getElementById('ref-user-meta').innerText = `🆔 ID: ${uid} | 🎖 Daraja: ${lvl}-Daraja`;
       
       let curatorText = `👑 Joriy Kuratori: ${refId ? `ID: ${refId}` : 'Bosh Admin (Tizim)'}`;
+      const helperEl = document.getElementById('admin-move-quick-helper');
+      if (helperEl) helperEl.style.display = 'none';
+
       if (refId) {
         const pUser = allUsers.find(u => Number(u.user_id) === Number(refId));
         if (pUser) {
           curatorText = `👑 Joriy Kuratori: ${pUser.first_name || ''} ${pUser.last_name || ''} ${pUser.username ? `(@${pUser.username})` : ''} [ID: ${refId}]`;
+          
+          if (pUser.referrer_id && helperEl) {
+            const gpUser = allUsers.find(u => Number(u.user_id) === Number(pUser.referrer_id));
+            const gpName = gpUser ? `${gpUser.first_name || ''} ${gpUser.last_name || ''}`.trim() : `Kurator`;
+            helperEl.innerHTML = `
+              <button type="button" class="btn btn-outline" style="width: 100%; font-size: 11.5px; padding: 7px; border-color: #38bdf8; color: #38bdf8; display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: 700;" onclick="document.getElementById('admin-move-input').value='${pUser.referrer_id}'; document.getElementById('admin-move-input').focus();">
+                ⬆️ Joriy kuratorining kuratori (${gpName} [ID: ${pUser.referrer_id}]) ga o'tkazish
+              </button>
+            `;
+            helperEl.style.display = 'block';
+          }
         }
       }
       document.getElementById('ref-user-curator').innerText = curatorText;
