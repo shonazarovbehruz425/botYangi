@@ -1088,21 +1088,31 @@
         return;
       }
 
+      doAdminMoveUserApi(uid, val, false);
+    }
+
+    function doAdminMoveUserApi(childId, curatorVal, force = false) {
       fetch('/api/user/tree/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          target_user_id: uid,
-          new_curator_identifier: val,
-          requester_id: 1001
+          target_user_id: Number(childId),
+          new_curator_identifier: String(curatorVal),
+          requester_id: 1001,
+          force: force
         })
       })
       .then(res => res.json())
       .then(d => {
         if (d.success) {
-          closeModal('ref-modal');
-          loadAllData();
           alert("✅ " + (d.message || "Kurator muvaffaqiyatli o'zgartirildi!"));
+          closeModal('ref-modal');
+          closeModal('tree-modal');
+          loadAllData();
+        } else if (d.is_full) {
+          if (confirm(`${d.error}\n\nBaribir ushbu kuratorga majburiy qo'shishni tasdiqlaysizmi?`)) {
+            doAdminMoveUserApi(childId, curatorVal, true);
+          }
         } else {
           alert("❌ Xatolik: " + (d.error || "Ko'chirib bo'lmadi"));
         }
@@ -1135,32 +1145,25 @@
       .catch(() => alert("❌ Server bilan aloqa uzildi"));
     }
 
-    function adminMoveChildToParent(childId, parentId, childName) {
-      if (!childId || !parentId) {
-        alert("Kurator ID si topilmadi!");
+    function adminMoveChildToParent(childId, defaultParentId, childName) {
+      if (!childId) {
+        alert("Foydalanuvchi ID si topilmadi!");
         return;
       }
-      if (!confirm(`Haqiqatan ham ${childName} ni tepasidagi Kurator (ID: ${parentId}) ga qaytarishni tasdiqlaysizmi?`)) return;
+      
+      const targetCuratorInput = prompt(
+        `🔄 ${childName || 'Ushbu a\'zo'}ni QAYSI Kuratorga ulamoqchisiz?\n\nYangi Kurator Telegram ID raqami yoki @username ini kiriting:`,
+        defaultParentId && defaultParentId != 0 ? defaultParentId : ''
+      );
 
-      fetch('/api/user/tree/move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          target_user_id: Number(childId),
-          new_curator_identifier: String(parentId),
-          requester_id: 1001
-        })
-      })
-      .then(res => res.json())
-      .then(d => {
-        if (d.success) {
-          alert("✅ " + (d.message || "Muvaffaqiyatli o'tkazildi!"));
-          loadAllData();
-          closeModal('tree-modal');
-        } else {
-          alert("❌ Xatolik: " + d.error);
-        }
-      });
+      if (targetCuratorInput === null) return; // Bekor qilindi
+      const curatorVal = targetCuratorInput.trim();
+      if (!curatorVal) {
+        alert("⚠️ Yangi Kurator ID yoki username kiritilmadi!");
+        return;
+      }
+
+      doAdminMoveUserApi(childId, curatorVal, false);
     }
 
     // ====== BEAUTIFUL FAMILY TREE ======

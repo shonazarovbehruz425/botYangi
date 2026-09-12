@@ -389,7 +389,7 @@ class Database:
         await self.log_activity(requester_id, "TREE_INSERT_USER", f"Zanjir orasiga yangi a'zo {new_user_id} ({mode}) qo'shildi")
         return {"success": True, "message": f"Zanjirga yangi hamkor muvaffaqiyatli qo'shildi: {new_user.get('first_name', '')} (ID: {new_user_id})", "new_user": new_user}
 
-    async def move_user_to_new_curator(self, target_user_id: int, new_curator_identifier: str, requester_id: int) -> dict:
+    async def move_user_to_new_curator(self, target_user_id: int, new_curator_identifier: str, requester_id: int, force: bool = False) -> dict:
         """Moves target_user and their whole subtree under a new curator."""
         if requester_id not in ADMINS:
             return {"success": False, "error": "Faqatgina adminlar kuratorni o'zgartirish huquqiga ega"}
@@ -410,6 +410,18 @@ class Database:
         if await self.is_user_in_subtree(target_user_id, new_curator_id):
             return {"success": False, "error": "Xatolik: Yangi kurator ushbu a'zoning quyi tarmog'ida joylashgan (aylana zanjir bo'lib qoladi)."}
 
+        # Check direct referral count of new curator (trio limit is 3)
+        direct_count = await self.get_referral_count(new_curator_id)
+        curator_name = f"{new_curator.get('first_name', '')} {new_curator.get('last_name', '')}".strip() or str(new_curator_id)
+        if direct_count >= 3 and not force:
+            return {
+                "success": False,
+                "is_full": True,
+                "direct_count": direct_count,
+                "error": f"⚠️ Kurator ({curator_name} [ID: {new_curator_id}]) ning 1-darajali shajarasi to'lgan (hozirda {direct_count} ta to'g'ridan-to'g'ri referali bor!).",
+                "curator": new_curator
+            }
+
         old_parent_id = target_user.get("referrer_id", 0)
 
         async with aiosqlite.connect(self.db_path) as db:
@@ -422,12 +434,11 @@ class Database:
         await self.update_user_rank(target_user_id)
 
         target_name = f"{target_user.get('first_name', '')} {target_user.get('last_name', '')}".strip() or str(target_user_id)
-        curator_name = f"{new_curator.get('first_name', '')} {new_curator.get('last_name', '')}".strip() or str(new_curator_id)
 
         await self.log_activity(requester_id, "TREE_MOVE_CURATOR", f"Foydalanuvchi {target_name} ({target_user_id}) yangi kurator {curator_name} ({new_curator_id}) tagiga ko'chirildi")
         return {
             "success": True,
-            "message": f"Foydalanuvchi ({target_name}) muvaffaqiyatli yangi kurator ({curator_name}) tagiga ko'chirildi.",
+            "message": f"Foydalanuvchi ({target_name}) muvaffaqiyatli yangi kurator ({curator_name} [ID: {new_curator_id}]) tagiga ko'chirildi.",
             "curator": new_curator
         }
 

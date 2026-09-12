@@ -1023,24 +1023,37 @@ function openMemberDetails(uid, directNode = null) {
   if (modal) modal.style.display = 'flex';
 }
 
-function moveChildToParent(childId, parentId, childName) {
-  if (!childId || !parentId) {
-    showToast("⚠️ Kurator ID si topilmadi");
+function moveChildToParent(childId, defaultParentId, childName) {
+  if (!childId) {
+    showToast("⚠️ Foydalanuvchi ID si topilmadi");
     return;
   }
   
-  if (!confirm(`${childName || 'Ushbu a\'zo'}ni tepasidagi Kurator (ID: ${parentId}) ga qaytarishni tasdiqlaysizmi?`)) {
+  const targetCuratorInput = prompt(
+    `🔄 ${childName || 'Ushbu a\'zo'}ni QAYSI Kuratorga ulamoqchisiz?\n\nYangi Kurator Telegram ID raqami yoki @username ini kiriting:`,
+    defaultParentId && defaultParentId != 0 ? defaultParentId : ''
+  );
+
+  if (targetCuratorInput === null) return; // Bekor qilindi
+  const curatorVal = targetCuratorInput.trim();
+  if (!curatorVal) {
+    showToast("⚠️ Yangi Kurator ID yoki username kiritilmadi!");
     return;
   }
 
+  doMoveUserApi(childId, curatorVal, false);
+}
+
+function doMoveUserApi(targetUid, curatorVal, force = false) {
   showToast("⏳ Kuratorga o'tkazilmoqda...");
   fetch('/api/user/tree/move', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      target_user_id: Number(childId),
-      new_curator_identifier: String(parentId),
-      requester_id: userState.id || 0
+      target_user_id: Number(targetUid),
+      new_curator_identifier: String(curatorVal),
+      requester_id: userState.id || 0,
+      force: force
     })
   })
   .then(res => res.json())
@@ -1049,6 +1062,10 @@ function moveChildToParent(childId, parentId, childName) {
       showToast("✅ " + (data.message || "Muvaffaqiyatli o'tkazildi!"));
       closeModal('member-detail-modal');
       loadUserTree();
+    } else if (data.is_full) {
+      if (confirm(`${data.error}\n\nBaribir ushbu kuratorga majburiy qo'shishni tasdiqlaysizmi?`)) {
+        doMoveUserApi(targetUid, curatorVal, true);
+      }
     } else {
       showToast("❌ Xatolik: " + (data.error || "O'tkazib bo'lmadi"));
     }
@@ -1133,29 +1150,7 @@ function submitTreeMove() {
     return;
   }
 
-  showToast("⏳ Kurator o'zgartirilmoqda...");
-  fetch('/api/user/tree/move', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      target_user_id: targetUid,
-      new_curator_identifier: val,
-      requester_id: userState.id || targetUid
-    })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      showToast("✅ " + (data.message || "Kurator muvaffaqiyatli o'zgartirildi!"));
-      closeModal('member-detail-modal');
-      loadUserTree();
-    } else {
-      showToast("❌ Xatolik: " + (data.error || "O'zgartirib bo'lmadi"));
-    }
-  })
-  .catch(err => {
-    showToast("❌ Server xatoligi yuz berdi");
-  });
+  doMoveUserApi(targetUid, val, false);
 }
 
 function submitTreeRemove() {

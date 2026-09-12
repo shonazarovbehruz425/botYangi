@@ -192,6 +192,7 @@ async def start_webapp_server(bot: Bot = None):
             target_user_id = int(data.get("target_user_id", 0))
             new_curator_identifier = str(data.get("new_curator_identifier", "")).strip()
             requester_id = int(data.get("requester_id", 0))
+            force = bool(data.get("force", False))
 
             if not target_user_id or not new_curator_identifier or not requester_id:
                 return web.json_response({"success": False, "error": "Barcha maydonlar to'ldirilishi shart"}, status=400)
@@ -199,7 +200,7 @@ async def start_webapp_server(bot: Bot = None):
             if requester_id not in ADMINS:
                 return web.json_response({"success": False, "error": "Faqatgina adminlar kuratorni o'zgartira oladi"}, status=403)
 
-            res = await db.move_user_to_new_curator(target_user_id, new_curator_identifier, requester_id)
+            res = await db.move_user_to_new_curator(target_user_id, new_curator_identifier, requester_id, force=force)
             if res.get("success") and _bot_instance:
                 asyncio.create_task(send_database_backup_to_channel(_bot_instance, reason=f"Kurator o'zgartirildi: user {target_user_id} -> kurator {new_curator_identifier}"))
             return web.json_response(res)
