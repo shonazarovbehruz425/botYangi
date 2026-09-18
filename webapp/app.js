@@ -990,8 +990,8 @@ function openMemberDetails(uid, directNode = null) {
 
   currentSelectedMemberNode = node;
 
-  // Reset all 4 forms in modal
-  ['form-tree-replace', 'form-tree-move', 'form-tree-remove', 'form-tree-insert'].forEach(id => {
+  // Reset all 5 forms in modal
+  ['form-tree-replace', 'form-tree-move', 'form-tree-transfer', 'form-tree-remove', 'form-tree-insert'].forEach(id => {
     const f = document.getElementById(id);
     if (f) f.style.display = 'none';
   });
@@ -999,6 +999,8 @@ function openMemberDetails(uid, directNode = null) {
   if (inpR) inpR.value = '';
   const inpM = document.getElementById('input-move-curator');
   if (inpM) inpM.value = '';
+  const inpT = document.getElementById('input-transfer-from');
+  if (inpT) inpT.value = '';
   const inpI = document.getElementById('input-insert-target');
   if (inpI) inpI.value = '';
 
@@ -1081,6 +1083,7 @@ function toggleTreeActionForm(type) {
   const formMap = {
     replace: 'form-tree-replace',
     move: 'form-tree-move',
+    transfer: 'form-tree-transfer',
     remove: 'form-tree-remove',
     insert: 'form-tree-insert'
   };
@@ -1099,6 +1102,7 @@ function toggleTreeActionForm(type) {
     targetForm.style.display = 'block';
     if (type === 'replace') document.getElementById('input-replace-target')?.focus();
     if (type === 'move') document.getElementById('input-move-curator')?.focus();
+    if (type === 'transfer') document.getElementById('input-transfer-from')?.focus();
     if (type === 'insert') document.getElementById('input-insert-target')?.focus();
   }
 }
@@ -1151,6 +1155,42 @@ function submitTreeMove() {
   }
 
   doMoveUserApi(targetUid, val, false);
+}
+
+function submitTreeTransfer() {
+  if (!currentSelectedMemberNode) return;
+  const targetUid = currentSelectedMemberNode.user_id;
+  const inputEl = document.getElementById('input-transfer-from');
+  const val = inputEl ? inputEl.value.trim() : '';
+
+  if (!val) {
+    showToast("⚠️ Eski a'zo username yoki ID sini kiriting");
+    return;
+  }
+
+  showToast("⏳ Referallar biriktirilmoqda...");
+  fetch('/api/user/tree/transfer_referrals', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from_identifier: val,
+      to_identifier: String(targetUid),
+      requester_id: userState.id || targetUid
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showToast("✅ " + (data.message || "Referallar muvaffaqiyatli biriktirildi!"));
+      closeModal('member-detail-modal');
+      loadUserTree();
+    } else {
+      showToast("❌ Xatolik: " + (data.error || "Referallarni biriktirib bo'lmadi"));
+    }
+  })
+  .catch(err => {
+    showToast("❌ Server xatoligi yuz berdi");
+  });
 }
 
 function submitTreeRemove() {

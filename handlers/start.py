@@ -115,10 +115,12 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
         )
         return
 
-    referrer_id = int(ref_str)
+    raw_referrer_id = int(ref_str)
+    # Automatically resolve if referrer_id was replaced by a new active user
+    referrer_id = await db.get_effective_referrer_id(raw_referrer_id)
 
     # Check if user tries to refer themselves
-    if referrer_id == user.id:
+    if referrer_id == user.id or raw_referrer_id == user.id:
         await message.answer(
             "⚠️ <b>Siz o'z referal havolangiz orqali ro'yxatdan o'ta olmaysiz!</b>",
             parse_mode="HTML"
@@ -203,7 +205,8 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
 async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
     user = callback.from_user
     data_parts = callback.data.split(":")
-    referrer_id = int(data_parts[1]) if len(data_parts) > 1 and data_parts[1].isdigit() else 0
+    raw_ref = int(data_parts[1]) if len(data_parts) > 1 and data_parts[1].isdigit() else 0
+    referrer_id = await db.get_effective_referrer_id(raw_ref) if raw_ref else 0
 
     # Double check if referrer already has 3 direct referrals
     if referrer_id:

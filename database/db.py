@@ -143,6 +143,17 @@ class Database:
                 """
             )
 
+            # 7. User Replacements & Referral Aliases Table
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_replacements (
+                    old_user_id INTEGER PRIMARY KEY,
+                    new_user_id INTEGER NOT NULL,
+                    replaced_at TEXT
+                )
+                """
+            )
+
             # Ensure Admin exists
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             for admin_id in ADMINS:
@@ -316,8 +327,39 @@ class Database:
             depth += 1
         return False
 
+    async def get_replacement_map(self) -> dict[int, int]:
+        """Returns map of old_user_id -> new_user_id for all replaced/transferred users."""
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                cursor = await db.execute("SELECT old_user_id, new_user_id FROM user_replacements")
+                rows = await cursor.fetchall()
+                rep_map = {}
+                for r in rows:
+                    if r[0] is not None and r[1] is not None:
+                        rep_map[int(r[0])] = int(r[1])
+
+                # Resolve multi-hop replacements (e.g. A -> B -> C)
+                resolved = {}
+                for k in rep_map:
+                    curr = k
+                    visited = set()
+                    while curr in rep_map and curr not in visited:
+                        visited.add(curr)
+                        curr = rep_map[curr]
+                    resolved[k] = curr
+                return resolved
+        except Exception:
+            return {}
+
+    async def get_effective_referrer_id(self, referrer_id: int) -> int:
+        """Returns the active user ID if referrer_id was replaced by someone else."""
+        if not referrer_id:
+            return 0
+        rep_map = await self.get_replacement_map()
+        return rep_map.get(referrer_id, referrer_id)
+
     async def replace_user_in_tree(self, target_user_id: int, new_user_identifier: str, requester_id: int) -> dict:
-        """Replaces target_user with new_user in the referral tree."""
+        """Replaces target_user with new_user in the referral tree and binds all referrals."""
         new_user = await self.find_or_create_user_by_identifier(new_user_identifier)
         if not new_user:
             return {"success": False, "error": "Yangi foydalanuvchi topilmadi yoki kiritilmadi"}
@@ -340,10 +382,20 @@ class Database:
             # 1. Set new_user's referrer to target's parent
             await db.execute("UPDATE users SET referrer_id = ? WHERE user_id = ?", (parent_id, new_user_id))
 
-            # 2. Reassign target's children to new_user
-            await db.execute("UPDATE users SET referrer_id = ? WHERE referrer_id = ? AND user_id != ?", (new_user_id, target_user_id, new_user_id))
+            # 2. Reassign target's children to new_user (handles both int and string referrer_id)
+            await db.execute(
+                "UPDATE users SET referrer_id = ? WHERE (referrer_id = ? OR CAST(referrer_id AS TEXT) = ?) AND user_id != ?",
+                (new_user_id, target_user_id, str(target_user_id), new_user_id)
+            )
 
-            # 3. Detach target_user
+            # 3. Record in user_replacements table
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            await db.execute(
+                "INSERT OR REPLACE INTO user_replacements (old_user_id, new_user_id, replaced_at) VALUES (?, ?, ?)",
+                (target_user_id, new_user_id, now)
+            )
+
+            # 4. Detach target_user
             await db.execute("UPDATE users SET referrer_id = 0 WHERE user_id = ?", (target_user_id,))
             await db.commit()
 
@@ -351,8 +403,75 @@ class Database:
             await self.update_user_rank(parent_id)
         await self.update_user_rank(new_user_id)
 
-        await self.log_activity(requester_id, "TREE_REPLACE_USER", f"Foydalanuvchi {target_user_id} o'rniga {new_user_id} (@{new_user.get('username', '')}) almashtirildi")
-        return {"success": True, "message": f"Foydalanuvchi muvaffaqiyatli almashtirildi: {new_user.get('first_name', '')} (ID: {new_user_id})", "new_user": new_user}
+        await self.log_activity(requester_id, "TREE_REPLACE_USER", f"Foydalanuvchi {target_user_id} o'rniga {new_user_id} (@{new_user.get('username', '')}) almashtirildi va barcha referallari biriktirildi")
+        return {"success": True, "message": f"Foydalanuvchi muvaffaqiyatli almashtirildi va barcha referallari biriktirildi: {new_user.get('first_name', '')} (ID: {new_user_id})", "new_user": new_user}
+
+    async def transfer_referrals(self, from_user_identifier: str, to_user_identifier: str, requester_id: int) -> dict:
+        """Transfers all referrals of from_user to to_user and saves alias."""
+        if requester_id not in ADMINS and requester_id not in (1001, 0) and ADMINS:
+            return {"success": False, "error": "Faqatgina adminlar referallarni ko'chirish huquqiga ega"}
+
+        from_user_id = 0
+        from_name = ""
+        clean_from = str(from_user_identifier).strip().replace("@", "")
+        if clean_from.isdigit():
+            from_user_id = int(clean_from)
+            u = await self.get_user(from_user_id)
+            from_name = f"{u.get('first_name', '')} {u.get('last_name', '')}".strip() if u else f"ID: {from_user_id}"
+        else:
+            u = await self.get_user_by_username(clean_from)
+            if u:
+                from_user_id = u["user_id"]
+                from_name = f"{u.get('first_name', '')} {u.get('last_name', '')}".strip() or f"@{clean_from}"
+            else:
+                return {"success": False, "error": f"Eski foydalanuvchi (@{clean_from}) topilmadi"}
+
+        to_user = await self.find_or_create_user_by_identifier(to_user_identifier)
+        if not to_user:
+            return {"success": False, "error": "Yangi foydalanuvchi topilmadi"}
+
+        to_user_id = to_user["user_id"]
+        to_name = f"{to_user.get('first_name', '')} {to_user.get('last_name', '')}".strip() or str(to_user_id)
+
+        if from_user_id == to_user_id:
+            return {"success": False, "error": "Bir xil foydalanuvchiga ko'chirib bo'lmaydi"}
+
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "SELECT COUNT(*) FROM users WHERE (referrer_id = ? OR CAST(referrer_id AS TEXT) = ?) AND user_id != ?",
+                (from_user_id, str(from_user_id), to_user_id)
+            )
+            count = (await cursor.fetchone())[0]
+
+            # Update referrals to point to to_user_id
+            await db.execute(
+                "UPDATE users SET referrer_id = ? WHERE (referrer_id = ? OR CAST(referrer_id AS TEXT) = ?) AND user_id != ?",
+                (to_user_id, from_user_id, str(from_user_id), to_user_id)
+            )
+
+            # Record in user_replacements table
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            await db.execute(
+                "INSERT OR REPLACE INTO user_replacements (old_user_id, new_user_id, replaced_at) VALUES (?, ?, ?)",
+                (from_user_id, to_user_id, now)
+            )
+            await db.commit()
+
+        await self.update_user_rank(from_user_id)
+        await self.update_user_rank(to_user_id)
+
+        await self.log_activity(
+            requester_id,
+            "TREE_TRANSFER_REFERRALS",
+            f"{count} ta referal {from_name} ({from_user_id}) dan {to_name} ({to_user_id}) ga biriktirildi"
+        )
+
+        return {
+            "success": True,
+            "count": count,
+            "message": f"{count} ta referal muvaffaqiyatli {to_name} (ID: {to_user_id}) ga biriktirildi!",
+            "to_user": to_user
+        }
 
     async def insert_user_in_between(self, target_user_id: int, new_user_identifier: str, requester_id: int, mode: str = "above") -> dict:
         """Inserts new_user between parent and target ('above') or between target and target's children ('below')."""
@@ -515,28 +634,52 @@ class Database:
             await self.log_activity(user_id, "EARN", f"Daromad tushdi: +{amount} so'm")
 
     async def get_referrals(self, user_id: int, offset: int = 0, limit: int = 100):
+        rep_map = await self.get_replacement_map()
+        alias_ids = [user_id]
+        for old_id, new_id in rep_map.items():
+            if new_id == user_id and old_id not in alias_ids:
+                alias_ids.append(old_id)
+
+        placeholders = ",".join("?" for _ in alias_ids)
+        str_placeholders = ",".join("?" for _ in alias_ids)
+        params = list(alias_ids) + [str(i) for i in alias_ids] + [limit, offset]
+
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
-                """
+                f"""
                 SELECT * FROM users 
-                WHERE referrer_id = ? 
+                WHERE (referrer_id IN ({placeholders}) OR CAST(referrer_id AS TEXT) IN ({str_placeholders}))
                 ORDER BY registered_at DESC 
                 LIMIT ? OFFSET ?
                 """, 
-                (user_id, limit, offset)
+                params
             )
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
 
     async def get_referral_count(self, user_id: int) -> int:
+        rep_map = await self.get_replacement_map()
+        alias_ids = [user_id]
+        for old_id, new_id in rep_map.items():
+            if new_id == user_id and old_id not in alias_ids:
+                alias_ids.append(old_id)
+
+        placeholders = ",".join("?" for _ in alias_ids)
+        str_placeholders = ",".join("?" for _ in alias_ids)
+        params = list(alias_ids) + [str(i) for i in alias_ids]
+
         async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute("SELECT COUNT(*) FROM users WHERE (referrer_id = ? OR CAST(referrer_id AS TEXT) = ?) AND (is_banned IS NULL OR is_banned = 0)", (user_id, str(user_id)))
+            cursor = await db.execute(
+                f"SELECT COUNT(*) FROM users WHERE (referrer_id IN ({placeholders}) OR CAST(referrer_id AS TEXT) IN ({str_placeholders})) AND (is_banned IS NULL OR is_banned = 0)",
+                params
+            )
             row = await cursor.fetchone()
             return row[0] if row else 0
 
     async def get_multi_tier_stats(self, user_id: int) -> dict:
-        """Calculates multi-tier team statistics for all 5 marketing levels."""
+        """Calculates multi-tier team statistics for all 5 marketing levels with replacement support."""
+        rep_map = await self.get_replacement_map()
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("SELECT user_id, referrer_id FROM users WHERE is_banned IS NULL OR is_banned = 0")
@@ -548,6 +691,7 @@ class Database:
                 u_id = r["user_id"]
                 raw_ref = r["referrer_id"]
                 ref_id = int(raw_ref) if raw_ref and str(raw_ref).isdigit() else 0
+                ref_id = rep_map.get(ref_id, ref_id)
                 if ref_id not in children_map:
                     children_map[ref_id] = []
                 children_map[ref_id].append(u_id)
@@ -638,8 +782,9 @@ class Database:
         return last_valid_curator if last_valid_curator != user_id else admin_default
 
     async def get_user_tree(self, user_id: int, max_depth: int = 15) -> dict:
-        """Returns deep multi-tier hierarchy structure for visual tree rendering (fast in-memory builder)."""
+        """Returns deep multi-tier hierarchy structure for visual tree rendering (fast in-memory builder with alias resolution)."""
         try:
+            rep_map = await self.get_replacement_map()
             async with aiosqlite.connect(self.db_path) as db_conn:
                 db_conn.row_factory = aiosqlite.Row
                 # Fetch all unbanned users in one single query
@@ -654,6 +799,7 @@ class Database:
                 users_by_id[uid] = u
                 raw_ref = u.get("referrer_id", 0)
                 ref_id = int(raw_ref) if raw_ref and str(raw_ref).isdigit() else 0
+                ref_id = rep_map.get(ref_id, ref_id)
                 if ref_id not in children_map:
                     children_map[ref_id] = []
                 children_map[ref_id].append(u)

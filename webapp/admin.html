@@ -656,13 +656,16 @@
         <div id="ref-user-curator" style="font-size: 12.5px; color: #38bdf8; margin-top: 6px; font-weight: 600;"></div>
       </div>
 
-      <!-- 2 Main Action Tabs/Buttons -->
-      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-        <button type="button" class="btn btn-gold" id="btn-tab-replace" style="flex: 1; justify-content: center; padding: 10px; font-size: 13px;" onclick="switchAdminTreeMode('replace')">
+      <!-- 3 Main Action Tabs/Buttons -->
+      <div style="display: flex; gap: 6px; margin-bottom: 16px;">
+        <button type="button" class="btn btn-gold" id="btn-tab-replace" style="flex: 1; justify-content: center; padding: 8px 4px; font-size: 11.5px;" onclick="switchAdminTreeMode('replace')">
           🔄 Almashtirish
         </button>
-        <button type="button" class="btn btn-outline" id="btn-tab-move" style="flex: 1; justify-content: center; padding: 10px; font-size: 13px;" onclick="switchAdminTreeMode('move')">
+        <button type="button" class="btn btn-outline" id="btn-tab-move" style="flex: 1; justify-content: center; padding: 8px 4px; font-size: 11.5px;" onclick="switchAdminTreeMode('move')">
           🔗 Kuratorni O'zgartirish
+        </button>
+        <button type="button" class="btn btn-outline" id="btn-tab-transfer" style="flex: 1; justify-content: center; padding: 8px 4px; font-size: 11.5px;" onclick="switchAdminTreeMode('transfer')">
+          👥 Referallarni Biriktirish
         </button>
       </div>
 
@@ -670,7 +673,7 @@
       <div id="admin-form-replace" style="background: rgba(0,0,0,0.3); border: 1px solid #c9761c; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
         <div style="font-size: 13px; color: #f2b33d; font-weight: 700; margin-bottom: 4px;">🔄 Ushbu a'zo o'rniga boshqa a'zoni qo'yish:</div>
         <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
-          Yangi a'zo ushbu o'ringa o'tiradi (uning kuratori va barcha quyi bolalarini o'ziga oladi).
+          Yangi a'zo ushbu o'ringa o'tiradi (uning kuratori va barcha quyi bolalarini to'liq o'ziga oladi).
         </div>
         <div class="form-group">
           <label>Yangi Telegram @username yoki ID raqami:</label>
@@ -697,7 +700,22 @@
         </button>
       </div>
 
-      <!-- Option 3: Bypass & Reconnect button -->
+      <!-- Option 3: Transfer Referrals Form -->
+      <div id="admin-form-transfer" style="display: none; background: rgba(0,0,0,0.3); border: 1px solid #10b981; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+        <div style="font-size: 13px; color: #10b981; font-weight: 700; margin-bottom: 4px;">👥 Boshqa/Eski a'zoning referallarini ushbu a'zoga biriktirish:</div>
+        <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
+          Eski yoki chiqarilgan a'zoning havolasi orqali kirgan barcha referallar to'g'ridan-to'g'ri ushbu a'zoga ulanadi va Mini Appda aks etadi.
+        </div>
+        <div class="form-group">
+          <label>Eski/Chiqarilgan a'zoning @username yoki ID raqami:</label>
+          <input type="text" id="admin-transfer-from-input" class="form-control" placeholder="Masalan: 917160577 yoki @eski_foydalanuvchi">
+        </div>
+        <button class="btn btn-green" style="width: 100%; justify-content: center; padding: 10px; font-weight: 800; background: linear-gradient(135deg,#059669,#10b981); color: #fff;" onclick="executeAdminTreeTransfer()">
+          👥 Referallarni Ushbu A'zoga Biriktirish
+        </button>
+      </div>
+
+      <!-- Option 4: Bypass & Reconnect button -->
       <div style="border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px; text-align: center;">
         <button type="button" class="btn btn-red" style="font-size: 11.5px; padding: 6px 12px; background: rgba(239,68,68,0.15);" onclick="executeAdminTreeRemove()">
           ✂️ Zanjir orasidan chiqarish (Bolalarini kuratorga ulash)
@@ -1032,22 +1050,64 @@
     function switchAdminTreeMode(mode) {
       const btnReplace = document.getElementById('btn-tab-replace');
       const btnMove = document.getElementById('btn-tab-move');
+      const btnTransfer = document.getElementById('btn-tab-transfer');
       const formReplace = document.getElementById('admin-form-replace');
       const formMove = document.getElementById('admin-form-move');
+      const formTransfer = document.getElementById('admin-form-transfer');
+
+      btnReplace.className = 'btn btn-outline';
+      btnMove.className = 'btn btn-outline';
+      btnTransfer.className = 'btn btn-outline';
+      formReplace.style.display = 'none';
+      formMove.style.display = 'none';
+      formTransfer.style.display = 'none';
 
       if (mode === 'replace') {
         btnReplace.className = 'btn btn-gold';
-        btnMove.className = 'btn btn-outline';
         formReplace.style.display = 'block';
-        formMove.style.display = 'none';
         document.getElementById('admin-replace-input')?.focus();
-      } else {
-        btnReplace.className = 'btn btn-outline';
+      } else if (mode === 'move') {
         btnMove.className = 'btn btn-blue';
-        formReplace.style.display = 'none';
         formMove.style.display = 'block';
         document.getElementById('admin-move-input')?.focus();
+      } else if (mode === 'transfer') {
+        btnTransfer.className = 'btn btn-green';
+        formTransfer.style.display = 'block';
+        document.getElementById('admin-transfer-from-input')?.focus();
       }
+    }
+
+    function executeAdminTreeTransfer() {
+      const uid = Number(document.getElementById('ref-uid').value);
+      const fromVal = document.getElementById('admin-transfer-from-input').value.trim();
+      if (!fromVal) {
+        alert("⚠️ Eski/Chiqarilgan a'zo ID yoki @username ini kiriting!");
+        return;
+      }
+
+      if (!confirm(`Haqiqatan ham ${fromVal} ning barcha referallarini ID: ${uid} ga biriktirishni tasdiqlaysizmi?`)) return;
+
+      fetch('/api/user/tree/transfer_referrals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from_identifier: fromVal,
+          to_identifier: String(uid),
+          requester_id: 1001
+        })
+      })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) {
+          alert("✅ " + (d.message || "Referallar muvaffaqiyatli biriktirildi!"));
+          closeModal('ref-modal');
+          closeModal('tree-modal');
+          loadAllData();
+        } else {
+          alert("❌ Xatolik: " + (d.error || "Referallarni ko'chirib bo'lmadi"));
+        }
+      })
+      .catch(() => alert("❌ Server bilan aloqa uzildi"));
     }
 
     function executeAdminTreeReplace() {

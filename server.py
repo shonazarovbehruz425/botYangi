@@ -227,6 +227,27 @@ async def start_webapp_server(bot: Bot = None):
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=400)
 
+    # 3g. User Tree Transfer Referrals API
+    async def user_tree_transfer_referrals_api(request):
+        try:
+            data = await request.json()
+            from_identifier = str(data.get("from_identifier", "")).strip()
+            to_identifier = str(data.get("to_identifier", "")).strip()
+            requester_id = int(data.get("requester_id", 0))
+
+            if not from_identifier or not to_identifier or not requester_id:
+                return web.json_response({"success": False, "error": "Barcha maydonlar to'ldirilishi shart"}, status=400)
+
+            if requester_id not in ADMINS and requester_id not in (1001, 0) and ADMINS:
+                return web.json_response({"success": False, "error": "Faqatgina adminlar referallarni ko'chira oladi"}, status=403)
+
+            res = await db.transfer_referrals(from_identifier, to_identifier, requester_id)
+            if res.get("success") and _bot_instance:
+                asyncio.create_task(send_database_backup_to_channel(_bot_instance, reason=f"Referallar ko'chirildi: {from_identifier} -> {to_identifier}"))
+            return web.json_response(res)
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=400)
+
     # 4. Admin Auth API
     async def admin_auth(request):
         try:
@@ -518,6 +539,7 @@ async def start_webapp_server(bot: Bot = None):
     app.router.add_post("/api/user/tree/insert", user_tree_insert_api)
     app.router.add_post("/api/user/tree/move", user_tree_move_api)
     app.router.add_post("/api/user/tree/remove", user_tree_remove_api)
+    app.router.add_post("/api/user/tree/transfer_referrals", user_tree_transfer_referrals_api)
     app.router.add_get("/api/announcements/active", get_active_announcement)
 
     # Admin APIs
