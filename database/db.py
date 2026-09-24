@@ -169,6 +169,7 @@ class Database:
                         (admin_id, "Admin", "Buyuk Hayot", "admin", 0, "👑 Asoschi (Admin)", 5, now, now)
                     )
             await db.commit()
+        await self.sync_all_replacements()
 
     async def get_user(self, user_id: int):
         async with aiosqlite.connect(self.db_path) as db:
@@ -327,6 +328,26 @@ class Database:
             depth += 1
         return False
 
+    async def get_user_by_username(self, username: str):
+        clean_name = str(username).strip().lstrip("@")
+        if not clean_name:
+            return None
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (clean_name,))
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
+    async def get_all_replacements(self):
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                db.row_factory = aiosqlite.Row
+                cursor = await db.execute("SELECT * FROM user_replacements ORDER BY replaced_at DESC")
+                rows = await cursor.fetchall()
+                return [dict(r) for r in rows]
+        except Exception:
+            return []
+
     async def get_replacement_map(self) -> dict[int, int]:
         """Returns map of old_user_id -> new_user_id for all replaced/transferred users."""
         try:
@@ -358,8 +379,116 @@ class Database:
         rep_map = await self.get_replacement_map()
         return rep_map.get(referrer_id, referrer_id)
 
+    async def sync_all_replacements(self) -> dict:
+        """Synchronizes all replaced users: transfers balance, total_earned, level, wallets, referrals and payment logs."""
+        try:
+            replacements = await self.get_all_replacements()
+            if not replacements:
+                return {"success": True, "count": 0, "message": "Almashtirilgan foydalanuvchilar topilmadi"}
+
+            synced_count = 0
+            async with aiosqlite.connect(self.db_path) as db:
+                db.row_factory = aiosqlite.Row
+                for r in replacements:
+                    old_id = r.get("old_user_id")
+                    new_id = r.get("new_user_id")
+                    if not old_id or not new_id or old_id == new_id:
+                        continue
+
+                    cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (old_id,))
+                    old_u_row = await cursor.fetchone()
+                    cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (new_id,))
+                    new_u_row = await cursor.fetchone()
+
+                    if not old_u_row or not new_u_row:
+                        continue
+
+                    old_u = dict(old_u_row)
+                    new_u = dict(new_u_row)
+
+                    old_balance = float(old_u.get("balance", 0.0) or 0.0)
+                    old_total = float(old_u.get("total_earned", 0.0) or 0.0)
+                    old_level = int(old_u.get("current_level", 0) or 0)
+                    old_visits = int(old_u.get("visits_count", 1) or 1)
+
+                    new_balance = float(new_u.get("balance", 0.0) or 0.0)
+                    new_total = float(new_u.get("total_earned", 0.0) or 0.0)
+                    new_level = int(new_u.get("current_level", 1) or 1)
+                    new_visits = int(new_u.get("visits_count", 1) or 1)
+
+                    final_level = max(new_level, old_level)
+                    final_balance = new_balance + old_balance
+                    final_total = new_total + old_total
+                    final_visits = max(new_visits, old_visits)
+
+                    final_card = new_u.get("wallet_card") or old_u.get("wallet_card") or ""
+                    final_bep20 = new_u.get("wallet_bep20") or old_u.get("wallet_bep20") or ""
+                    final_trc20 = new_u.get("wallet_trc20") or old_u.get("wallet_trc20") or ""
+                    final_payeer = new_u.get("wallet_payeer") or old_u.get("wallet_payeer") or ""
+
+                    # Update new user with combined earnings, highest level, and wallet data
+                    await db.execute(
+                        """
+                        UPDATE users SET
+                            current_level = ?,
+                            balance = ?,
+                            total_earned = ?,
+                            wallet_card = ?,
+                            wallet_bep20 = ?,
+                            wallet_trc20 = ?,
+                            wallet_payeer = ?,
+                            visits_count = ?,
+                            is_banned = 0
+                        WHERE user_id = ?
+                        """,
+                        (final_level, final_balance, final_total, final_card, final_bep20, final_trc20, final_payeer, final_visits, new_id)
+                    )
+
+                    # Reset old detached user
+                    await db.execute(
+                        """
+                        UPDATE users SET
+                            current_level = 0,
+                            balance = 0.0,
+                            total_earned = 0.0,
+                            referrer_id = 0,
+                            status = '🌱 Boshlang''ich'
+                        WHERE user_id = ?
+                        """,
+                        (old_id,)
+                    )
+
+                    # Reassign all old children
+                    await db.execute(
+                        "UPDATE users SET referrer_id = ? WHERE (referrer_id = ? OR CAST(referrer_id AS TEXT) = ?) AND user_id != ?",
+                        (new_id, old_id, str(old_id), new_id)
+                    )
+
+                    # Update payment logs
+                    await db.execute("UPDATE payment_logs SET curator_id = ? WHERE curator_id = ?", (new_id, old_id))
+                    await db.execute("UPDATE payment_logs SET buyer_id = ? WHERE buyer_id = ?", (new_id, old_id))
+
+                    synced_count += 1
+
+                await db.commit()
+
+            # Refresh ranks
+            for r in replacements:
+                if r.get("new_user_id"):
+                    await self.update_user_rank(int(r["new_user_id"]))
+                if r.get("old_user_id"):
+                    await self.update_user_rank(int(r["old_user_id"]))
+
+            return {
+                "success": True,
+                "count": synced_count,
+                "message": f"{synced_count} ta a'zoning barcha darajalari, ishlagan pullari va strukturalari muvaffaqiyatli sinxronlandi!"
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     async def replace_user_in_tree(self, target_user_id: int, new_user_identifier: str, requester_id: int) -> dict:
-        """Replaces target_user with new_user in the referral tree and binds all referrals."""
+        """Replaces target_user with new_user in the referral tree and transfers all balance, earnings, level, wallets, and structure."""
         new_user = await self.find_or_create_user_by_identifier(new_user_identifier)
         if not new_user:
             return {"success": False, "error": "Yangi foydalanuvchi topilmadi yoki kiritilmadi"}
@@ -378,36 +507,126 @@ class Database:
 
         parent_id = target_user.get("referrer_id", 0)
 
-        async with aiosqlite.connect(self.db_path) as db:
-            # 1. Set new_user's referrer to target's parent
-            await db.execute("UPDATE users SET referrer_id = ? WHERE user_id = ?", (parent_id, new_user_id))
+        # Read old user stats to transfer
+        target_level = int(target_user.get("current_level", 1) or 1)
+        target_balance = float(target_user.get("balance", 0.0) or 0.0)
+        target_total_earned = float(target_user.get("total_earned", 0.0) or 0.0)
+        target_visits = int(target_user.get("visits_count", 1) or 1)
+        target_card = target_user.get("wallet_card", "") or ""
+        target_bep20 = target_user.get("wallet_bep20", "") or ""
+        target_trc20 = target_user.get("wallet_trc20", "") or ""
+        target_payeer = target_user.get("wallet_payeer", "") or ""
 
-            # 2. Reassign target's children to new_user (handles both int and string referrer_id)
+        # Calculate merged new stats
+        new_level = int(new_user.get("current_level", 1) or 1)
+        new_balance = float(new_user.get("balance", 0.0) or 0.0)
+        new_total_earned = float(new_user.get("total_earned", 0.0) or 0.0)
+        new_visits = int(new_user.get("visits_count", 1) or 1)
+
+        final_level = max(new_level, target_level)
+        final_balance = new_balance + target_balance
+        final_total_earned = new_total_earned + target_total_earned
+        final_visits = max(new_visits, target_visits)
+
+        final_card = new_user.get("wallet_card") or target_card
+        final_bep20 = new_user.get("wallet_bep20") or target_bep20
+        final_trc20 = new_user.get("wallet_trc20") or target_trc20
+        final_payeer = new_user.get("wallet_payeer") or target_payeer
+
+        async with aiosqlite.connect(self.db_path) as db:
+            # 1. Update new_user with target's position, level, balance, earnings, wallets
+            await db.execute(
+                """
+                UPDATE users SET
+                    referrer_id = ?,
+                    current_level = ?,
+                    balance = ?,
+                    total_earned = ?,
+                    wallet_card = ?,
+                    wallet_bep20 = ?,
+                    wallet_trc20 = ?,
+                    wallet_payeer = ?,
+                    visits_count = ?,
+                    is_banned = 0
+                WHERE user_id = ?
+                """,
+                (
+                    parent_id,
+                    final_level,
+                    final_balance,
+                    final_total_earned,
+                    final_card,
+                    final_bep20,
+                    final_trc20,
+                    final_payeer,
+                    final_visits,
+                    new_user_id
+                )
+            )
+
+            # 2. Reassign target's children to new_user
             await db.execute(
                 "UPDATE users SET referrer_id = ? WHERE (referrer_id = ? OR CAST(referrer_id AS TEXT) = ?) AND user_id != ?",
                 (new_user_id, target_user_id, str(target_user_id), new_user_id)
             )
 
-            # 3. Record in user_replacements table
+            # 3. Transfer payment logs where target was curator or buyer
+            await db.execute("UPDATE payment_logs SET curator_id = ? WHERE curator_id = ?", (new_user_id, target_user_id))
+            await db.execute("UPDATE payment_logs SET buyer_id = ? WHERE buyer_id = ?", (new_user_id, target_user_id))
+
+            # 4. Detach and reset target_user
+            await db.execute(
+                """
+                UPDATE users SET
+                    referrer_id = 0,
+                    current_level = 0,
+                    balance = 0.0,
+                    total_earned = 0.0,
+                    status = '🌱 Boshlang''ich'
+                WHERE user_id = ?
+                """,
+                (target_user_id,)
+            )
+
+            # 5. Record in user_replacements table
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             await db.execute(
                 "INSERT OR REPLACE INTO user_replacements (old_user_id, new_user_id, replaced_at) VALUES (?, ?, ?)",
                 (target_user_id, new_user_id, now)
             )
-
-            # 4. Detach target_user
-            await db.execute("UPDATE users SET referrer_id = 0 WHERE user_id = ?", (target_user_id,))
             await db.commit()
 
         if parent_id:
             await self.update_user_rank(parent_id)
         await self.update_user_rank(new_user_id)
+        await self.update_user_rank(target_user_id)
 
-        await self.log_activity(requester_id, "TREE_REPLACE_USER", f"Foydalanuvchi {target_user_id} o'rniga {new_user_id} (@{new_user.get('username', '')}) almashtirildi va barcha referallari biriktirildi")
-        return {"success": True, "message": f"Foydalanuvchi muvaffaqiyatli almashtirildi va barcha referallari biriktirildi: {new_user.get('first_name', '')} (ID: {new_user_id})", "new_user": new_user}
+        target_name = f"{target_user.get('first_name', '')} {target_user.get('last_name', '')}".strip() or str(target_user_id)
+        new_name = f"{new_user.get('first_name', '')} {new_user.get('last_name', '')}".strip() or str(new_user_id)
+
+        await self.log_activity(
+            requester_id,
+            "TREE_REPLACE_USER",
+            f"{target_name} (ID: {target_user_id}) o'rniga {new_name} (ID: {new_user_id}) to'liq almashtirildi: "
+            f"Daraja: {final_level}, Balans: {final_balance:,.0f} so'm, Jami daromad: {final_total_earned:,.0f} so'm, "
+            f"barcha bolalari va to'lovlari o'tkazildi"
+        )
+
+        return {
+            "success": True,
+            "message": (
+                f"Foydalanuvchi muvaffaqiyatli almashtirildi!\n"
+                f"👤 Yangi a'zo: {new_name} (ID: {new_user_id})\n"
+                f"⚡️ Daraja: {final_level}-bosqich\n"
+                f"💰 O'tkazilgan balans: {final_balance:,.0f} so'm\n"
+                f"📈 Jami daromad: {final_total_earned:,.0f} so'm\n"
+                f"👥 Barcha referallar va to'lovlar biriktirildi."
+            ),
+            "new_user": new_user
+        }
 
     async def transfer_referrals(self, from_user_identifier: str, to_user_identifier: str, requester_id: int) -> dict:
-        """Transfers all referrals of from_user to to_user and saves alias."""
+        """Transfers all referrals, level, balance, earnings, and payment logs of from_user to to_user and saves alias."""
         if requester_id not in ADMINS and requester_id not in (1001, 0) and ADMINS:
             return {"success": False, "error": "Faqatgina adminlar referallarni ko'chirish huquqiga ega"}
 
@@ -416,13 +635,13 @@ class Database:
         clean_from = str(from_user_identifier).strip().replace("@", "")
         if clean_from.isdigit():
             from_user_id = int(clean_from)
-            u = await self.get_user(from_user_id)
-            from_name = f"{u.get('first_name', '')} {u.get('last_name', '')}".strip() if u else f"ID: {from_user_id}"
+            from_user = await self.get_user(from_user_id)
+            from_name = f"{from_user.get('first_name', '')} {from_user.get('last_name', '')}".strip() if from_user else f"ID: {from_user_id}"
         else:
-            u = await self.get_user_by_username(clean_from)
-            if u:
-                from_user_id = u["user_id"]
-                from_name = f"{u.get('first_name', '')} {u.get('last_name', '')}".strip() or f"@{clean_from}"
+            from_user = await self.get_user_by_username(clean_from)
+            if from_user:
+                from_user_id = from_user["user_id"]
+                from_name = f"{from_user.get('first_name', '')} {from_user.get('last_name', '')}".strip() or f"@{clean_from}"
             else:
                 return {"success": False, "error": f"Eski foydalanuvchi (@{clean_from}) topilmadi"}
 
@@ -436,6 +655,20 @@ class Database:
         if from_user_id == to_user_id:
             return {"success": False, "error": "Bir xil foydalanuvchiga ko'chirib bo'lmaydi"}
 
+        # Transfer stats & balance if from_user exists
+        from_balance = float(from_user.get("balance", 0.0) or 0.0) if from_user else 0.0
+        from_total = float(from_user.get("total_earned", 0.0) or 0.0) if from_user else 0.0
+        from_level = int(from_user.get("current_level", 0) or 0) if from_user else 0
+
+        to_balance = float(to_user.get("balance", 0.0) or 0.0) + from_balance
+        to_total = float(to_user.get("total_earned", 0.0) or 0.0) + from_total
+        to_level = max(int(to_user.get("current_level", 1) or 1), from_level)
+
+        final_card = to_user.get("wallet_card") or (from_user.get("wallet_card") if from_user else "") or ""
+        final_bep20 = to_user.get("wallet_bep20") or (from_user.get("wallet_bep20") if from_user else "") or ""
+        final_trc20 = to_user.get("wallet_trc20") or (from_user.get("wallet_trc20") if from_user else "") or ""
+        final_payeer = to_user.get("wallet_payeer") or (from_user.get("wallet_payeer") if from_user else "") or ""
+
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT COUNT(*) FROM users WHERE (referrer_id = ? OR CAST(referrer_id AS TEXT) = ?) AND user_id != ?",
@@ -443,13 +676,48 @@ class Database:
             )
             count = (await cursor.fetchone())[0]
 
-            # Update referrals to point to to_user_id
+            # 1. Update referrals to point to to_user_id
             await db.execute(
                 "UPDATE users SET referrer_id = ? WHERE (referrer_id = ? OR CAST(referrer_id AS TEXT) = ?) AND user_id != ?",
                 (to_user_id, from_user_id, str(from_user_id), to_user_id)
             )
 
-            # Record in user_replacements table
+            # 2. Update to_user with merged stats & wallets
+            await db.execute(
+                """
+                UPDATE users SET
+                    current_level = ?,
+                    balance = ?,
+                    total_earned = ?,
+                    wallet_card = ?,
+                    wallet_bep20 = ?,
+                    wallet_trc20 = ?,
+                    wallet_payeer = ?
+                WHERE user_id = ?
+                """,
+                (to_level, to_balance, to_total, final_card, final_bep20, final_trc20, final_payeer, to_user_id)
+            )
+
+            # 3. Reset from_user
+            if from_user:
+                await db.execute(
+                    """
+                    UPDATE users SET
+                        current_level = 0,
+                        balance = 0.0,
+                        total_earned = 0.0,
+                        referrer_id = 0,
+                        status = '🌱 Boshlang''ich'
+                    WHERE user_id = ?
+                    """,
+                    (from_user_id,)
+                )
+
+            # 4. Transfer payment logs
+            await db.execute("UPDATE payment_logs SET curator_id = ? WHERE curator_id = ?", (to_user_id, from_user_id))
+            await db.execute("UPDATE payment_logs SET buyer_id = ? WHERE buyer_id = ?", (to_user_id, from_user_id))
+
+            # 5. Record in user_replacements table
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             await db.execute(
                 "INSERT OR REPLACE INTO user_replacements (old_user_id, new_user_id, replaced_at) VALUES (?, ?, ?)",
@@ -457,19 +725,23 @@ class Database:
             )
             await db.commit()
 
-        await self.update_user_rank(from_user_id)
+        if from_user_id:
+            await self.update_user_rank(from_user_id)
         await self.update_user_rank(to_user_id)
 
         await self.log_activity(
             requester_id,
             "TREE_TRANSFER_REFERRALS",
-            f"{count} ta referal {from_name} ({from_user_id}) dan {to_name} ({to_user_id}) ga biriktirildi"
+            f"{count} ta referal, daraja ({to_level}), balans ({to_balance:,.0f} so'm) {from_name} ({from_user_id}) dan {to_name} ({to_user_id}) ga biriktirildi"
         )
 
         return {
             "success": True,
             "count": count,
-            "message": f"{count} ta referal muvaffaqiyatli {to_name} (ID: {to_user_id}) ga biriktirildi!",
+            "message": (
+                f"{count} ta referal, {to_level}-daraja va {to_balance:,.0f} so'm daromad "
+                f"muvaffaqiyatli {to_name} (ID: {to_user_id}) ga biriktirildi!"
+            ),
             "to_user": to_user
         }
 
@@ -766,7 +1038,11 @@ class Database:
             user = await self.get_user(curr_id)
             if not user:
                 break
-            ref_id = user.get("referrer_id", 0)
+            raw_ref_id = user.get("referrer_id", 0)
+            if not raw_ref_id or raw_ref_id == 0:
+                break
+
+            ref_id = await self.get_effective_referrer_id(raw_ref_id)
             if not ref_id or ref_id == 0:
                 break
 

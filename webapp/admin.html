@@ -400,6 +400,9 @@
           <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <span>👥 Barcha Foydalanuvchilar Ro'yxati</span>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-gold" onclick="executeAdminSyncReplacements()" title="Almashtirilgan a'zolarning daraja, balans, daromad va strukturalarini sinxronlash" style="padding: 7px 14px; font-size: 12.5px;">
+                🔄 Sinxronlash
+              </button>
               <button type="button" class="btn btn-gold" onclick="downloadTreeReportPDF()" title="Jamoa shajarasini to'liq PDF formatida yuklab olish yoki chop etish" style="padding: 7px 14px; font-size: 12.5px;">
                 📄 Shajarani PDF / Chop etish
               </button>
@@ -671,9 +674,9 @@
 
       <!-- Option 1: Replace User Form -->
       <div id="admin-form-replace" style="background: rgba(0,0,0,0.3); border: 1px solid #c9761c; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
-        <div style="font-size: 13px; color: #f2b33d; font-weight: 700; margin-bottom: 4px;">🔄 Ushbu a'zo o'rniga boshqa a'zoni qo'yish:</div>
+        <div style="font-size: 13px; color: #f2b33d; font-weight: 700; margin-bottom: 4px;">🔄 Ushbu a'zo o'rniga boshqa a'zoni to'liq almashtirish:</div>
         <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
-          Yangi a'zo ushbu o'ringa o'tiradi (uning kuratori va barcha quyi bolalarini to'liq o'ziga oladi).
+          Yangi a'zo ushbu o'ringa o'tiradi: uning <b>darajasi (Level)</b>, <b>balansi</b>, <b>ishlagan umumiy daromadi</b>, <b>hamyonlari</b> va <b>barcha bolalari (strukturalari)</b> to'liq yangi a'zoga o'tadi.
         </div>
         <div class="form-group">
           <label>Yangi Telegram @username yoki ID raqami:</label>
@@ -702,9 +705,9 @@
 
       <!-- Option 3: Transfer Referrals Form -->
       <div id="admin-form-transfer" style="display: none; background: rgba(0,0,0,0.3); border: 1px solid #10b981; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
-        <div style="font-size: 13px; color: #10b981; font-weight: 700; margin-bottom: 4px;">👥 Boshqa/Eski a'zoning referallarini ushbu a'zoga biriktirish:</div>
+        <div style="font-size: 13px; color: #10b981; font-weight: 700; margin-bottom: 4px;">👥 Boshqa/Eski a'zoning barcha ma'lumotlarini ushbu a'zoga biriktirish:</div>
         <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
-          Eski yoki chiqarilgan a'zoning havolasi orqali kirgan barcha referallar to'g'ridan-to'g'ri ushbu a'zoga ulanadi va Mini Appda aks etadi.
+          Eski yoki chiqarilgan a'zoning barcha referallari, darajasi, balansi va ishlagan daromadlari to'g'ridan-to'g'ri ushbu a'zoga o'tkaziladi.
         </div>
         <div class="form-group">
           <label>Eski/Chiqarilgan a'zoning @username yoki ID raqami:</label>
@@ -1200,6 +1203,25 @@
           alert("✅ " + (d.message || "Zanjirdan muvaffaqiyatli chiqarildi va bolalari kuratorga ulandi!"));
         } else {
           alert("❌ Xatolik: " + (d.error || "Zanjirdan chiqarib bo'lmadi"));
+        }
+      })
+      .catch(() => alert("❌ Server bilan aloqa uzildi"));
+    }
+
+    function executeAdminSyncReplacements() {
+      if (!confirm("Avval almashtirilgan barcha a'zolarning darajalari, ishlagan pullari va strukturalarini to'liq sinxronlashni xohlaysizmi?")) return;
+      fetch('/api/admin/sync_replacements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requester_id: 1001 })
+      })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) {
+          alert("✅ " + (d.message || "Barcha almashtirishlar muvaffaqiyatli sinxronlandi!"));
+          loadAllData();
+        } else {
+          alert("❌ Xatolik: " + (d.error || "Sinxronlab bo'lmadi"));
         }
       })
       .catch(() => alert("❌ Server bilan aloqa uzildi"));

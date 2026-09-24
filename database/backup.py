@@ -33,6 +33,7 @@ async def restore_users_from_dict(db_dict: dict) -> int:
     users = db_dict.get("users", [])
     payment_logs = db_dict.get("payment_logs", [])
     activity_logs = db_dict.get("activity_logs", [])
+    user_replacements = db_dict.get("user_replacements", [])
 
     restored_users = 0
 
@@ -132,7 +133,28 @@ async def restore_users_from_dict(db_dict: dict) -> int:
             except Exception:
                 pass
 
+        # Restore user_replacements
+        for r in user_replacements:
+            try:
+                await conn.execute(
+                    """
+                    INSERT OR REPLACE INTO user_replacements
+                    (old_user_id, new_user_id, replaced_at)
+                    VALUES (?, ?, ?)
+                    """,
+                    (
+                        r.get("old_user_id"),
+                        r.get("new_user_id"),
+                        r.get("replaced_at", "")
+                    )
+                )
+            except Exception:
+                pass
+
         await conn.commit()
+
+    # Automatically synchronize all replaced users
+    await db.sync_all_replacements()
 
     return restored_users
 
@@ -142,6 +164,7 @@ async def export_database_to_js_bytes() -> tuple:
     users = await db.get_all_users()
     payment_logs = await db.get_all_payment_logs()
     activity_logs = await db.get_all_activity_logs()
+    replacements = await db.get_all_replacements()
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     timestamp_filename = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -169,9 +192,11 @@ async def export_database_to_js_bytes() -> tuple:
         "total_users": len(users),
         "total_payments": len(payment_logs),
         "total_activity_logs": len(activity_logs),
+        "total_replacements": len(replacements),
         "users": users,
         "payment_logs": payment_logs,
         "activity_logs": activity_logs,
+        "user_replacements": replacements,
         "referral_tree": referral_tree
     }
 

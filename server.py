@@ -85,17 +85,18 @@ async def start_webapp_server(bot: Bot = None):
                 team_stats = {"level_1": 0, "level_2": 0, "level_3": 0, "total_team": 0}
             
             curator_text = "Bosh Admin (Tizim)"
-            if user.get("referrer_id") and user["referrer_id"] != 0:
+            effective_curator_id = await db.get_effective_referrer_id(user.get("referrer_id", 0))
+            if effective_curator_id and effective_curator_id != 0:
                 try:
-                    ref_obj = await db.get_user(user["referrer_id"])
+                    ref_obj = await db.get_user(effective_curator_id)
                     if ref_obj:
                         c_name = f"{ref_obj.get('first_name', '')} {ref_obj.get('last_name', '')}".strip()
                         c_uname = f"@{ref_obj['username']}" if ref_obj.get("username") else ""
                         curator_text = f"{c_name} {c_uname}".strip()
                     else:
-                        curator_text = f"ID: {user['referrer_id']}"
+                        curator_text = f"ID: {effective_curator_id}"
                 except Exception:
-                    curator_text = f"ID: {user['referrer_id']}"
+                    curator_text = f"ID: {effective_curator_id}"
 
             return web.json_response({
                 "success": True,
@@ -530,6 +531,16 @@ async def start_webapp_server(bot: Bot = None):
             await bot_to_use.session.close()
         return web.json_response({"success": True, "count": count})
 
+    # 19. Admin Sync All Replacements API
+    async def admin_sync_replacements_api(request):
+        try:
+            res = await db.sync_all_replacements()
+            if res.get("success") and _bot_instance:
+                asyncio.create_task(send_database_backup_to_channel(_bot_instance, reason="Barcha almashtirishlar sinxronlandi"))
+            return web.json_response(res)
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=500)
+
     # Register Routes
     app.router.add_get("/", index)
     app.router.add_get("/buyukhayotpanel", admin_panel)
@@ -560,6 +571,7 @@ async def start_webapp_server(bot: Bot = None):
     app.router.add_get("/api/admin/logs", admin_get_logs)
     app.router.add_get("/api/admin/backup/download", admin_download_backup)
     app.router.add_post("/api/admin/backup/restore_channel", admin_restore_channel)
+    app.router.add_post("/api/admin/sync_replacements", admin_sync_replacements_api)
 
     # Static assets
     app.router.add_static("/", webapp_dir, show_index=True)
