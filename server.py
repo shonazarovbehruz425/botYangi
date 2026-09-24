@@ -256,20 +256,14 @@ async def start_webapp_server(bot: Bot = None):
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=400)
 
-    # 3h. User Lookup API (for adding accounts by username or user_id)
+    # 3h. User Lookup API (supports @username, user_id, phone number)
     async def user_lookup_api(request):
         try:
             query = str(request.query.get("query", "")).strip()
             if not query:
                 return web.json_response({"success": False, "error": "Qidiruv parametri kiritilmadi"}, status=400)
 
-            clean_query = query.lstrip("@")
-            user = None
-            if clean_query.isdigit():
-                user = await db.get_user(int(clean_query))
-            if not user:
-                user = await db.get_user_by_username(clean_query)
-
+            user = await db.find_user_by_query(query)
             if not user:
                 return web.json_response({"success": False, "error": f"Foydalanuvchi topilmadi: {query}"}, status=404)
 
@@ -280,12 +274,147 @@ async def start_webapp_server(bot: Bot = None):
                     "first_name": user.get("first_name", ""),
                     "last_name": user.get("last_name", ""),
                     "username": user.get("username", ""),
+                    "phone": user.get("phone", ""),
                     "current_level": user.get("current_level", 1),
                     "balance": user.get("balance", 0.0),
                     "total_earned": user.get("total_earned", 0.0),
                     "status": user.get("status", "🌱 Boshlang'ich")
                 }
             })
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=500)
+
+    # 3i. Multi-Account Link Request API (generates OTP and sends confirmation message via Telegram Bot)
+    async def account_link_request_api(request):
+        try:
+            data = await request.json()
+            requester_id = int(data.get("requester_id", 0))
+            query = str(data.get("query", "")).strip()
+
+            if not requester_id or not query:
+                return web.json_response({"success": False, "error": "Foydalanuvchi ID va qidiruv ma'lumoti kiritilishi shart"}, status=400)
+
+            target_user = await db.find_user_by_query(query)
+            if not target_user:
+                return web.json_response({"success": False, "error": "Kiritilgan username, ID yoki telefon raqami bo'yicha foydalanuvchi topilmadi"}, status=404)
+
+            target_uid = int(target_user["user_id"])
+            if target_uid == requester_id:
+                return web.json_response({"success": False, "error": "O'zingizning hozirgi faol akkauntingizni qo'sha olmaysiz"}, status=400)
+
+            # Generate OTP code
+            code = await db.create_link_otp(requester_id, target_uid)
+
+            # Get requester information for friendly bot message
+            requester = await db.get_user(requester_id) or {}
+            req_name = f"{requester.get('first_name', '')} {requester.get('last_name', '')}".strip() or requester.get("username") or f"ID: {requester_id}"
+            req_handle = f"(@{requester['username']})" if requester.get("username") else ""
+
+            # Send OTP message to 2nd account via Telegram bot
+            if _bot_instance:
+                try:
+                    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                        [
+                            InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"linkacc_ok_{requester_id}_{code}"),
+                            InlineKeyboardButton(text="❌ Rad etish", callback_data=f"linkacc_no_{requester_id}_{code}")
+                        ]
+                    ])
+                    msg_text = (
+                        f"🔐 <b>Akkauntni ulash so'rovi!</b>\n\n"
+                        f"👤 <b>{req_name}</b> {req_handle} (ID: <code>{requester_id}</code>) ushbu akkauntingizni o'zining Mini App profiliga <b>2-chi akkaunt</b> sifatida qo'shishni so'ramoqda.\n\n"
+                        f"🔑 <b>Bir martalik tasdiqlash kodi:</b> <code>{code}</code>\n\n"
+                        f"<i>Agar bu siz bo'lsangiz, ushbu kodni Mini Appga kiriting yoki to'g'ridan-to'g'ri quyidagi «Tasdiqlash» tugmasini bosing.</i>"
+                    )
+                    await _bot_instance.send_message(chat_id=target_uid, text=msg_text, reply_markup=keyboard, parse_mode="HTML")
+                except Exception as e:
+                    logger.warning(f"Could not send OTP to target user {target_uid}: {e}")
+                    return web.json_response({
+                        "success": False,
+                        "error": "Ushbu 2-chi akkauntingiz hali botga /start bosmagan. Iltimos, avval 2-chi akkauntdan botga kirib /start bosing."
+                    }, status=400)
+
+            return web.json_response({
+                "success": True,
+                "target_user": {
+                    "user_id": target_uid,
+                    "first_name": target_user.get("first_name", ""),
+                    "last_name": target_user.get("last_name", ""),
+                    "username": target_user.get("username", ""),
+                    "phone": target_user.get("phone", ""),
+                    "current_level": target_user.get("current_level", 1),
+                    "balance": target_user.get("balance", 0.0),
+                    "total_earned": target_user.get("total_earned", 0.0)
+                },
+                "message": f"6 xonali tasdiqlash kodi {target_user.get('first_name', '')} (@{target_user.get('username') or target_uid}) Telegramiga yuborildi!"
+            })
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=500)
+
+    # 3j. Multi-Account Link Verification API (verifies 6-digit OTP code)
+    async def account_link_verify_api(request):
+        try:
+            data = await request.json()
+            requester_id = int(data.get("requester_id", 0))
+            target_id = int(data.get("target_id", 0))
+            code = str(data.get("code", "")).strip()
+
+            if not requester_id or not target_id:
+                return web.json_response({"success": False, "error": "Ma'lumotlar to'liq emas"}, status=400)
+
+            valid = await db.verify_link_otp(requester_id, target_id, code)
+            if not valid:
+                return web.json_response({
+                    "success": False,
+                    "error": "Noto'g'ri yoki muddati o'tgan tasdiqlash kodi (yoki so'rov rad etilgan)"
+                }, status=400)
+
+            target_user = await db.get_user(target_id)
+            if not target_user:
+                return web.json_response({"success": False, "error": "Foydalanuvchi topilmadi"}, status=404)
+
+            return web.json_response({
+                "success": True,
+                "user": {
+                    "user_id": target_user["user_id"],
+                    "first_name": target_user.get("first_name", ""),
+                    "last_name": target_user.get("last_name", ""),
+                    "username": target_user.get("username", ""),
+                    "phone": target_user.get("phone", ""),
+                    "current_level": target_user.get("current_level", 1),
+                    "balance": target_user.get("balance", 0.0),
+                    "total_earned": target_user.get("total_earned", 0.0),
+                    "status": target_user.get("status", "🌱 Boshlang'ich")
+                },
+                "message": "Akkaunt muvaffaqiyatli tasdiqlandi va ulandi!"
+            })
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=500)
+
+    # 3k. Multi-Account Linked Accounts List API (fetches verified linked accounts from DB)
+    async def account_link_list_api(request):
+        try:
+            uid_param = request.query.get("user_id")
+            if not uid_param or not uid_param.isdigit():
+                return web.json_response({"success": False, "error": "user_id missing"}, status=400)
+
+            uid = int(uid_param)
+            accounts = await db.get_linked_accounts_for_user(uid)
+            return web.json_response({"success": True, "accounts": accounts})
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=500)
+
+    # 3l. Multi-Account Link Remove API
+    async def account_link_remove_api(request):
+        try:
+            data = await request.json()
+            owner_id = int(data.get("owner_id", 0))
+            target_id = int(data.get("target_id", 0))
+
+            if not owner_id or not target_id:
+                return web.json_response({"success": False, "error": "Ma'lumotlar to'liq emas"}, status=400)
+
+            await db.remove_linked_account(owner_id, target_id)
+            return web.json_response({"success": True, "message": "Akkaunt muvaffaqiyatli o'chirildi"})
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=500)
 
@@ -592,6 +721,10 @@ async def start_webapp_server(bot: Bot = None):
     app.router.add_post("/api/user/tree/remove", user_tree_remove_api)
     app.router.add_post("/api/user/tree/transfer_referrals", user_tree_transfer_referrals_api)
     app.router.add_get("/api/user/lookup", user_lookup_api)
+    app.router.add_post("/api/user/link/request", account_link_request_api)
+    app.router.add_post("/api/user/link/verify", account_link_verify_api)
+    app.router.add_get("/api/user/link/list", account_link_list_api)
+    app.router.add_post("/api/user/link/remove", account_link_remove_api)
     app.router.add_get("/api/announcements/active", get_active_announcement)
 
     # Admin APIs

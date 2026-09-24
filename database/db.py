@@ -1,6 +1,7 @@
 import os
+import random
 import aiosqlite
-from datetime import datetime
+from datetime import datetime, timedelta
 from config import DB_NAME, ADMINS
 
 class Database:
@@ -17,6 +18,7 @@ class Database:
                     first_name TEXT,
                     last_name TEXT,
                     username TEXT,
+                    phone TEXT DEFAULT '',
                     referrer_id INTEGER DEFAULT 0,
                     balance REAL DEFAULT 0.0,
                     total_earned REAL DEFAULT 0.0,
@@ -37,6 +39,7 @@ class Database:
 
             # Ensure all columns exist if table was created previously
             for col_sql in [
+                "ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''",
                 "ALTER TABLE users ADD COLUMN status TEXT DEFAULT '🌱 Boshlang''ich'",
                 "ALTER TABLE users ADD COLUMN balance REAL DEFAULT 0.0",
                 "ALTER TABLE users ADD COLUMN total_earned REAL DEFAULT 0.0",
@@ -150,6 +153,34 @@ class Database:
                     old_user_id INTEGER PRIMARY KEY,
                     new_user_id INTEGER NOT NULL,
                     replaced_at TEXT
+                )
+                """
+            )
+
+            # 8. Linked Multi-Accounts Table
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS linked_accounts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    owner_id INTEGER NOT NULL,
+                    linked_id INTEGER NOT NULL,
+                    created_at TEXT,
+                    UNIQUE(owner_id, linked_id)
+                )
+                """
+            )
+
+            # 9. Account Link OTPs Table
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS account_link_otps (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    requester_id INTEGER NOT NULL,
+                    target_id INTEGER NOT NULL,
+                    code TEXT NOT NULL,
+                    created_at TEXT,
+                    expires_at TEXT,
+                    status TEXT DEFAULT 'pending'
                 )
                 """
             )
@@ -1436,5 +1467,177 @@ class Database:
             cursor = await db.execute("SELECT * FROM activity_logs ORDER BY id DESC LIMIT 500")
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
+
+    # ==================== MULTI-ACCOUNT & OTP VERIFICATION METHODS ====================
+
+    async def find_user_by_query(self, query: str) -> dict:
+        """
+        Qidiruv: Telegram @username, user_id (raqamli ID), yoki telefon raqam orqali foydalanuvchini topadi.
+        """
+        clean = str(query).strip()
+        if not clean:
+            return None
+
+        uname_query = clean.lstrip("@").lower()
+        digits_only = "".join(ch for ch in clean if ch.isdigit())
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+
+            # 1. ID raqami bo'yicha qidirish
+            if digits_only and (clean.isdigit() or len(digits_only) <= 10):
+                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (int(digits_only),))
+                row = await cursor.fetchone()
+                if row:
+                    return dict(row)
+
+            # 2. @username bo'yicha qidirish
+            if uname_query:
+                cursor = await db.execute("SELECT * FROM users WHERE LOWER(username) = ?", (uname_query,))
+                row = await cursor.fetchone()
+                if row:
+                    return dict(row)
+
+            # 3. Telefon raqami bo'yicha qidirish
+            if digits_only and len(digits_only) >= 7:
+                cursor = await db.execute(
+                    """
+                    SELECT * FROM users 
+                    WHERE phone != '' AND (
+                        phone = ? 
+                        OR phone LIKE ? 
+                        OR REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', '') LIKE ?
+                    )
+                    """,
+                    (clean, f"%{digits_only}%", f"%{digits_only}%")
+                )
+                row = await cursor.fetchone()
+                if row:
+                    return dict(row)
+
+            # 4. Qo'shimcha tekshiruv
+            if clean.isdigit():
+                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (int(clean),))
+                row = await cursor.fetchone()
+                if row:
+                    return dict(row)
+
+            return None
+
+    async def create_link_otp(self, requester_id: int, target_id: int) -> str:
+        """6 xonali bir martalik tasdiqlash kodi generatsiya qiladi (10 daqiqa yaroqli)."""
+        code = str(random.randint(100000, 999999))
+        now = datetime.now()
+        expires = (now + timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S")
+        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+        async with aiosqlite.connect(self.db_path) as db:
+            # Eski kutayotgan so'rovlarni bekor qilish
+            await db.execute(
+                "UPDATE account_link_otps SET status = 'cancelled' WHERE requester_id = ? AND target_id = ? AND status = 'pending'",
+                (requester_id, target_id)
+            )
+            await db.execute(
+                "INSERT INTO account_link_otps (requester_id, target_id, code, created_at, expires_at, status) VALUES (?, ?, ?, ?, ?, 'pending')",
+                (requester_id, target_id, code, now_str, expires)
+            )
+            await db.commit()
+        return code
+
+    async def verify_link_otp(self, requester_id: int, target_id: int, code: str) -> bool:
+        """Kodni yoki botdagi tasdiqlash holatini tekshiradi va akkauntlarni biriktiradi."""
+        clean_code = str(code).strip()
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                """
+                SELECT * FROM account_link_otps 
+                WHERE requester_id = ? AND target_id = ? 
+                  AND (status = 'approved' OR (status = 'pending' AND code = ? AND expires_at >= ?))
+                ORDER BY id DESC LIMIT 1
+                """,
+                (requester_id, target_id, clean_code, now_str)
+            )
+            row = await cursor.fetchone()
+            if not row:
+                return False
+
+            otp_id = row["id"]
+            await db.execute("UPDATE account_link_otps SET status = 'used' WHERE id = ?", (otp_id,))
+
+            # Har ikki akkauntni o'zaro bog'lash (ikki tomonlama)
+            await db.execute(
+                "INSERT OR IGNORE INTO linked_accounts (owner_id, linked_id, created_at) VALUES (?, ?, ?)",
+                (requester_id, target_id, now_str)
+            )
+            await db.execute(
+                "INSERT OR IGNORE INTO linked_accounts (owner_id, linked_id, created_at) VALUES (?, ?, ?)",
+                (target_id, requester_id, now_str)
+            )
+            await db.commit()
+            await self.log_activity(requester_id, "LINK_ACCOUNT", f"Akkaunt biriktirildi: {target_id}")
+            return True
+
+    async def approve_link_request_by_target(self, target_id: int, requester_id: int) -> bool:
+        """Target foydalanuvchi Telegram botdagi [✅ Tasdiqlash] tugmasini bosganda tasdiqlaydi."""
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT id FROM account_link_otps WHERE requester_id = ? AND target_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1",
+                (requester_id, target_id)
+            )
+            row = await cursor.fetchone()
+            if row:
+                await db.execute("UPDATE account_link_otps SET status = 'approved' WHERE id = ?", (row["id"],))
+
+            await db.execute(
+                "INSERT OR IGNORE INTO linked_accounts (owner_id, linked_id, created_at) VALUES (?, ?, ?)",
+                (requester_id, target_id, now_str)
+            )
+            await db.execute(
+                "INSERT OR IGNORE INTO linked_accounts (owner_id, linked_id, created_at) VALUES (?, ?, ?)",
+                (target_id, requester_id, now_str)
+            )
+            await db.commit()
+            return True
+
+    async def reject_link_request_by_target(self, target_id: int, requester_id: int) -> bool:
+        """Target foydalanuvchi Telegram botdagi [❌ Rad etish] tugmasini bosganda bekor qiladi."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE account_link_otps SET status = 'rejected' WHERE requester_id = ? AND target_id = ? AND status = 'pending'",
+                (requester_id, target_id)
+            )
+            await db.commit()
+            return True
+
+    async def get_linked_accounts_for_user(self, user_id: int) -> list:
+        """Foydalanuvchiga biriktirilgan barcha tasdiqlangan akkauntlarni qaytaradi."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                """
+                SELECT u.user_id, u.first_name, u.last_name, u.username, u.phone, u.current_level, u.balance, u.total_earned, u.status
+                FROM linked_accounts la
+                JOIN users u ON la.linked_id = u.user_id
+                WHERE la.owner_id = ?
+                ORDER BY la.id ASC
+                """,
+                (user_id,)
+            )
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
+
+    async def remove_linked_account(self, owner_id: int, target_id: int):
+        """Akkauntlar o'rtasidagi bog'lanishni o'chiradi."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "DELETE FROM linked_accounts WHERE (owner_id = ? AND linked_id = ?) OR (owner_id = ? AND linked_id = ?)",
+                (owner_id, target_id, target_id, owner_id)
+            )
+            await db.commit()
 
 db = Database()

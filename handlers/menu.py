@@ -758,3 +758,50 @@ async def cab_team_page_handler(callback: CallbackQuery):
 @router.callback_query(F.data == "noop")
 async def noop_handler(callback: CallbackQuery):
     await callback.answer()
+
+
+# ==================== MULTI-ACCOUNT LINK CALLBACK HANDLERS ====================
+
+@router.callback_query(F.data.startswith("linkacc_ok_"))
+async def linkacc_approve_handler(callback: CallbackQuery):
+    try:
+        parts = callback.data.split("_")
+        # format: linkacc_ok_{requester_id}_{code}
+        requester_id = int(parts[2])
+        target_id = callback.from_user.id
+
+        success = await db.approve_link_request_by_target(target_id, requester_id)
+        if success:
+            await callback.message.edit_text(
+                "✅ <b>Akkaunt muvaffaqiyatli ulandi!</b>\n\n"
+                f"Siz ushbu akkauntingizni asosiy profilingizga (ID: <code>{requester_id}</code>) 2-chi akkaunt sifatida bog'ladingiz.\n\n"
+                "Endi Mini Appda bemalol akkauntlar o'rtasida almashishingiz mumkin.",
+                parse_mode="HTML"
+            )
+            await callback.answer("✅ Akkaunt muvaffaqiyatli ulandi!", show_alert=True)
+        else:
+            await callback.message.edit_text(
+                "⚠️ <b>Tasdiqlash muddati o'tgan yoki bekor qilingan.</b>",
+                parse_mode="HTML"
+            )
+            await callback.answer("Muddati o'tgan!", show_alert=True)
+    except Exception:
+        await callback.answer("Xatolik yuz berdi", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("linkacc_no_"))
+async def linkacc_reject_handler(callback: CallbackQuery):
+    try:
+        parts = callback.data.split("_")
+        requester_id = int(parts[2])
+        target_id = callback.from_user.id
+
+        await db.reject_link_request_by_target(target_id, requester_id)
+        await callback.message.edit_text(
+            "❌ <b>Akkauntni ulash rad etildi.</b>",
+            parse_mode="HTML"
+        )
+        await callback.answer("So'rov rad etildi.")
+    except Exception:
+        await callback.answer("Xatolik yuz berdi")
+

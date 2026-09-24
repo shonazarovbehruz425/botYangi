@@ -191,10 +191,82 @@ function detectTelegramUser() {
 }
 
 // ==========================================
-// MULTI-ACCOUNT MODAL & SWITCH ACTIONS
+// MULTI-ACCOUNT STORAGE & OTP SYSTEM
 // ==========================================
+let pendingLinkTarget = null;
+let otpAutoPollTimer = null;
+
+function getSavedAccounts() {
+  try {
+    const raw = localStorage.getItem('bh_saved_accounts');
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) return list;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveAccountsList(list) {
+  try {
+    localStorage.setItem('bh_saved_accounts', JSON.stringify(list));
+  } catch (e) {}
+}
+
+function ensureAccountInSaved(acc) {
+  if (!acc || !acc.id) return;
+  const list = getSavedAccounts();
+  const idx = list.findIndex(a => Number(a.id) === Number(acc.id));
+  const fullAcc = {
+    id: Number(acc.id),
+    first_name: acc.first_name || 'Foydalanuvchi',
+    last_name: acc.last_name || '',
+    username: acc.username || '',
+    phone: acc.phone || '',
+    level: acc.level !== undefined ? acc.level : (acc.current_level || 1),
+    balance: acc.balance || 0,
+    total_earned: acc.total_earned || acc.income || 0,
+    is_primary: acc.is_primary !== undefined ? acc.is_primary : (idx >= 0 ? Boolean(list[idx].is_primary) : false)
+  };
+
+  if (idx >= 0) {
+    list[idx] = { ...list[idx], ...fullAcc };
+  } else {
+    list.push(fullAcc);
+  }
+  saveAccountsList(list);
+  return fullAcc;
+}
+
+// Sync verified linked accounts from database
+function syncLinkedAccountsFromDb() {
+  if (!userState.id) return;
+  fetch(`/api/user/link/list?user_id=${userState.id}`)
+    .then(res => res.json())
+    .then(d => {
+      if (d.success && Array.isArray(d.accounts)) {
+        d.accounts.forEach(acc => {
+          ensureAccountInSaved({
+            id: acc.user_id,
+            first_name: acc.first_name,
+            last_name: acc.last_name,
+            username: acc.username,
+            phone: acc.phone,
+            level: acc.current_level,
+            balance: acc.balance,
+            total_earned: acc.total_earned,
+            is_primary: false
+          });
+        });
+        renderAccountsList();
+      }
+    })
+    .catch(() => {});
+}
+
 function openAccountsModal() {
   renderAccountsList();
+  syncLinkedAccountsFromDb();
   const form = document.getElementById('form-add-account');
   if (form) form.style.display = 'none';
   const inp = document.getElementById('input-new-account-id');
@@ -298,169 +370,191 @@ function toggleAddAccountForm() {
   }
 }
 
+// 1-step: Send link OTP request to 2nd account
 function submitAddNewAccount() {
   const input = document.getElementById('input-new-account-id');
   const query = input ? input.value.trim() : '';
 
   if (!query) {
-    showToast("⚠️ Telegram username yoki ID raqamini kiriting");
+    showToast("⚠️ @username, ID raqam yoki telefon raqamini kiriting");
     return;
   }
 
-  showToast("🔍 Akkaunt qidirilmoqda...");
+  showToast("⏳ 2-chi akkauntga tasdiqlash kodi yuborilmoqda...");
 
-  fetch(`/api/user/lookup?query=${encodeURIComponent(query)}`)
+  fetch('/api/user/link/request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requester_id: userState.id || 0,
+      query: query
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success && data.target_user) {
+      pendingLinkTarget = data.target_user;
+      
+      const targetName = `${pendingLinkTarget.first_name || ''} ${pendingLinkTarget.last_name || ''}`.trim() || 'Foydalanuvchi';
+      const targetHandle = pendingLinkTarget.username ? `@${pendingLinkTarget.username}` : `ID: ${pendingLinkTarget.user_id}`;
+      
+      const infoEl = document.getElementById('otp-target-info');
+      if (infoEl) {
+        infoEl.innerHTML = `👤 <b>${targetName}</b> (<span style="color:#38bdf8;">${targetHandle}</span>)`;
+      }
+
+      const otpInp = document.getElementById('input-account-link-otp');
+      if (otpInp) {
+        otpInp.value = '';
+        setTimeout(() => otpInp.focus(), 150);
+      }
+
+      showToast("📩 Tasdiqlash kodi Telegramga yuborildi!");
+      const otpModal = document.getElementById('account-otp-modal');
+      if (otpModal) otpModal.style.display = 'flex';
+
+      // Start auto-poll in case target user clicks [Tasdiqlash] in Telegram
+      startOtpAutoPolling();
+    } else {
+      showToast("❌ " + (data.error || "Akkaunt topilmadi"));
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    showToast("❌ Server xatoligi yuz berdi");
+  });
+}
+
+function startOtpAutoPolling() {
+  if (otpAutoPollTimer) clearInterval(otpAutoPollTimer);
+  if (!pendingLinkTarget) return;
+
+  otpAutoPollTimer = setInterval(() => {
+    if (!pendingLinkTarget) {
+      clearInterval(otpAutoPollTimer);
+      return;
+    }
+    // Check if target user already clicked [Tasdiqlash] button in Telegram bot
+    fetch('/api/user/link/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requester_id: userState.id || 0,
+        target_id: pendingLinkTarget.user_id,
+        code: '' // empty code checks status='approved'
+      })
+    })
     .then(res => res.json())
     .then(data => {
       if (data.success && data.user) {
-        const u = data.user;
-        ensureAccountInSaved({
-          id: u.user_id,
-          first_name: u.first_name,
-          last_name: u.last_name,
-          username: u.username,
-          level: u.current_level,
-          balance: u.balance,
-          total_earned: u.total_earned,
-          is_primary: false
-        });
-
-        showToast(`✅ Akkaunt qo'shildi: ${u.first_name || u.username || u.user_id}`);
-        toggleAddAccountForm();
-        renderAccountsList();
-
-        // Prompt switch immediately
-        confirmSwitchToAccount(u.user_id);
-      } else {
-        showToast("❌ " + (data.error || "Foydalanuvchi topilmadi"));
+        handleLinkVerificationSuccess(data.user);
       }
     })
-    .catch(err => {
-      console.error(err);
-      showToast("❌ Server xatoligi yuz berdi");
-    });
+    .catch(() => {});
+  }, 2200);
 }
 
-function confirmSwitchToAccount(targetAccId) {
-  const targetId = Number(targetAccId);
-  if (!targetId) return;
-
-  if (targetId === Number(userState.id)) {
-    showToast("ℹ️ Bu akkaunt allaqachon faol!");
+function submitVerifyAccountOtp() {
+  if (!pendingLinkTarget) {
+    showToast("⚠️ Akkaunt ma'lumotlari topilmadi");
     return;
   }
 
-  const list = getSavedAccounts();
-  const acc = list.find(a => Number(a.id) === targetId) || { id: targetId, first_name: `ID ${targetId}` };
-  const accName = `${acc.first_name || ''} ${acc.last_name || ''}`.trim() || acc.username || `ID ${acc.id}`;
-  const unameOrId = acc.username ? `@${acc.username}` : `ID: ${acc.id}`;
+  const otpInp = document.getElementById('input-account-link-otp');
+  const code = otpInp ? otpInp.value.trim() : '';
 
-  const descEl = document.getElementById('switch-confirm-desc');
-  if (descEl) {
-    descEl.innerHTML = `Siz <b>${accName}</b> (<span style="color:#38bdf8;">${unameOrId}</span>) akkauntingizga o'tmoqdasiz.`;
+  if (!code || code.length < 6) {
+    showToast("⚠️ 6 xonali tasdiqlash kodini kiriting");
+    return;
   }
 
-  const confirmBtn = document.getElementById('btn-confirm-account-switch');
-  if (confirmBtn) {
-    confirmBtn.onclick = () => executeAccountSwitch(targetId);
-  }
+  showToast("⏳ Kod tekshirilmoqda...");
 
-  const confirmModal = document.getElementById('account-switch-confirm-modal');
-  if (confirmModal) confirmModal.style.display = 'flex';
-}
-
-function executeAccountSwitch(targetAccId) {
-  const targetId = Number(targetAccId);
-  if (!targetId) return;
-
-  try {
-    localStorage.setItem('bh_active_account_id', String(targetId));
-    sessionStorage.setItem('bh_user_id', String(targetId));
-    localStorage.setItem('bh_user_id', String(targetId));
-  } catch (e) {}
-
-  closeModal('account-switch-confirm-modal');
-  closeModal('accounts-modal');
-
-  const list = getSavedAccounts();
-  const acc = list.find(a => Number(a.id) === targetId);
-  const accName = acc ? (`${acc.first_name || ''} ${acc.last_name || ''}`.trim() || acc.username || `ID: ${acc.id}`) : `ID: ${targetId}`;
-
-  // Show fullscreen feedback overlay
-  let switchScreen = document.getElementById('switch-success-screen');
-  if (!switchScreen) {
-    switchScreen = document.createElement('div');
-    switchScreen.id = 'switch-success-screen';
-    switchScreen.style.position = 'fixed';
-    switchScreen.style.top = '0';
-    switchScreen.style.left = '0';
-    switchScreen.style.right = '0';
-    switchScreen.style.bottom = '0';
-    switchScreen.style.zIndex = '99999';
-    switchScreen.style.background = 'radial-gradient(circle at center, #0c2016 0%, #050b08 100%)';
-    switchScreen.style.display = 'flex';
-    switchScreen.style.flexDirection = 'column';
-    switchScreen.style.alignItems = 'center';
-    switchScreen.style.justifyContent = 'center';
-    switchScreen.style.padding = '24px';
-    switchScreen.style.textAlign = 'center';
-    switchScreen.style.color = '#fff';
-    switchScreen.style.fontFamily = 'sans-serif';
-    document.body.appendChild(switchScreen);
-  }
-
-  switchScreen.innerHTML = `
-    <div style="width:72px; height:72px; border-radius:50%; background:rgba(34,197,94,0.2); border:2px solid #22c55e; display:flex; align-items:center; justify-content:center; font-size:36px; margin-bottom:16px;">
-      🔄
-    </div>
-    <h2 style="font-size:20px; font-weight:800; color:#facc15; margin-bottom:8px;">Akkaunt almashtirildi!</h2>
-    <p style="font-size:14px; color:#cbd5e1; max-width:320px; line-height:1.45; margin-bottom:14px;">
-      Siz muvaffaqiyatli <b>${accName}</b> akkauntiga o'tdingiz.
-    </p>
-    <div style="font-size:12px; color:#94a3b8; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:12px; max-width:320px; margin-bottom:22px; line-height:1.4; text-align:center;">
-      💡 Botdan Mini Appni qayta ochganingizda ushbu yangi akkaunt bilan to'liq ochiladi.
-    </div>
-    <button id="btn-close-webapp-now" style="background:linear-gradient(135deg, #eab308, #ca8a04); border:none; color:#000; font-weight:800; font-size:14px; padding:12px 28px; border-radius:12px; cursor:pointer; box-shadow:0 4px 15px rgba(234,179,8,0.4);">
-      Ilovani Yopish
-    </button>
-  `;
-
-  const btnClose = document.getElementById('btn-close-webapp-now');
-  if (btnClose) {
-    btnClose.onclick = () => {
-      if (tg && tg.close) {
-        try { tg.close(); } catch(e) {}
-      } else {
-        window.location.reload();
-      }
-    };
-  }
-
-  // Attempt auto-close in Telegram WebApp context
-  setTimeout(() => {
-    if (tg && tg.close) {
-      try {
-        tg.close();
-      } catch (e) {
-        console.warn("Could not auto-close WebApp:", e);
-      }
+  fetch('/api/user/link/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requester_id: userState.id || 0,
+      target_id: pendingLinkTarget.user_id,
+      code: code
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success && data.user) {
+      handleLinkVerificationSuccess(data.user);
+    } else {
+      showToast("❌ " + (data.error || "Noto'g'ri tasdiqlash kodi"));
     }
-  }, 400);
+  })
+  .catch(err => {
+    console.error(err);
+    showToast("❌ Server xatoligi yuz berdi");
+  });
 }
 
-function removeSavedAccount(accId) {
-  const targetId = Number(accId);
-  if (!targetId) return;
-
-  if (targetId === Number(userState.id)) {
-    showToast("⚠️ Hozirgi faol akkauntni o'chirib bo'lmaydi");
-    return;
+function handleLinkVerificationSuccess(user) {
+  if (otpAutoPollTimer) {
+    clearInterval(otpAutoPollTimer);
+    otpAutoPollTimer = null;
   }
 
-  const list = getSavedAccounts().filter(a => Number(a.id) !== targetId);
-  saveAccountsList(list);
-  showToast("🗑️ Akkaunt ro'yxatdan olib tashlandi");
+  closeModal('account-otp-modal');
+  pendingLinkTarget = null;
+
+  ensureAccountInSaved({
+    id: user.user_id,
+    first_name: user.first_name,
+    last_name: user.last_name,
+    username: user.username,
+    phone: user.phone,
+    level: user.current_level,
+    balance: user.balance,
+    total_earned: user.total_earned,
+    is_primary: false
+  });
+
+  const form = document.getElementById('form-add-account');
+  if (form) form.style.display = 'none';
+
   renderAccountsList();
+  showToast(`✅ Akkaunt muvaffaqiyatli ulandi: ${user.first_name || user.username || user.user_id}`);
+
+  // Prompt to switch immediately
+  confirmSwitchToAccount(user.user_id);
+}
+
+function resendAccountLinkOtp() {
+  if (!pendingLinkTarget) return;
+  showToast("🔄 Qayta yuborilmoqda...");
+  fetch('/api/user/link/request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requester_id: userState.id || 0,
+      query: String(pendingLinkTarget.user_id)
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      showToast("✅ Yangi kod Telegramga yuborildi!");
+    } else {
+      showToast("❌ " + (data.error || "Xatolik yuz berdi"));
+    }
+  })
+  .catch(() => {
+    showToast("❌ Server xatoligi yuz berdi");
+  });
+}
+
+function closeOtpModal() {
+  if (otpAutoPollTimer) {
+    clearInterval(otpAutoPollTimer);
+    otpAutoPollTimer = null;
+  }
+  pendingLinkTarget = null;
+  closeModal('account-otp-modal');
 }
 
 detectTelegramUser();
@@ -479,6 +573,9 @@ function fetchLiveUserData() {
     updateUI();
     return;
   }
+
+  // Also sync verified linked accounts from database
+  syncLinkedAccountsFromDb();
 
   const unameParam = encodeURIComponent(userState.username || '');
   const fnParam = encodeURIComponent(userState.first_name || '');
@@ -509,6 +606,7 @@ function fetchLiveUserData() {
           first_name: userState.first_name,
           last_name: userState.last_name,
           username: userState.username,
+          phone: u.phone || '',
           level: userState.level,
           balance: u.balance || 0,
           total_earned: userState.income
