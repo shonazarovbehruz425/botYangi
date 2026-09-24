@@ -116,7 +116,10 @@ function fetchLiveUserData() {
     return;
   }
 
-  fetch(`/api/user/profile?user_id=${userState.id}`)
+  const unameParam = encodeURIComponent(userState.username || '');
+  const fnParam = encodeURIComponent(userState.first_name || '');
+  const lnParam = encodeURIComponent(userState.last_name || '');
+  fetch(`/api/user/profile?user_id=${userState.id}&username=${unameParam}&first_name=${fnParam}&last_name=${lnParam}`)
     .then(res => res.json())
     .then(data => {
       if (data.success && data.user) {
@@ -1300,7 +1303,8 @@ function loadUserTree(retryCount) {
     fitToScreen();
   }
 
-  fetch(`/api/user/tree?user_id=${targetUid}`)
+  const unameParam = encodeURIComponent(userState.username || '');
+  fetch(`/api/user/tree?user_id=${targetUid}&username=${unameParam}`)
     .then(res => res.json())
     .then(d => {
       if (d.is_admin !== undefined) {

@@ -261,6 +261,142 @@ class Database:
 
             await self.log_activity(user_id, "USER_DELETED", f"Foydalanuvchi bazadan butunlay o'chirildi. Referallari kurator {referrer_id} ga o'tkazildi.")
 
+    async def resolve_and_sync_user(self, user_id: int, username: str = "", first_name: str = "", last_name: str = "") -> dict:
+        """
+        Resolves, migrates, and synchronizes a user by real numeric user_id and/or @username.
+        If the admin added/replaced someone using @username with a pseudo ID (>=900000000),
+        this automatically merges/migrates that pseudo record to their real Telegram user_id.
+        """
+        if not user_id:
+            return None
+
+        clean_uname = str(username).strip().lstrip("@").lower() if username else ""
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+
+            # 1. Fetch record with real user_id
+            cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+            user_row = await cursor.fetchone()
+            user_data = dict(user_row) if user_row else None
+
+            # 2. Check if a pseudo/placeholder record exists with this username
+            pseudo_data = None
+            if clean_uname:
+                cursor = await db.execute(
+                    "SELECT * FROM users WHERE LOWER(username) = ? AND user_id != ?",
+                    (clean_uname, user_id)
+                )
+                p_row = await cursor.fetchone()
+                if p_row:
+                    pseudo_data = dict(p_row)
+
+            # Case A: Real user_id was NOT in DB, but pseudo_data was created (e.g. Admin replaced with @username)
+            if not user_data and pseudo_data:
+                pseudo_id = pseudo_data["user_id"]
+                fn = first_name or pseudo_data.get("first_name", "")
+                ln = last_name or pseudo_data.get("last_name", "")
+                un = clean_uname or pseudo_data.get("username", "")
+
+                # Migrate pseudo_id -> real user_id
+                await db.execute(
+                    """
+                    UPDATE users SET
+                        user_id = ?,
+                        first_name = ?,
+                        last_name = ?,
+                        username = ?,
+                        last_active = ?
+                    WHERE user_id = ?
+                    """,
+                    (user_id, fn, ln, un, now_str, pseudo_id)
+                )
+                await db.execute("UPDATE users SET referrer_id = ? WHERE referrer_id = ?", (user_id, pseudo_id))
+                await db.execute("UPDATE user_replacements SET new_user_id = ? WHERE new_user_id = ?", (user_id, pseudo_id))
+                await db.execute("UPDATE user_replacements SET old_user_id = ? WHERE old_user_id = ?", (user_id, pseudo_id))
+                await db.execute("UPDATE payment_logs SET curator_id = ? WHERE curator_id = ?", (user_id, pseudo_id))
+                await db.execute("UPDATE payment_logs SET buyer_id = ? WHERE buyer_id = ?", (user_id, pseudo_id))
+                await db.execute("UPDATE activity_logs SET user_id = ? WHERE user_id = ?", (user_id, pseudo_id))
+                await db.commit()
+
+                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+                res_row = await cursor.fetchone()
+                user_data = dict(res_row) if res_row else None
+
+            # Case B: Both real user_id and pseudo_data exist -> Merge pseudo into real
+            elif user_data and pseudo_data:
+                pseudo_id = pseudo_data["user_id"]
+                final_level = max(int(user_data.get("current_level", 1) or 1), int(pseudo_data.get("current_level", 1) or 1))
+                final_balance = float(user_data.get("balance", 0.0) or 0.0) + float(pseudo_data.get("balance", 0.0) or 0.0)
+                final_total = float(user_data.get("total_earned", 0.0) or 0.0) + float(pseudo_data.get("total_earned", 0.0) or 0.0)
+                final_ref = pseudo_data.get("referrer_id", 0) or user_data.get("referrer_id", 0)
+                final_card = user_data.get("wallet_card") or pseudo_data.get("wallet_card") or ""
+                final_bep20 = user_data.get("wallet_bep20") or pseudo_data.get("wallet_bep20") or ""
+                final_trc20 = user_data.get("wallet_trc20") or pseudo_data.get("wallet_trc20") or ""
+                final_payeer = user_data.get("wallet_payeer") or pseudo_data.get("wallet_payeer") or ""
+                fn = first_name or user_data.get("first_name", "")
+                ln = last_name or user_data.get("last_name", "")
+                un = clean_uname or user_data.get("username", "")
+
+                await db.execute(
+                    """
+                    UPDATE users SET
+                        current_level = ?,
+                        balance = ?,
+                        total_earned = ?,
+                        referrer_id = ?,
+                        wallet_card = ?,
+                        wallet_bep20 = ?,
+                        wallet_trc20 = ?,
+                        wallet_payeer = ?,
+                        first_name = ?,
+                        last_name = ?,
+                        username = ?,
+                        last_active = ?
+                    WHERE user_id = ?
+                    """,
+                    (final_level, final_balance, final_total, final_ref, final_card, final_bep20, final_trc20, final_payeer, fn, ln, un, now_str, user_id)
+                )
+                await db.execute("UPDATE users SET referrer_id = ? WHERE referrer_id = ?", (user_id, pseudo_id))
+                await db.execute("UPDATE user_replacements SET new_user_id = ? WHERE new_user_id = ?", (user_id, pseudo_id))
+                await db.execute("UPDATE user_replacements SET old_user_id = ? WHERE old_user_id = ?", (user_id, pseudo_id))
+                await db.execute("UPDATE payment_logs SET curator_id = ? WHERE curator_id = ?", (user_id, pseudo_id))
+                await db.execute("UPDATE payment_logs SET buyer_id = ? WHERE buyer_id = ?", (user_id, pseudo_id))
+                await db.execute("DELETE FROM users WHERE user_id = ?", (pseudo_id,))
+                await db.commit()
+
+                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+                res_row = await cursor.fetchone()
+                user_data = dict(res_row) if res_row else None
+
+            # Case C: Only real user exists, update names if passed
+            elif user_data:
+                fn = first_name or user_data.get("first_name", "")
+                ln = last_name or user_data.get("last_name", "")
+                un = clean_uname or user_data.get("username", "")
+                await db.execute(
+                    """
+                    UPDATE users SET
+                        first_name = CASE WHEN ? != '' THEN ? ELSE first_name END,
+                        last_name = CASE WHEN ? != '' THEN ? ELSE last_name END,
+                        username = CASE WHEN ? != '' THEN ? ELSE username END,
+                        last_active = ?
+                    WHERE user_id = ?
+                    """,
+                    (fn, fn, ln, ln, un, un, now_str, user_id)
+                )
+                await db.commit()
+                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+                res_row = await cursor.fetchone()
+                user_data = dict(res_row) if res_row else None
+
+        if user_data:
+            await self.update_user_rank(user_id)
+            user_data = await self.get_user(user_id)
+
+        return user_data
+
     async def find_or_create_user_by_identifier(self, identifier: str) -> dict:
         """Finds user by user_id or @username, or registers placeholder if valid numeric ID."""
         clean_id = identifier.strip().lstrip("@")

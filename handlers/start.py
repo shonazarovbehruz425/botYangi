@@ -69,22 +69,32 @@ async def send_main_menu(target, bot: Bot = None, user_id: int = None, **kwargs)
 async def start_handler(message: Message, command: CommandObject, bot: Bot):
     user = message.from_user
     args = command.args
-    existing_user = await db.get_user(user.id)
+    
+    # 1. Resolve and sync user (merges username pseudo-records and syncs state)
+    existing_user = await db.resolve_and_sync_user(
+        user_id=user.id,
+        username=user.username or "",
+        first_name=user.first_name or "",
+        last_name=user.last_name or ""
+    )
 
     # If user is banned, block access
     if existing_user and existing_user.get("is_banned"):
         await message.answer("⛔️ <b>Sizning hisobingiz qoidabuzarlik sababli bloklangan.</b>", parse_mode="HTML")
         return
 
-    # If user is already registered with a valid referrer (or is admin or without ref link), go to main menu
-    if existing_user:
-        user_ref = existing_user.get("referrer_id")
-        if (user_ref and user_ref != 0) or user.id in ADMINS or not args:
-            await send_main_menu(message)
-            return
-        # Otherwise, if user has no referrer (referrer_id == 0) and came with referral link, proceed to registration card below
+    # If user is already active/placed in tree/has referrer/is admin/has balance or level or no referral args provided:
+    if existing_user and (
+        existing_user.get("referrer_id", 0) != 0 or 
+        existing_user.get("current_level", 0) > 0 or 
+        existing_user.get("total_earned", 0) > 0 or 
+        user.id in ADMINS or 
+        not args
+    ):
+        await send_main_menu(message)
+        return
 
-    # User is not registered. Check if referral parameter is provided
+    # User is not registered and not in tree. Check if referral parameter is provided
     if not args:
         # Check if user is admin - allow admin to self-register without ref link
         if user.id in ADMINS:
@@ -99,7 +109,7 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
             await send_main_menu(message)
             return
 
-        # Regular user without referral link -> strictly deny access as requested
+        # Regular user without referral link and not placed in tree
         await message.answer(
             "⚠️ <b>Botda ro'yxatdan o'tish faqat taklif qiluvchining referal havolasi orqali mumkin.</b>",
             parse_mode="HTML"

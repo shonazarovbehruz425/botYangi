@@ -47,7 +47,11 @@ async def start_webapp_server(bot: Bot = None):
                 return web.json_response({"success": False, "error": "user_id missing"}, status=400)
 
             uid = int(user_id_param)
-            user = await db.get_user(uid)
+            username = request.query.get("username", "")
+            first_name = request.query.get("first_name", "")
+            last_name = request.query.get("last_name", "")
+
+            user = await db.resolve_and_sync_user(uid, username=username, first_name=first_name, last_name=last_name)
             
             if not user:
                 return web.json_response({
@@ -137,6 +141,9 @@ async def start_webapp_server(bot: Bot = None):
             if not user_id_param or not user_id_param.isdigit():
                 return web.json_response({"success": False, "error": "user_id missing"}, status=400)
             uid = int(user_id_param)
+            username = request.query.get("username", "")
+            if username:
+                await db.resolve_and_sync_user(uid, username=username)
             tree = await db.get_user_tree(uid)
             return web.json_response({"success": True, "tree": tree, "is_admin": (uid in ADMINS)})
         except Exception as e:
