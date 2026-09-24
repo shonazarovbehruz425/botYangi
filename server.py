@@ -256,6 +256,39 @@ async def start_webapp_server(bot: Bot = None):
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=400)
 
+    # 3h. User Lookup API (for adding accounts by username or user_id)
+    async def user_lookup_api(request):
+        try:
+            query = str(request.query.get("query", "")).strip()
+            if not query:
+                return web.json_response({"success": False, "error": "Qidiruv parametri kiritilmadi"}, status=400)
+
+            clean_query = query.lstrip("@")
+            user = None
+            if clean_query.isdigit():
+                user = await db.get_user(int(clean_query))
+            if not user:
+                user = await db.get_user_by_username(clean_query)
+
+            if not user:
+                return web.json_response({"success": False, "error": f"Foydalanuvchi topilmadi: {query}"}, status=404)
+
+            return web.json_response({
+                "success": True,
+                "user": {
+                    "user_id": user["user_id"],
+                    "first_name": user.get("first_name", ""),
+                    "last_name": user.get("last_name", ""),
+                    "username": user.get("username", ""),
+                    "current_level": user.get("current_level", 1),
+                    "balance": user.get("balance", 0.0),
+                    "total_earned": user.get("total_earned", 0.0),
+                    "status": user.get("status", "🌱 Boshlang'ich")
+                }
+            })
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=500)
+
     # 4. Admin Auth API
     async def admin_auth(request):
         try:
@@ -558,6 +591,7 @@ async def start_webapp_server(bot: Bot = None):
     app.router.add_post("/api/user/tree/move", user_tree_move_api)
     app.router.add_post("/api/user/tree/remove", user_tree_remove_api)
     app.router.add_post("/api/user/tree/transfer_referrals", user_tree_transfer_referrals_api)
+    app.router.add_get("/api/user/lookup", user_lookup_api)
     app.router.add_get("/api/announcements/active", get_active_announcement)
 
     # Admin APIs

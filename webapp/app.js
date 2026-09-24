@@ -26,43 +26,101 @@ let userState = {
   botUsername: "Buyukhayot_bot"
 };
 
+// ==========================================
+// MULTI-ACCOUNT STORAGE & HELPERS
+// ==========================================
+function getSavedAccounts() {
+  try {
+    const raw = localStorage.getItem('bh_saved_accounts');
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) return list;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveAccountsList(list) {
+  try {
+    localStorage.setItem('bh_saved_accounts', JSON.stringify(list));
+  } catch (e) {}
+}
+
+function ensureAccountInSaved(acc) {
+  if (!acc || !acc.id) return;
+  const list = getSavedAccounts();
+  const idx = list.findIndex(a => Number(a.id) === Number(acc.id));
+  const fullAcc = {
+    id: Number(acc.id),
+    first_name: acc.first_name || 'Foydalanuvchi',
+    last_name: acc.last_name || '',
+    username: acc.username || '',
+    level: acc.level !== undefined ? acc.level : (acc.current_level || 1),
+    balance: acc.balance || 0,
+    total_earned: acc.total_earned || acc.income || 0,
+    is_primary: acc.is_primary !== undefined ? acc.is_primary : (idx >= 0 ? Boolean(list[idx].is_primary) : false)
+  };
+
+  if (idx >= 0) {
+    list[idx] = { ...list[idx], ...fullAcc };
+  } else {
+    list.push(fullAcc);
+  }
+  saveAccountsList(list);
+  return fullAcc;
+}
+
 // Robust user extraction from Telegram WebApp, URL params, hash, or local cache
 function detectTelegramUser() {
+  let detectedTgId = 0;
+  let detectedUser = null;
+
   // 1. Direct Telegram WebApp user object
   if (tg?.initDataUnsafe?.user?.id) {
     const u = tg.initDataUnsafe.user;
-    userState.id = Number(u.id);
-    userState.first_name = u.first_name || userState.first_name;
-    userState.last_name = u.last_name || "";
-    userState.username = u.username || "";
+    detectedTgId = Number(u.id);
+    detectedUser = {
+      id: detectedTgId,
+      first_name: u.first_name || "Foydalanuvchi",
+      last_name: u.last_name || "",
+      username: u.username || "",
+      is_primary: true
+    };
   }
 
   // 2. Query parameters (?user_id=123 or ?uid=123 or ?tgWebAppStartParam=123)
   const urlParams = new URLSearchParams(window.location.search);
   const qId = urlParams.get('user_id') || urlParams.get('uid') || urlParams.get('tgWebAppStartParam');
   if (qId && !isNaN(qId) && Number(qId) > 0) {
-    userState.id = Number(qId);
+    if (!detectedTgId) {
+      detectedTgId = Number(qId);
+      detectedUser = { id: detectedTgId, first_name: "Foydalanuvchi", last_name: "", username: "", is_primary: true };
+    }
   }
 
   // 3. Raw Telegram initData string parser
-  if (!userState.id && tg?.initData) {
+  if (!detectedTgId && tg?.initData) {
     try {
       const parsed = new URLSearchParams(tg.initData);
       const userRaw = parsed.get('user');
       if (userRaw) {
         const uObj = JSON.parse(userRaw);
         if (uObj.id) {
-          userState.id = Number(uObj.id);
-          userState.first_name = uObj.first_name || userState.first_name;
-          userState.last_name = uObj.last_name || "";
-          userState.username = uObj.username || "";
+          detectedTgId = Number(uObj.id);
+          detectedUser = {
+            id: detectedTgId,
+            first_name: uObj.first_name || "Foydalanuvchi",
+            last_name: uObj.last_name || "",
+            username: uObj.username || "",
+            is_primary: true
+          };
         }
       }
     } catch(e) {}
   }
 
   // 4. Hash parameters parser (e.g. #tgWebAppData=...)
-  if (!userState.id && window.location.hash) {
+  if (!detectedTgId && window.location.hash) {
     try {
       const hashStr = window.location.hash.substring(1);
       const hashParams = new URLSearchParams(hashStr);
@@ -73,30 +131,336 @@ function detectTelegramUser() {
         if (userRaw) {
           const uObj = JSON.parse(userRaw);
           if (uObj.id) {
-            userState.id = Number(uObj.id);
-            userState.first_name = uObj.first_name || userState.first_name;
-            userState.last_name = uObj.last_name || "";
-            userState.username = uObj.username || "";
+            detectedTgId = Number(uObj.id);
+            detectedUser = {
+              id: detectedTgId,
+              first_name: uObj.first_name || "Foydalanuvchi",
+              last_name: uObj.last_name || "",
+              username: uObj.username || "",
+              is_primary: true
+            };
           }
         }
       }
     } catch(e) {}
   }
 
-  // 5. Persistent storage fallback
+  // Record primary Telegram account in saved accounts
+  if (detectedTgId && detectedUser) {
+    const primaryStored = localStorage.getItem('bh_primary_account_id');
+    if (!primaryStored) {
+      localStorage.setItem('bh_primary_account_id', String(detectedTgId));
+    }
+    ensureAccountInSaved(detectedUser);
+  }
+
+  // 5. Active account resolution: prioritize user-selected active account
+  const activeStoredId = localStorage.getItem('bh_active_account_id');
+  if (activeStoredId && !isNaN(activeStoredId) && Number(activeStoredId) > 0) {
+    userState.id = Number(activeStoredId);
+  } else if (detectedTgId) {
+    userState.id = detectedTgId;
+    localStorage.setItem('bh_active_account_id', String(userState.id));
+  } else {
+    const saved = sessionStorage.getItem('bh_user_id') || localStorage.getItem('bh_user_id');
+    if (saved && !isNaN(saved) && Number(saved) > 0) {
+      userState.id = Number(saved);
+    }
+  }
+
+  // Populate local info from cache if available
+  const list = getSavedAccounts();
+  const matchedAcc = list.find(a => Number(a.id) === Number(userState.id));
+  if (matchedAcc) {
+    userState.first_name = matchedAcc.first_name || userState.first_name;
+    userState.last_name = matchedAcc.last_name || "";
+    userState.username = matchedAcc.username || "";
+    if (matchedAcc.level) userState.level = matchedAcc.level;
+  } else if (detectedUser && Number(userState.id) === detectedTgId) {
+    userState.first_name = detectedUser.first_name || userState.first_name;
+    userState.last_name = detectedUser.last_name || "";
+    userState.username = detectedUser.username || "";
+  }
+
   if (userState.id) {
     try {
       sessionStorage.setItem('bh_user_id', String(userState.id));
       localStorage.setItem('bh_user_id', String(userState.id));
     } catch (e) {}
-  } else {
-    try {
-      const saved = sessionStorage.getItem('bh_user_id') || localStorage.getItem('bh_user_id');
-      if (saved && !isNaN(saved) && Number(saved) > 0) {
-        userState.id = Number(saved);
-      }
-    } catch (e) {}
   }
+}
+
+// ==========================================
+// MULTI-ACCOUNT MODAL & SWITCH ACTIONS
+// ==========================================
+function openAccountsModal() {
+  renderAccountsList();
+  const form = document.getElementById('form-add-account');
+  if (form) form.style.display = 'none';
+  const inp = document.getElementById('input-new-account-id');
+  if (inp) inp.value = '';
+  const modal = document.getElementById('accounts-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function renderAccountsList() {
+  const container = document.getElementById('accounts-list-container');
+  if (!container) return;
+
+  const accounts = getSavedAccounts();
+  // Ensure current user is in list
+  if (userState.id && !accounts.some(a => Number(a.id) === Number(userState.id))) {
+    ensureAccountInSaved({
+      id: userState.id,
+      first_name: userState.first_name,
+      last_name: userState.last_name,
+      username: userState.username,
+      level: userState.level,
+      total_earned: userState.income,
+      is_primary: true
+    });
+  }
+
+  const updatedList = getSavedAccounts();
+
+  if (!updatedList.length) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:18px; color:#94a3b8; font-size:12.5px;">
+        Saqlangan akkauntlar topilmadi.
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  updatedList.forEach(acc => {
+    const isActive = Number(acc.id) === Number(userState.id);
+    const fullName = `${acc.first_name || ''} ${acc.last_name || ''}`.trim() || 'Foydalanuvchi';
+    const uname = acc.username ? `@${acc.username}` : `ID: ${acc.id}`;
+    const initial = (acc.first_name ? acc.first_name.charAt(0) : 'U').toUpperCase();
+    const lvlEmoji = getUserLvlEmoji ? getUserLvlEmoji(acc.level || 1) : '🌱';
+
+    html += `
+      <div style="background:${isActive ? 'linear-gradient(135deg, rgba(34,197,94,0.18), rgba(234,179,8,0.15))' : 'rgba(255,255,255,0.04)'}; border:1px solid ${isActive ? '#22c55e' : 'rgba(255,255,255,0.12)'}; border-radius:14px; padding:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; transition:all 0.2s ease;">
+        <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+          <div style="width:38px; height:38px; border-radius:50%; background:${isActive ? '#22c55e' : '#334155'}; color:${isActive ? '#000' : '#fff'}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; flex-shrink:0;">
+            ${initial}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-weight:800; font-size:13.5px; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px;">${fullName}</span>
+              ${isActive ? `<span style="font-size:10px; background:#22c55e; color:#000; font-weight:800; padding:1px 6px; border-radius:10px;">FAOL</span>` : ''}
+              ${acc.is_primary ? `<span style="font-size:9.5px; background:rgba(56,189,248,0.2); color:#38bdf8; font-weight:700; padding:1px 5px; border-radius:6px;" title="Asosiy Telegram Akkaunt">Asosiy</span>` : ''}
+            </div>
+            <div style="font-size:11px; color:#94a3b8; display:flex; align-items:center; gap:6px; margin-top:2px;">
+              <span>${uname}</span>
+              <span>•</span>
+              <span style="color:#facc15; font-weight:700;">${lvlEmoji} ${acc.level || 1}-daraja</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+          ${isActive ? `
+            <div style="font-size:11px; color:#86efac; font-weight:800; display:flex; align-items:center; gap:3px; padding:6px 10px; background:rgba(34,197,94,0.15); border-radius:10px;">
+              <span>✓ Joriy</span>
+            </div>
+          ` : `
+            <button type="button" onclick="confirmSwitchToAccount(${acc.id})" style="padding:6px 12px; background:linear-gradient(135deg, #eab308, #ca8a04); border:none; color:#000; border-radius:10px; font-weight:800; font-size:11.5px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+              <span>O'tish</span>
+              <span>➡️</span>
+            </button>
+          `}
+          ${!isActive && !acc.is_primary ? `
+            <button type="button" onclick="removeSavedAccount(${acc.id})" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#ef4444; border-radius:8px; width:28px; height:28px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:13px;" title="Akkauntni ro'yxatdan o'chirish">
+              🗑️
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function toggleAddAccountForm() {
+  const form = document.getElementById('form-add-account');
+  if (!form) return;
+  const isHidden = form.style.display === 'none' || !form.style.display;
+  form.style.display = isHidden ? 'block' : 'none';
+  if (isHidden) {
+    const input = document.getElementById('input-new-account-id');
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+  }
+}
+
+function submitAddNewAccount() {
+  const input = document.getElementById('input-new-account-id');
+  const query = input ? input.value.trim() : '';
+
+  if (!query) {
+    showToast("⚠️ Telegram username yoki ID raqamini kiriting");
+    return;
+  }
+
+  showToast("🔍 Akkaunt qidirilmoqda...");
+
+  fetch(`/api/user/lookup?query=${encodeURIComponent(query)}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.user) {
+        const u = data.user;
+        ensureAccountInSaved({
+          id: u.user_id,
+          first_name: u.first_name,
+          last_name: u.last_name,
+          username: u.username,
+          level: u.current_level,
+          balance: u.balance,
+          total_earned: u.total_earned,
+          is_primary: false
+        });
+
+        showToast(`✅ Akkaunt qo'shildi: ${u.first_name || u.username || u.user_id}`);
+        toggleAddAccountForm();
+        renderAccountsList();
+
+        // Prompt switch immediately
+        confirmSwitchToAccount(u.user_id);
+      } else {
+        showToast("❌ " + (data.error || "Foydalanuvchi topilmadi"));
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      showToast("❌ Server xatoligi yuz berdi");
+    });
+}
+
+function confirmSwitchToAccount(targetAccId) {
+  const targetId = Number(targetAccId);
+  if (!targetId) return;
+
+  if (targetId === Number(userState.id)) {
+    showToast("ℹ️ Bu akkaunt allaqachon faol!");
+    return;
+  }
+
+  const list = getSavedAccounts();
+  const acc = list.find(a => Number(a.id) === targetId) || { id: targetId, first_name: `ID ${targetId}` };
+  const accName = `${acc.first_name || ''} ${acc.last_name || ''}`.trim() || acc.username || `ID ${acc.id}`;
+  const unameOrId = acc.username ? `@${acc.username}` : `ID: ${acc.id}`;
+
+  const descEl = document.getElementById('switch-confirm-desc');
+  if (descEl) {
+    descEl.innerHTML = `Siz <b>${accName}</b> (<span style="color:#38bdf8;">${unameOrId}</span>) akkauntingizga o'tmoqdasiz.`;
+  }
+
+  const confirmBtn = document.getElementById('btn-confirm-account-switch');
+  if (confirmBtn) {
+    confirmBtn.onclick = () => executeAccountSwitch(targetId);
+  }
+
+  const confirmModal = document.getElementById('account-switch-confirm-modal');
+  if (confirmModal) confirmModal.style.display = 'flex';
+}
+
+function executeAccountSwitch(targetAccId) {
+  const targetId = Number(targetAccId);
+  if (!targetId) return;
+
+  try {
+    localStorage.setItem('bh_active_account_id', String(targetId));
+    sessionStorage.setItem('bh_user_id', String(targetId));
+    localStorage.setItem('bh_user_id', String(targetId));
+  } catch (e) {}
+
+  closeModal('account-switch-confirm-modal');
+  closeModal('accounts-modal');
+
+  const list = getSavedAccounts();
+  const acc = list.find(a => Number(a.id) === targetId);
+  const accName = acc ? (`${acc.first_name || ''} ${acc.last_name || ''}`.trim() || acc.username || `ID: ${acc.id}`) : `ID: ${targetId}`;
+
+  // Show fullscreen feedback overlay
+  let switchScreen = document.getElementById('switch-success-screen');
+  if (!switchScreen) {
+    switchScreen = document.createElement('div');
+    switchScreen.id = 'switch-success-screen';
+    switchScreen.style.position = 'fixed';
+    switchScreen.style.top = '0';
+    switchScreen.style.left = '0';
+    switchScreen.style.right = '0';
+    switchScreen.style.bottom = '0';
+    switchScreen.style.zIndex = '99999';
+    switchScreen.style.background = 'radial-gradient(circle at center, #0c2016 0%, #050b08 100%)';
+    switchScreen.style.display = 'flex';
+    switchScreen.style.flexDirection = 'column';
+    switchScreen.style.alignItems = 'center';
+    switchScreen.style.justifyContent = 'center';
+    switchScreen.style.padding = '24px';
+    switchScreen.style.textAlign = 'center';
+    switchScreen.style.color = '#fff';
+    switchScreen.style.fontFamily = 'sans-serif';
+    document.body.appendChild(switchScreen);
+  }
+
+  switchScreen.innerHTML = `
+    <div style="width:72px; height:72px; border-radius:50%; background:rgba(34,197,94,0.2); border:2px solid #22c55e; display:flex; align-items:center; justify-content:center; font-size:36px; margin-bottom:16px;">
+      🔄
+    </div>
+    <h2 style="font-size:20px; font-weight:800; color:#facc15; margin-bottom:8px;">Akkaunt almashtirildi!</h2>
+    <p style="font-size:14px; color:#cbd5e1; max-width:320px; line-height:1.45; margin-bottom:14px;">
+      Siz muvaffaqiyatli <b>${accName}</b> akkauntiga o'tdingiz.
+    </p>
+    <div style="font-size:12px; color:#94a3b8; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:12px; max-width:320px; margin-bottom:22px; line-height:1.4; text-align:center;">
+      💡 Botdan Mini Appni qayta ochganingizda ushbu yangi akkaunt bilan to'liq ochiladi.
+    </div>
+    <button id="btn-close-webapp-now" style="background:linear-gradient(135deg, #eab308, #ca8a04); border:none; color:#000; font-weight:800; font-size:14px; padding:12px 28px; border-radius:12px; cursor:pointer; box-shadow:0 4px 15px rgba(234,179,8,0.4);">
+      Ilovani Yopish
+    </button>
+  `;
+
+  const btnClose = document.getElementById('btn-close-webapp-now');
+  if (btnClose) {
+    btnClose.onclick = () => {
+      if (tg && tg.close) {
+        try { tg.close(); } catch(e) {}
+      } else {
+        window.location.reload();
+      }
+    };
+  }
+
+  // Attempt auto-close in Telegram WebApp context
+  setTimeout(() => {
+    if (tg && tg.close) {
+      try {
+        tg.close();
+      } catch (e) {
+        console.warn("Could not auto-close WebApp:", e);
+      }
+    }
+  }, 400);
+}
+
+function removeSavedAccount(accId) {
+  const targetId = Number(accId);
+  if (!targetId) return;
+
+  if (targetId === Number(userState.id)) {
+    showToast("⚠️ Hozirgi faol akkauntni o'chirib bo'lmaydi");
+    return;
+  }
+
+  const list = getSavedAccounts().filter(a => Number(a.id) !== targetId);
+  saveAccountsList(list);
+  showToast("🗑️ Akkaunt ro'yxatdan olib tashlandi");
+  renderAccountsList();
 }
 
 detectTelegramUser();
@@ -138,6 +502,17 @@ function fetchLiveUserData() {
         userState.multiTier = u.multi_tier || userState.multiTier;
         userState.wallets = u.wallets || userState.wallets;
         userState.isAdmin = Boolean(u.is_admin);
+
+        // Sync to saved accounts
+        ensureAccountInSaved({
+          id: userState.id,
+          first_name: userState.first_name,
+          last_name: userState.last_name,
+          username: userState.username,
+          level: userState.level,
+          balance: u.balance || 0,
+          total_earned: userState.income
+        });
 
         // Check if user is banned
         if (u.is_banned === 1) {
