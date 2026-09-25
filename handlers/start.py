@@ -83,18 +83,12 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
         await message.answer("⛔️ <b>Sizning hisobingiz qoidabuzarlik sababli bloklangan.</b>", parse_mode="HTML")
         return
 
-    # If user is already active/placed in tree/has referrer/is admin/has balance or level or no referral args provided:
-    if existing_user and (
-        existing_user.get("referrer_id", 0) != 0 or 
-        existing_user.get("current_level", 0) > 0 or 
-        existing_user.get("total_earned", 0) > 0 or 
-        user.id in ADMINS or 
-        not args
-    ):
+    # If user is already in DB or no referral args were passed for existing/placed/linked members
+    if existing_user:
         await send_main_menu(message)
         return
 
-    # User is not registered and not in tree. Check if referral parameter is provided
+    # User is not registered in DB yet. Check if referral parameter is provided
     if not args:
         # Check if user is admin - allow admin to self-register without ref link
         if user.id in ADMINS:
@@ -109,7 +103,20 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
             await send_main_menu(message)
             return
 
-        # Regular user without referral link and not placed in tree
+        # Check if this user was already registered or referenced in any tree structure/replacements
+        rep_map = await db.get_replacement_map()
+        if user.id in rep_map.values() or user.id in rep_map.keys():
+            await db.register_user(
+                user_id=user.id,
+                first_name=user.first_name or "",
+                last_name=user.last_name or "",
+                username=user.username or "",
+                referrer_id=0
+            )
+            await send_main_menu(message)
+            return
+
+        # Regular completely new user without referral link
         await message.answer(
             "⚠️ <b>Botda ro'yxatdan o'tish faqat taklif qiluvchining referal havolasi orqali mumkin.</b>",
             parse_mode="HTML"

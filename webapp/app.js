@@ -557,6 +557,99 @@ function closeOtpModal() {
   closeModal('account-otp-modal');
 }
 
+function confirmSwitchToAccount(targetId) {
+  if (!targetId) return;
+  const accounts = getSavedAccounts();
+  const acc = accounts.find(a => Number(a.id) === Number(targetId)) || { id: targetId, first_name: 'Foydalanuvchi' };
+  const targetName = `${acc.first_name || ''} ${acc.last_name || ''}`.trim() || 'Foydalanuvchi';
+  const targetHandle = acc.username ? `@${acc.username}` : `ID: ${acc.id}`;
+
+  const descEl = document.getElementById('switch-confirm-desc');
+  if (descEl) {
+    descEl.innerHTML = `Siz <b>${targetName}</b> (<span style="color:#facc15;">${targetHandle}</span>) akkauntingizga o'tishni tasdiqlaysizmi?`;
+  }
+
+  const btnConfirm = document.getElementById('btn-confirm-account-switch');
+  if (btnConfirm) {
+    btnConfirm.onclick = function() {
+      doSwitchAccount(targetId);
+    };
+  }
+
+  const modal = document.getElementById('account-switch-confirm-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function doSwitchAccount(targetId) {
+  if (!targetId) return;
+  closeModal('account-switch-confirm-modal');
+  closeModal('accounts-modal');
+
+  const tid = Number(targetId);
+  localStorage.setItem('bh_active_account_id', String(tid));
+  sessionStorage.setItem('bh_user_id', String(tid));
+  localStorage.setItem('bh_user_id', String(tid));
+  userState.id = tid;
+
+  showToast("✅ Akkaunt almashtirildi! Yangi profil yuklanmoqda...");
+
+  // Update in-memory state
+  const accounts = getSavedAccounts();
+  const matched = accounts.find(a => Number(a.id) === tid);
+  if (matched) {
+    userState.first_name = matched.first_name || "Foydalanuvchi";
+    userState.last_name = matched.last_name || "";
+    userState.username = matched.username || "";
+    if (matched.level) userState.level = matched.level;
+  }
+
+  fetchLiveUserData();
+
+  // If inside Telegram WebApp, close the mini-app so upon reopen it launches in the active account
+  if (tg && typeof tg.close === 'function') {
+    setTimeout(() => {
+      try {
+        tg.close();
+      } catch (e) {}
+    }, 700);
+  } else {
+    setTimeout(() => {
+      location.reload();
+    }, 300);
+  }
+}
+
+function removeSavedAccount(targetId) {
+  if (!targetId) return;
+  const tid = Number(targetId);
+  if (!confirm("Ushbu akkauntni ro'yxatdan o'chirishni tasdiqlaysizmi?")) return;
+
+  showToast("⏳ Akkaunt o'chirilmoqda...");
+
+  fetch('/api/user/link/remove', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      owner_id: userState.id || 0,
+      target_id: tid
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      const list = getSavedAccounts().filter(a => Number(a.id) !== tid);
+      saveAccountsList(list);
+      renderAccountsList();
+      showToast("✅ Akkaunt muvaffaqiyatli o'chirildi");
+    } else {
+      showToast("❌ " + (data.error || "O'chirib bo'lmadi"));
+    }
+  })
+  .catch(() => {
+    showToast("❌ Server xatoligi yuz berdi");
+  });
+}
+
 detectTelegramUser();
 
 // Helper to format currency
