@@ -103,7 +103,7 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
             await send_main_menu(message)
             return
 
-        # Check if this user was already registered or referenced in any tree structure/replacements
+        # Check if this user was already referenced in tree replacements or linked accounts
         rep_map = await db.get_replacement_map()
         if user.id in rep_map.values() or user.id in rep_map.keys():
             await db.register_user(
@@ -116,9 +116,28 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
             await send_main_menu(message)
             return
 
-        # Regular completely new user without referral link
+        # Registration under Bosh Admin / Tizim
+        admin_ref_id = ADMINS[0] if ADMINS else 0
+        curator_user = await db.get_user(admin_ref_id) if admin_ref_id else None
+        curator_name = f"{curator_user.get('first_name', '')} {curator_user.get('last_name', '')}".strip() if curator_user else "Bosh Admin (Tizim)"
+        curator_uname = f"@{curator_user.get('username')}" if curator_user and curator_user.get("username") else "-"
+        user_uname_display = f"@{user.username}" if user.username else "Mavjud emas"
+
+        info_card = (
+            "🏆 <b>Sizning Kuratoringiz.</b>\n\n"
+            f"<b>Ism:</b> {curator_name}\n"
+            f"<b>Telegram:</b> {curator_uname}\n\n"
+            "🏆 <b>Sizning Ma'lumotlaringiz.</b>\n\n"
+            f"<b>Ism:</b> {user.first_name or '-'}\n"
+            f"<b>Familiya:</b> {user.last_name or '-'}\n"
+            f"<b>Login:</b> {user.username or '-'}\n"
+            f"<b>Telegram:</b> {user_uname_display}\n\n"
+            "<i>Dasturda ishtirok etish uchun quyidagi tugmani bosib ro'yxatdan o'ting:</i>"
+        )
+
         await message.answer(
-            "⚠️ <b>Botda ro'yxatdan o'tish faqat taklif qiluvchining referal havolasi orqali mumkin.</b>",
+            info_card,
+            reply_markup=get_register_keyboard(admin_ref_id),
             parse_mode="HTML"
         )
         return

@@ -303,6 +303,7 @@ class Database:
             return None
 
         clean_uname = str(username).strip().lstrip("@").lower() if username else ""
+        clean_fname = str(first_name).strip().lstrip("@").lower() if first_name else ""
         clean_phone = "".join(ch for ch in str(phone) if ch.isdigit()) if phone else ""
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -314,12 +315,23 @@ class Database:
             user_row = await cursor.fetchone()
             user_data = dict(user_row) if user_row else None
 
-            # 2. Check if a pseudo/placeholder record exists with this username, phone, or in replacements/linked accounts
+            # 2. Check if a pseudo/placeholder record exists with this username, first_name, phone, or in replacements/linked accounts
             pseudo_data = None
-            if clean_uname:
+            if clean_uname or clean_fname:
                 cursor = await db.execute(
-                    "SELECT * FROM users WHERE (LOWER(username) = ? OR REPLACE(LOWER(username), '@', '') = ?) AND user_id != ? ORDER BY user_id DESC LIMIT 1",
-                    (clean_uname, clean_uname, user_id)
+                    """
+                    SELECT * FROM users 
+                    WHERE user_id != ? AND (
+                        user_id >= 900000000 
+                        OR status = '🌱 Boshlang''ich'
+                        OR current_level >= 1
+                    ) AND (
+                        (? != '' AND (LOWER(username) = ? OR REPLACE(LOWER(username), '@', '') = ? OR LOWER(first_name) = ?))
+                        OR (? != '' AND (LOWER(username) = ? OR LOWER(first_name) = ? OR REPLACE(LOWER(username), '@', '') = ?))
+                    )
+                    ORDER BY current_level DESC, balance DESC, user_id DESC LIMIT 1
+                    """,
+                    (user_id, clean_uname, clean_uname, clean_uname, clean_uname, clean_fname, clean_fname, clean_fname, clean_fname)
                 )
                 p_row = await cursor.fetchone()
                 if p_row:
@@ -333,7 +345,7 @@ class Database:
                         phone = ? 
                         OR REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', '') = ?
                     )
-                    ORDER BY user_id DESC LIMIT 1
+                    ORDER BY current_level DESC, balance DESC, user_id DESC LIMIT 1
                     """,
                     (user_id, phone, clean_phone)
                 )
