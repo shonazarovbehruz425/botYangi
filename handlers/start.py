@@ -42,6 +42,63 @@ def has_valid_letters(first_name: str, last_name: str = "") -> bool:
     return any(c.isalpha() for c in full)
 
 
+def validate_user_profile(user) -> tuple[bool, str]:
+    """
+    Checks if user meets requirements:
+    1. Must have a Telegram @username
+    2. Name must contain at least one alphabetic letter
+    Returns (is_valid, error_message)
+    """
+    if user.id in ADMINS:
+        return True, ""
+
+    has_letters = has_valid_letters(user.first_name, user.last_name)
+    has_username = bool(user.username and user.username.strip())
+
+    if not has_letters and not has_username:
+        return False, (
+            "⚠️ <b>Profil ma'lumotlarida xatolik aniqlandi!</b>\n\n"
+            "1. Ismingizda <b>haqiqiy harflar</b> mavjud emas (faqat nuqta, belgi yoki faqat emojilardan iborat).\n"
+            "2. Telegram profilingizda <b>Username (@foydalanuvchi_nomi)</b> o'rnatilmagan.\n\n"
+            "Bot tizimida ishtirok etish uchun ismingizni to'g'ri yozish va username o'rnatish shart!\n\n"
+            "📝 <b>Nima qilish kerak?</b>\n"
+            "1. Telegram sozlamalaringizga (<i>Settings</i>) kiring.\n"
+            "2. Ismingizni harflar bilan to'g'ri yozing (<i>Edit Name</i>).\n"
+            "3. O'zingizga <i>Username</i> tanlang va saqlang.\n"
+            "4. So'ng quyidagi <b>«🔄 Qayta tekshirish»</b> tugmasini bosing yoki botga qayta /start yuboring.\n\n"
+            "Savollar yoki yordam uchun adminga murojaat qiling:\n"
+            "👤 <b>Admin:</b> @samandar0855\n"
+            "🆔 <b>Admin ID:</b> <code>6003608197</code>"
+        )
+    elif not has_letters:
+        return False, (
+            "⚠️ <b>Ismingizda xatolik aniqlandi!</b>\n\n"
+            "Sizning Telegram profilingizdagi ismda <b>haqiqiy harflar</b> mavjud emas (ismingiz faqat nuqta, bo'sh joy, belgi yoki faqat emojilardan iborat).\n\n"
+            "Bot tizimida ro'yxatdan o'tish uchun ismingizda kamida <b>harflar</b> qatnashgan bo'lishi shart!\n\n"
+            "📝 <b>Nima qilish kerak?</b>\n"
+            "1. Telegram sozlamalaringizga (<i>Settings ➔ Edit Name</i>) kiring.\n"
+            "2. Ismingizni harflar bilan to'g'ri yozing (masalan: <i>Ali</i> yoki <i>Shamsiddin</i>).\n"
+            "3. So'ng quyidagi <b>«🔄 Qayta tekshirish»</b> tugmasini bosing yoki botga qayta /start yuboring.\n\n"
+            "Savollar yoki yordam uchun adminga murojaat qiling:\n"
+            "👤 <b>Admin:</b> @samandar0855\n"
+            "🆔 <b>Admin ID:</b> <code>6003608197</code>"
+        )
+    elif not has_username:
+        return False, (
+            "⚠️ <b>Telegram Username (@username) topilmadi!</b>\n\n"
+            "Bot tizimida ro'yxatdan o'tish va kuratoringiz siz bilan bog'lana olishi uchun Telegram profilingizda <b>Username (@foydalanuvchi_nomi)</b> o'rnatilgan bo'lishi shart!\n\n"
+            "📝 <b>Nima qilish kerak?</b>\n"
+            "1. Telegram sozlamalaringizga (<i>Settings ➔ Username / Foydalanuvchi nomi</i>) kiring.\n"
+            "2. O'zingizga mos username tanlang va saqlang (masalan: <i>@ali_2024</i>).\n"
+            "3. So'ng quyidagi <b>«🔄 Qayta tekshirish»</b> tugmasini bosing yoki botga qayta /start yuboring.\n\n"
+            "Savollar yoki yordam uchun adminga murojaat qiling:\n"
+            "👤 <b>Admin:</b> @samandar0855\n"
+            "🆔 <b>Admin ID:</b> <code>6003608197</code>"
+        )
+
+    return True, ""
+
+
 async def send_main_menu(target, bot: Bot = None, user_id: int = None, **kwargs):
     """Sends or edits the main menu card with photo banner."""
     uid = None
@@ -92,10 +149,11 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
     user = message.from_user
     args = command.args
 
-    # Check if user's name has real alphabetic letters
-    if user.id not in ADMINS and not has_valid_letters(user.first_name, user.last_name):
+    # Check if user's profile meets requirements (valid name + username)
+    is_valid, err_msg = validate_user_profile(user)
+    if not is_valid:
         await message.answer(
-            INVALID_NAME_TEXT,
+            err_msg,
             reply_markup=get_invalid_name_keyboard(),
             parse_mode="HTML"
         )
@@ -272,11 +330,12 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
 async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
     user = callback.from_user
 
-    # Check if user's name has real alphabetic letters
-    if user.id not in ADMINS and not has_valid_letters(user.first_name, user.last_name):
-        await callback.answer("⚠️ Ismingizda haqiqiy harflar yo'q! Iltimos, ismingizni harflar bilan to'g'rilang.", show_alert=True)
+    # Check if user's profile meets requirements (valid name + username)
+    is_valid, err_msg = validate_user_profile(user)
+    if not is_valid:
+        await callback.answer("⚠️ Profil ma'lumotlaringiz to'liq emas! Ismingiz va usernameni to'g'rilang.", show_alert=True)
         await callback.message.answer(
-            INVALID_NAME_TEXT,
+            err_msg,
             reply_markup=get_invalid_name_keyboard(),
             parse_mode="HTML"
         )
@@ -342,14 +401,18 @@ async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
 @router.callback_query(F.data == "recheck_name")
 async def recheck_name_handler(callback: CallbackQuery, bot: Bot):
     user = callback.from_user
-    if user.id not in ADMINS and not has_valid_letters(user.first_name, user.last_name):
-        await callback.answer(
-            "⚠️ Ismingiz hali ham faqat belgi, nuqta yoki emojilardan iborat. Iltimos, Telegram Settings orqali harflar bilan ism yozing!",
-            show_alert=True
-        )
+    is_valid, err_msg = validate_user_profile(user)
+    if not is_valid:
+        if not user.username and not has_valid_letters(user.first_name, user.last_name):
+            alert_text = "⚠️ Ismingizda harflar yo'q va Telegram username ham o'rnatilmagan! Iltimos, ikkalasini ham to'g'rilang."
+        elif not user.username:
+            alert_text = "⚠️ Telegram username (@username) hali o'rnatilmagan! Iltimos, Telegram Settings orqali username tanlang."
+        else:
+            alert_text = "⚠️ Ismingiz hali ham faqat belgi, nuqta yoki emojilardan iborat. Iltimos, harflar bilan ism yozing!"
+        await callback.answer(alert_text, show_alert=True)
         return
 
-    await callback.answer("✅ Ismingiz qabul qilindi!", show_alert=False)
+    await callback.answer("✅ Ma'lumotlaringiz qabul qilindi!", show_alert=False)
     try:
         await callback.message.delete()
     except Exception:
