@@ -1,5 +1,6 @@
 from .inline import (
     get_register_keyboard,
+    get_invalid_name_keyboard,
     get_main_menu_keyboard,
     get_marketing_menu_keyboard,
     get_all_levels_keyboard,
@@ -23,6 +24,7 @@ from .inline import (
 
 __all__ = [
     "get_register_keyboard",
+    "get_invalid_name_keyboard",
     "get_main_menu_keyboard",
     "get_marketing_menu_keyboard",
     "get_all_levels_keyboard",

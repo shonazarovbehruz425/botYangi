@@ -5,6 +5,7 @@ from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
 from database import db
 from keyboards import (
     get_register_keyboard,
+    get_invalid_name_keyboard,
     get_main_menu_keyboard,
     get_back_to_menu_keyboard
 )
@@ -18,6 +19,27 @@ MAIN_MENU_CAPTION = (
 )
 
 BANNER_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "main_banner.png")
+
+INVALID_NAME_TEXT = (
+    "⚠️ <b>Ismingizda xatolik aniqlandi!</b>\n\n"
+    "Sizning Telegram profilingizdagi ismda <b>haqiqiy harflar</b> mavjud emas (ismingiz faqat nuqta, bo'sh joy, belgi yoki faqat emojilardan iborat).\n\n"
+    "Bot tizimida ro'yxatdan o'tish uchun ismingizda kamida <b>harflar</b> qatnashgan bo'lishi shart!\n\n"
+    "📝 <b>Nima qilish kerak?</b>\n"
+    "1. Telegram sozlamalaringizga (<i>Settings ➔ Edit Name</i>) kiring.\n"
+    "2. Ismingizni harflar bilan to'g'ri yozing (masalan: <i>Ali</i> yoki <i>Shamsiddin</i>).\n"
+    "3. So'ng quyidagi <b>«🔄 Ismimni to'g'irladim»</b> tugmasini bosing yoki botga qayta /start yuboring.\n\n"
+    "Savollar yoki yordam uchun adminga murojaat qiling:\n"
+    "👤 <b>Admin:</b> @samandar0855\n"
+    "🆔 <b>Admin ID:</b> <code>6003608197</code>"
+)
+
+
+def has_valid_letters(first_name: str, last_name: str = "") -> bool:
+    """Returns True if the name contains at least one alphabetic letter."""
+    full = f"{first_name or ''} {last_name or ''}".strip()
+    if not full:
+        return False
+    return any(c.isalpha() for c in full)
 
 
 async def send_main_menu(target, bot: Bot = None, user_id: int = None, **kwargs):
@@ -69,6 +91,15 @@ async def send_main_menu(target, bot: Bot = None, user_id: int = None, **kwargs)
 async def start_handler(message: Message, command: CommandObject, bot: Bot):
     user = message.from_user
     args = command.args
+
+    # Check if user's name has real alphabetic letters
+    if user.id not in ADMINS and not has_valid_letters(user.first_name, user.last_name):
+        await message.answer(
+            INVALID_NAME_TEXT,
+            reply_markup=get_invalid_name_keyboard(),
+            parse_mode="HTML"
+        )
+        return
     
     # 1. Resolve and sync user (merges username pseudo-records and syncs state)
     existing_user = await db.resolve_and_sync_user(
@@ -240,6 +271,17 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
 @router.callback_query(F.data.startswith("confirm_reg:"))
 async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
     user = callback.from_user
+
+    # Check if user's name has real alphabetic letters
+    if user.id not in ADMINS and not has_valid_letters(user.first_name, user.last_name):
+        await callback.answer("⚠️ Ismingizda haqiqiy harflar yo'q! Iltimos, ismingizni harflar bilan to'g'rilang.", show_alert=True)
+        await callback.message.answer(
+            INVALID_NAME_TEXT,
+            reply_markup=get_invalid_name_keyboard(),
+            parse_mode="HTML"
+        )
+        return
+
     data_parts = callback.data.split(":")
     raw_ref = int(data_parts[1]) if len(data_parts) > 1 and data_parts[1].isdigit() else 0
     referrer_id = await db.get_effective_referrer_id(raw_ref) if raw_ref else 0
@@ -295,6 +337,57 @@ async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
 
     # Send Main Menu
     await send_main_menu(callback)
+
+
+@router.callback_query(F.data == "recheck_name")
+async def recheck_name_handler(callback: CallbackQuery, bot: Bot):
+    user = callback.from_user
+    if user.id not in ADMINS and not has_valid_letters(user.first_name, user.last_name):
+        await callback.answer(
+            "⚠️ Ismingiz hali ham faqat belgi, nuqta yoki emojilardan iborat. Iltimos, Telegram Settings orqali harflar bilan ism yozing!",
+            show_alert=True
+        )
+        return
+
+    await callback.answer("✅ Ismingiz qabul qilindi!", show_alert=False)
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+    existing_user = await db.resolve_and_sync_user(
+        user_id=user.id,
+        username=user.username or "",
+        first_name=user.first_name or "",
+        last_name=user.last_name or ""
+    )
+
+    if existing_user:
+        await send_main_menu(callback, bot=bot, user_id=user.id)
+        return
+
+    # Show registration card under Bosh Admin
+    admin_ref_id = ADMINS[0] if ADMINS else 0
+    curator_user = await db.get_user(admin_ref_id) if admin_ref_id else None
+    curator_name = f"{curator_user.get('first_name', '')} {curator_user.get('last_name', '')}".strip() if curator_user else "Bosh Admin (Tizim)"
+    curator_uname = f"@{curator_user.get('username')}" if curator_user and curator_user.get("username") else "-"
+    user_uname_display = f"@{user.username}" if user.username else "Mavjud emas"
+
+    info_card = (
+        "🏆 <b>Sizning Kuratoringiz:</b> 👑 <b>BUYUK HAYOT (Bosh Tizim)</b>\n\n"
+        "🏆 <b>Sizning Ma'lumotlaringiz:</b>\n"
+        f"<b>Ism:</b> {user.first_name or '-'}\n"
+        f"<b>Familiya:</b> {user.last_name or '-'}\n"
+        f"<b>Login:</b> {user.username or '-'}\n"
+        f"<b>Telegram:</b> {user_uname_display}\n\n"
+        "<i>Dasturda ishtirok etish uchun quyidagi tugmani bosib ro'yxatdan o'ting:</i>"
+    )
+
+    await callback.message.answer(
+        info_card,
+        reply_markup=get_register_keyboard(admin_ref_id),
+        parse_mode="HTML"
+    )
 
 
 @router.callback_query(F.data == "back_to_main_menu")

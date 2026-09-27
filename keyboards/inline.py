@@ -15,6 +15,31 @@ def get_register_keyboard(referrer_id: int) -> InlineKeyboardMarkup:
     )
 
 
+def get_invalid_name_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✍️ Adminga yozish (@samandar0855)",
+                    url="https://t.me/samandar0855"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🆔 Admin profili (6003608197)",
+                    url="tg://user?id=6003608197"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔄 Ismimni to'g'irladim",
+                    callback_data="recheck_name"
+                )
+            ]
+        ]
+    )
+
+
 def get_main_menu_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
     buttons = [
         [
