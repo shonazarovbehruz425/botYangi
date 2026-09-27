@@ -89,14 +89,14 @@
     #zoomCtrl button:hover{background:#123322;border-color:#5fe0bb;color:#5fe0bb}
     #zoomPct{font-size:9.5px;text-align:center;color:#7fae9a;font-weight:700;padding:2px 0}
 
-    /* Modal Sheet */
-    .struct-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);display:none;align-items:flex-end;justify-content:center;z-index:99999}
-    .struct-modal-card{position:relative;width:100%;max-width:480px;background:linear-gradient(160deg,#0d2116,#071009 50%,#0a1a12);border:1.5px solid rgba(34,197,94,.3);border-bottom:none;border-radius:28px 28px 0 0;padding:28px 24px 40px;display:flex;flex-direction:column;align-items:center;gap:10px;overflow:hidden;animation:slideUpModal .32s cubic-bezier(.34,1.56,.64,1);box-shadow:0 -10px 60px rgba(34,197,94,.12)}
-    @keyframes slideUpModal{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
-    .struct-modal-card::before{content:'';position:absolute;top:10px;left:50%;transform:translateX(-50%);width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.15)}
+    /* Floating Popup Modal */
+    .struct-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:99999;padding:16px;animation:modalFadeIn .2s ease-out}
+    .struct-modal-card{position:relative;width:92%;max-width:440px;max-height:88vh;overflow-y:auto;background:radial-gradient(circle at 50% 0%,#11281e 0%,#08130e 100%);border:1.5px solid rgba(250,204,21,.4);border-radius:24px;padding:24px 20px;display:flex;flex-direction:column;align-items:center;gap:10px;animation:modalPopIn .28s cubic-bezier(.175,.885,.32,1.275);box-shadow:0 16px 50px rgba(0,0,0,.9),0 0 35px rgba(250,204,21,.15);box-sizing:border-box;margin:auto}
+    @keyframes modalFadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes modalPopIn{0%{opacity:0;transform:scale(0.82) translateY(-14px)}100%{opacity:1;transform:scale(1) translateY(0)}}
     .struct-modal-glow{position:absolute;top:-80px;left:50%;transform:translateX(-50%);width:240px;height:160px;background:radial-gradient(ellipse at center,rgba(34,197,94,.18),transparent 70%);pointer-events:none}
-    .struct-modal-close{position:absolute;top:20px;right:20px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6);cursor:pointer;display:flex;align-items:center;justify-content:center}
-    .struct-modal-avatar-wrap{position:relative;margin-top:14px;margin-bottom:4px}
+    .struct-modal-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.8);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px}
+    .struct-modal-avatar-wrap{position:relative;margin-top:8px;margin-bottom:4px}
     .struct-modal-avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(34,197,94,.2),rgba(20,83,45,.4));display:flex;align-items:center;justify-content:center;font-size:38px;border:2.5px solid rgba(34,197,94,.5);box-shadow:0 0 30px rgba(34,197,94,.25);position:relative;z-index:1}
     .struct-modal-ring{position:absolute;inset:-6px;border-radius:50%;border:1.5px solid transparent;background:linear-gradient(135deg,rgba(34,197,94,.4),transparent 50%,rgba(250,204,21,.3));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:ringRotate 4s linear infinite}
     @keyframes ringRotate{to{transform:rotate(360deg)}}
