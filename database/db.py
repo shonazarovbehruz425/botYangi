@@ -1599,49 +1599,105 @@ class Database:
         if not clean:
             return None
 
-        uname_query = clean.lstrip("@").lower()
+        # Clean username from @ or t.me links
+        uname_query = clean.lower()
+        if "t.me/" in uname_query:
+            uname_query = uname_query.split("t.me/")[-1].strip("/")
+        uname_query = uname_query.lstrip("@").strip()
+
+        # Clean digits
         digits_only = "".join(ch for ch in clean if ch.isdigit())
 
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
 
-            # 1. ID raqami bo'yicha qidirish
-            if digits_only and (clean.isdigit() or len(digits_only) <= 10):
-                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (int(digits_only),))
-                row = await cursor.fetchone()
-                if row:
-                    return dict(row)
+            # 1. Exact numeric user_id match
+            if digits_only:
+                try:
+                    num_id = int(digits_only)
+                    cursor = await db.execute("SELECT * FROM users WHERE user_id = ? OR CAST(user_id AS TEXT) = ?", (num_id, digits_only))
+                    row = await cursor.fetchone()
+                    if row:
+                        return dict(row)
+                except Exception:
+                    pass
 
-            # 2. @username bo'yicha qidirish
+            # 2. @username bo'yicha qidirish (case-insensitive)
             if uname_query:
-                cursor = await db.execute("SELECT * FROM users WHERE LOWER(username) = ?", (uname_query,))
-                row = await cursor.fetchone()
-                if row:
-                    return dict(row)
-
-            # 3. Telefon raqami bo'yicha qidirish
-            if digits_only and len(digits_only) >= 7:
                 cursor = await db.execute(
-                    """
-                    SELECT * FROM users 
-                    WHERE phone != '' AND (
-                        phone = ? 
-                        OR phone LIKE ? 
-                        OR REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', '') LIKE ?
-                    )
-                    """,
-                    (clean, f"%{digits_only}%", f"%{digits_only}%")
+                    "SELECT * FROM users WHERE LOWER(username) = ? OR REPLACE(LOWER(username), '@', '') = ?",
+                    (uname_query, uname_query)
                 )
                 row = await cursor.fetchone()
                 if row:
                     return dict(row)
 
-            # 4. Qo'shimcha tekshiruv
-            if clean.isdigit():
-                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (int(clean),))
+            # 3. Telefon raqami bo'yicha chuqur qidirish
+            if digits_only and len(digits_only) >= 7:
+                last_9 = digits_only[-9:] if len(digits_only) >= 9 else digits_only
+                last_7 = digits_only[-7:]
+                cursor = await db.execute(
+                    """
+                    SELECT * FROM users 
+                    WHERE phone IS NOT NULL AND phone != '' AND (
+                        phone = ?
+                        OR phone LIKE ?
+                        OR phone LIKE ?
+                        OR phone LIKE ?
+                        OR REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', ''), '(', '') LIKE ?
+                        OR REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', ''), '(', '') LIKE ?
+                    )
+                    LIMIT 1
+                    """,
+                    (
+                        clean,
+                        f"%{digits_only}%",
+                        f"%{last_9}%",
+                        f"%{last_7}%",
+                        f"%{digits_only}%",
+                        f"%{last_9}%"
+                    )
+                )
                 row = await cursor.fetchone()
                 if row:
                     return dict(row)
+
+            # 4. Qidiruv matni bo'yicha first_name / last_name orqali qidirish
+            if len(clean) >= 3 and not digits_only:
+                cursor = await db.execute(
+                    "SELECT * FROM users WHERE LOWER(first_name) = ? OR LOWER(first_name || ' ' || last_name) = ?",
+                    (clean.lower(), clean.lower())
+                )
+                row = await cursor.fetchone()
+                if row:
+                    return dict(row)
+
+            # 5. Agar bazada topilmasa, lekin kiritilgan qiymat haqiqiy Telegram raqamli IDsi bo'lsa (masalan: 6003608197)
+            if digits_only and 6 <= len(digits_only) <= 15 and (clean.isdigit() or clean.lower().startswith('id') or clean.startswith('#')):
+                uid = int(digits_only)
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                await db.execute(
+                    """
+                    INSERT OR IGNORE INTO users (user_id, first_name, last_name, username, referrer_id, current_level, registered_at)
+                    VALUES (?, ?, ?, ?, 0, 1, ?)
+                    """,
+                    (uid, f"User_{digits_only[-4:]}", "", "", now_str)
+                )
+                await db.commit()
+                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (uid,))
+                row = await cursor.fetchone()
+                if row:
+                    return dict(row)
+                return {
+                    "user_id": uid,
+                    "first_name": f"User_{digits_only[-4:]}",
+                    "last_name": "",
+                    "username": "",
+                    "phone": "",
+                    "current_level": 1,
+                    "balance": 0.0,
+                    "total_earned": 0.0
+                }
 
             return None
 

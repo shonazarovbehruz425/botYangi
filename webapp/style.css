@@ -1927,9 +1927,13 @@ code.struct-info-value {
   display: none;
   align-items: center;
   justify-content: center;
-  z-index: 99999;
+  z-index: 999999;
   padding: 16px;
   animation: modalFadeIn 0.2s ease-out;
+}
+
+.modal-overlay.active {
+  display: flex !important;
 }
 
 @keyframes modalFadeIn {

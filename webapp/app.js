@@ -265,19 +265,27 @@ function syncLinkedAccountsFromDb() {
 }
 
 function openAccountsModal() {
-  renderAccountsList();
-  syncLinkedAccountsFromDb();
+  try {
+    renderAccountsList();
+    syncLinkedAccountsFromDb();
+  } catch (e) {
+    console.warn("Accounts sync error:", e);
+  }
   const form = document.getElementById('form-add-account');
   if (form) form.style.display = 'none';
   const inp = document.getElementById('input-new-account-id');
   if (inp) inp.value = '';
   const modal = document.getElementById('accounts-modal');
-  if (modal) modal.style.display = 'flex';
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+  }
 }
 
 function renderAccountsList() {
-  const container = document.getElementById('accounts-list-container');
-  if (!container) return;
+  const modalContainer = document.getElementById('accounts-list-container');
+  const pageContainer = document.getElementById('page-accounts-list-container');
+  if (!modalContainer && !pageContainer) return;
 
   const accounts = getSavedAccounts();
   // Ensure current user is in list
@@ -295,65 +303,65 @@ function renderAccountsList() {
 
   const updatedList = getSavedAccounts();
 
+  let html = '';
   if (!updatedList.length) {
-    container.innerHTML = `
+    html = `
       <div style="text-align:center; padding:18px; color:#94a3b8; font-size:12.5px;">
         Saqlangan akkauntlar topilmadi.
       </div>
     `;
-    return;
+  } else {
+    updatedList.forEach(acc => {
+      const isActive = Number(acc.id) === Number(userState.id);
+      const fullName = `${acc.first_name || ''} ${acc.last_name || ''}`.trim() || 'Foydalanuvchi';
+      const uname = acc.username ? `@${acc.username}` : `ID: ${acc.id}`;
+      const initial = (acc.first_name ? acc.first_name.charAt(0) : 'U').toUpperCase();
+      const lvlEmoji = typeof getUserLvlEmoji === 'function' ? getUserLvlEmoji(acc.level || 1) : '🌱';
+
+      html += `
+        <div style="background:${isActive ? 'linear-gradient(135deg, rgba(34,197,94,0.18), rgba(234,179,8,0.15))' : 'rgba(255,255,255,0.04)'}; border:1px solid ${isActive ? '#22c55e' : 'rgba(255,255,255,0.12)'}; border-radius:14px; padding:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; transition:all 0.2s ease;">
+          <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+            <div style="width:38px; height:38px; border-radius:50%; background:${isActive ? '#22c55e' : '#334155'}; color:${isActive ? '#000' : '#fff'}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; flex-shrink:0;">
+              ${initial}
+            </div>
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-weight:800; font-size:13.5px; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px;">${fullName}</span>
+                ${isActive ? `<span style="font-size:10px; background:#22c55e; color:#000; font-weight:800; padding:1px 6px; border-radius:10px;">FAOL</span>` : ''}
+                ${acc.is_primary ? `<span style="font-size:9.5px; background:rgba(56,189,248,0.2); color:#38bdf8; font-weight:700; padding:1px 5px; border-radius:6px;" title="Asosiy Telegram Akkaunt">Asosiy</span>` : ''}
+              </div>
+              <div style="font-size:11px; color:#94a3b8; display:flex; align-items:center; gap:6px; margin-top:2px;">
+                <span>${uname}</span>
+                <span>•</span>
+                <span style="color:#facc15; font-weight:700;">${lvlEmoji} ${acc.level || 1}-daraja</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+            ${isActive ? `
+              <div style="font-size:11px; color:#86efac; font-weight:800; display:flex; align-items:center; gap:3px; padding:6px 10px; background:rgba(34,197,94,0.15); border-radius:10px;">
+                <span>✓ Joriy</span>
+              </div>
+            ` : `
+              <button type="button" onclick="confirmSwitchToAccount(${acc.id})" style="padding:6px 12px; background:linear-gradient(135deg, #eab308, #ca8a04); border:none; color:#000; border-radius:10px; font-weight:800; font-size:11.5px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                <span>O'tish</span>
+                <span>➡️</span>
+              </button>
+            `}
+            ${!isActive && !acc.is_primary ? `
+              <button type="button" onclick="removeSavedAccount(${acc.id})" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#ef4444; border-radius:8px; width:28px; height:28px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:13px;" title="Akkauntni ro'yxatdan o'chirish">
+                🗑️
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    });
   }
 
-  let html = '';
-  updatedList.forEach(acc => {
-    const isActive = Number(acc.id) === Number(userState.id);
-    const fullName = `${acc.first_name || ''} ${acc.last_name || ''}`.trim() || 'Foydalanuvchi';
-    const uname = acc.username ? `@${acc.username}` : `ID: ${acc.id}`;
-    const initial = (acc.first_name ? acc.first_name.charAt(0) : 'U').toUpperCase();
-    const lvlEmoji = getUserLvlEmoji ? getUserLvlEmoji(acc.level || 1) : '🌱';
-
-    html += `
-      <div style="background:${isActive ? 'linear-gradient(135deg, rgba(34,197,94,0.18), rgba(234,179,8,0.15))' : 'rgba(255,255,255,0.04)'}; border:1px solid ${isActive ? '#22c55e' : 'rgba(255,255,255,0.12)'}; border-radius:14px; padding:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; transition:all 0.2s ease;">
-        <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
-          <div style="width:38px; height:38px; border-radius:50%; background:${isActive ? '#22c55e' : '#334155'}; color:${isActive ? '#000' : '#fff'}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; flex-shrink:0;">
-            ${initial}
-          </div>
-          <div style="flex:1; min-width:0;">
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span style="font-weight:800; font-size:13.5px; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px;">${fullName}</span>
-              ${isActive ? `<span style="font-size:10px; background:#22c55e; color:#000; font-weight:800; padding:1px 6px; border-radius:10px;">FAOL</span>` : ''}
-              ${acc.is_primary ? `<span style="font-size:9.5px; background:rgba(56,189,248,0.2); color:#38bdf8; font-weight:700; padding:1px 5px; border-radius:6px;" title="Asosiy Telegram Akkaunt">Asosiy</span>` : ''}
-            </div>
-            <div style="font-size:11px; color:#94a3b8; display:flex; align-items:center; gap:6px; margin-top:2px;">
-              <span>${uname}</span>
-              <span>•</span>
-              <span style="color:#facc15; font-weight:700;">${lvlEmoji} ${acc.level || 1}-daraja</span>
-            </div>
-          </div>
-        </div>
-
-        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-          ${isActive ? `
-            <div style="font-size:11px; color:#86efac; font-weight:800; display:flex; align-items:center; gap:3px; padding:6px 10px; background:rgba(34,197,94,0.15); border-radius:10px;">
-              <span>✓ Joriy</span>
-            </div>
-          ` : `
-            <button type="button" onclick="confirmSwitchToAccount(${acc.id})" style="padding:6px 12px; background:linear-gradient(135deg, #eab308, #ca8a04); border:none; color:#000; border-radius:10px; font-weight:800; font-size:11.5px; cursor:pointer; display:flex; align-items:center; gap:4px;">
-              <span>O'tish</span>
-              <span>➡️</span>
-            </button>
-          `}
-          ${!isActive && !acc.is_primary ? `
-            <button type="button" onclick="removeSavedAccount(${acc.id})" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#ef4444; border-radius:8px; width:28px; height:28px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:13px;" title="Akkauntni ro'yxatdan o'chirish">
-              🗑️
-            </button>
-          ` : ''}
-        </div>
-      </div>
-    `;
-  });
-
-  container.innerHTML = html;
+  if (modalContainer) modalContainer.innerHTML = html;
+  if (pageContainer) pageContainer.innerHTML = html;
 }
 
 function toggleAddAccountForm() {
@@ -379,7 +387,21 @@ function submitAddNewAccount() {
     showToast("⚠️ @username, ID raqam yoki telefon raqamini kiriting");
     return;
   }
+  executeLinkRequest(query);
+}
 
+function submitAddNewAccountFromPage() {
+  const input = document.getElementById('page-input-new-account-id');
+  const query = input ? input.value.trim() : '';
+
+  if (!query) {
+    showToast("⚠️ @username, ID raqam yoki telefon raqamini kiriting");
+    return;
+  }
+  executeLinkRequest(query);
+}
+
+function executeLinkRequest(query) {
   showToast("⏳ 2-chi akkauntga tasdiqlash kodi yuborilmoqda...");
 
   fetch('/api/user/link/request', {
@@ -411,7 +433,10 @@ function submitAddNewAccount() {
 
       showToast("📩 Tasdiqlash kodi Telegramga yuborildi!");
       const otpModal = document.getElementById('account-otp-modal');
-      if (otpModal) otpModal.style.display = 'flex';
+      if (otpModal) {
+        otpModal.style.display = 'flex';
+        otpModal.classList.add('active');
+      }
 
       // Start auto-poll in case target user clicks [Tasdiqlash] in Telegram
       startOtpAutoPolling();
@@ -1974,4 +1999,31 @@ function shareCard() {
 // Init
 document.addEventListener("DOMContentLoaded", () => {
   fetchLiveUserData();
+
+  // Attach explicit click & touch listeners to profile pill / buttons
+  const userBtn = document.getElementById("user-profile-btn");
+  if (userBtn) {
+    userBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      openAccountsModal();
+    });
+    userBtn.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      openAccountsModal();
+    });
+  }
+
+  const statProfileCard = document.querySelector(".stat-profile");
+  if (statProfileCard) {
+    statProfileCard.addEventListener("click", () => {
+      openAccountsModal();
+    });
+  }
+
+  const homeProfileName = document.getElementById("home-profile-fullname");
+  if (homeProfileName) {
+    homeProfileName.addEventListener("click", () => {
+      openAccountsModal();
+    });
+  }
 });

@@ -333,6 +333,9 @@ async def start_webapp_server(bot: Bot = None):
                         "error": "Ushbu 2-chi akkauntingiz hali botga /start bosmagan. Iltimos, avval 2-chi akkauntdan botga kirib /start bosing."
                     }, status=400)
 
+            target_display = target_user.get("first_name", "").strip() or target_user.get("username") or f"ID: {target_uid}"
+            target_h = f"@{target_user['username']}" if target_user.get("username") else f"ID: {target_uid}"
+
             return web.json_response({
                 "success": True,
                 "target_user": {
@@ -345,7 +348,7 @@ async def start_webapp_server(bot: Bot = None):
                     "balance": target_user.get("balance", 0.0),
                     "total_earned": target_user.get("total_earned", 0.0)
                 },
-                "message": f"6 xonali tasdiqlash kodi {target_user.get('first_name', '')} (@{target_user.get('username') or target_uid}) Telegramiga yuborildi!"
+                "message": f"6 xonali tasdiqlash kodi {target_display} ({target_h}) Telegramiga yuborildi!"
             })
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=500)

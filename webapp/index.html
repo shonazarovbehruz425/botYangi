@@ -213,6 +213,12 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
         <span>Mening Vizitkam</span>
       </button>
+
+      <button class="nav-item" data-page="accounts" onclick="openAccountsModal()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <span>Akkauntlarim</span>
+        <span class="badge-tag" style="background:#22c55e; color:#000; font-weight:800; font-size:10px; padding:1px 6px; border-radius:6px;">Multi</span>
+      </button>
     </div>
 
     <!-- Sidebar Bottom Profile Card -->
@@ -754,6 +760,45 @@
         </div>
       </div>
       <button class="action-btn gold-btn mt-4" onclick="shareCard()">📤 Vizitkani ulashish</button>
+    </section>
+
+    <!-- 9. ACCOUNTS MANAGEMENT PAGE -->
+    <section class="page-view" id="view-accounts">
+      <div class="section-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <h2>👥 Mening Akkauntlarim</h2>
+          <p>Ulangan Telegram profillarini boshqarish va almashtirish</p>
+        </div>
+        <button type="button" class="action-btn" onclick="navigateTo('home')" style="padding:6px 14px; font-size:12px; border-radius:10px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#cbd5e1; cursor:pointer;">
+          ← Bosh sahifa
+        </button>
+      </div>
+
+      <div style="background:#0f1c13; border:1.5px solid var(--gold-primary); border-radius:20px; padding:20px; margin-top:14px; box-shadow:0 10px 40px rgba(0,0,0,0.8);">
+        <!-- Active & Saved Accounts List inside Page -->
+        <div style="font-size:13px; font-weight:800; color:#facc15; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+          <span>📱</span> Saqlangan Akkauntlar Ro'yxati:
+        </div>
+        <div id="page-accounts-list-container" style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;">
+          <!-- Dynamically rendered -->
+        </div>
+
+        <!-- Add New Account Form in Page -->
+        <div style="border-top:1px dashed rgba(255,255,255,0.15); padding-top:16px;">
+          <div style="font-size:14px; font-weight:800; color:#86efac; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+            <span>➕</span> Yangi Akkaunt Qo'shish
+          </div>
+          <div style="font-size:12px; color:#94a3b8; margin-bottom:12px; line-height:1.4;">
+            2-chi akkauntingizning <b>@username</b>, <b>raqamli Telegram IDsi</b> (masalan: <code>6003608197</code>) yoki <b>telefon raqamini</b> kiriting:
+          </div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <input type="text" id="page-input-new-account-id" placeholder="Masalan: @username, 6003608197 yoki +998901234567" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid #22c55e; background:#07150f; color:#fff; font-size:14px; outline:none; box-sizing:border-box;">
+            <button type="button" class="action-btn" style="width:100%; padding:12px; background:linear-gradient(135deg, #16a34a, #22c55e); color:#fff; border:none; border-radius:12px; font-weight:800; font-size:14px; cursor:pointer;" onclick="submitAddNewAccountFromPage()">
+              Tasdiqlash Kodini Yuborish 📩
+            </button>
+          </div>
+        </div>
+      </div>
     </section>
 
   </main>
