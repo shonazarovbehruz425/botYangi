@@ -149,16 +149,6 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
     user = message.from_user
     args = command.args
 
-    # Check if user's profile meets requirements (valid name + username)
-    is_valid, err_msg = validate_user_profile(user)
-    if not is_valid:
-        await message.answer(
-            err_msg,
-            reply_markup=get_invalid_name_keyboard(),
-            parse_mode="HTML"
-        )
-        return
-    
     # 1. Resolve and sync user (merges username pseudo-records and syncs state)
     existing_user = await db.resolve_and_sync_user(
         user_id=user.id,
@@ -172,9 +162,19 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
         await message.answer("⛔️ <b>Sizning hisobingiz qoidabuzarlik sababli bloklangan.</b>", parse_mode="HTML")
         return
 
-    # If user is already in DB or no referral args were passed for existing/placed/linked members
+    # If user is already registered in DB -> allow immediate access to main menu without blocking
     if existing_user:
         await send_main_menu(message)
+        return
+
+    # 2. For NEW users only: Check if user's profile meets requirements (valid name + username)
+    is_valid, err_msg = validate_user_profile(user)
+    if not is_valid:
+        await message.answer(
+            err_msg,
+            reply_markup=get_invalid_name_keyboard(),
+            parse_mode="HTML"
+        )
         return
 
     # User is not registered in DB yet. Check if referral parameter is provided
