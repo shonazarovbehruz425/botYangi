@@ -188,6 +188,32 @@ def get_level_back_keyboard(from_all: bool = False) -> InlineKeyboardMarkup:
     )
 
 
+def get_curator_unqualified_keyboard(from_all: bool = False) -> InlineKeyboardMarkup:
+    back_target = "mkt_all_levels" if from_all else "menu_marketing"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✍️ Adminga yozish (@samandar0855)",
+                    url="https://t.me/samandar0855"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🆔 Admin profili (6003608197)",
+                    url="tg://user?id=6003608197"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="◀️ Orqaga",
+                    callback_data=back_target
+                )
+            ]
+        ]
+    )
+
+
 def get_level_activate_keyboard(level: int, price: int = 0, from_all: bool = False) -> InlineKeyboardMarkup:
     back_target = "mkt_all_levels" if from_all else "menu_marketing"
     return InlineKeyboardMarkup(

@@ -24,7 +24,8 @@ from keyboards.inline import (
     get_back_to_menu_keyboard,
     get_payment_request_keyboard,
     get_payment_sent_keyboard,
-    get_curator_approval_keyboard
+    get_curator_approval_keyboard,
+    get_curator_unqualified_keyboard
 )
 
 router = Router()
@@ -216,15 +217,47 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
         if not curator_data:
             curator_data = {"first_name": f"ID: {curator_id}", "last_name": "", "username": ""}
 
+    curator_first = curator_data.get("first_name", "")
+    curator_last = curator_data.get("last_name", "")
+    curator_full_name = f"{curator_first} {curator_last}".strip() or f"ID: {curator_id}"
+    curator_level = int(curator_data.get("current_level", 1) or 1) if curator_data else 1
+
+    # Check if curator has the required level (Admins are always qualified)
+    if curator_id not in ADMINS and curator_level < level:
+        caption = (
+            f"⚠️ <b>DIQQAT: Kuratoringizda ushbu daraja faol emas!</b>\n\n"
+            f"Sizning {level}-darajali kuratoringiz: <b>{curator_full_name}</b> (Hozirgi darajasi: <b>{curator_level}-daraja</b>).\n\n"
+            f"Tizim qoidalariga ko'ra, kurator o'zi ega bo'lmagan darajani qabul qila olmaydi va tasdiqlay olmaydi. "
+            f"Ushbu masalani hal qilish uchun administratorga murojaat qiling:\n\n"
+            f"👤 <b>Admin:</b> @samandar0855\n"
+            f"🆔 <b>Admin ID:</b> <code>6003608197</code>"
+        )
+        keyboard = get_curator_unqualified_keyboard(from_all=from_all)
+        if os.path.exists(BANNER_MARKETING):
+            try:
+                await callback.message.delete()
+            except Exception:
+                pass
+            await bot.send_photo(
+                chat_id=callback.message.chat.id,
+                photo=FSInputFile(BANNER_MARKETING),
+                caption=caption,
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+        else:
+            try:
+                await callback.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode="HTML")
+            except Exception:
+                await callback.message.edit_text(text=caption, reply_markup=keyboard, parse_mode="HTML")
+        return
+
     karta = curator_data.get("wallet_card") or "8600 **** **** **** (UzCard / Humo)"
     bep20 = curator_data.get("wallet_bep20") or "0x... (USDT BEP20)"
     trc20 = curator_data.get("wallet_trc20") or "T... (USDT TRC20)"
     payeer = curator_data.get("wallet_payeer") or "P... (PAYEER)"
 
     curator_username = curator_data.get("username", "")
-    curator_first = curator_data.get("first_name", "")
-    curator_last = curator_data.get("last_name", "")
-    curator_full_name = f"{curator_first} {curator_last}".strip() or f"ID: {curator_id}"
     curator_tag = curator_full_name
     price_label = LEVEL_LABELS.get(level, f"{LEVEL_PRICES.get(level, 200000):,} so'm")
 
@@ -274,9 +307,27 @@ async def marketing_paid_click_handler(callback: CallbackQuery, bot: Bot):
     price_label = LEVEL_LABELS.get(level, f"{LEVEL_PRICES.get(level, 200000):,} so'm")
     price_val = LEVEL_PRICES.get(level, 200000)
 
-    # Fetch curator info for button
+    # Fetch curator info
     curator_data = await db.get_user(curator_id)
+    curator_level = int(curator_data.get("current_level", 1) or 1) if curator_data else 1
     curator_username = curator_data.get("username", "") if curator_data else ""
+
+    # Check curator qualification
+    if curator_id not in ADMINS and curator_level < level:
+        await callback.answer(f"⚠️ Kuratoringizda hali {level}-daraja faol emas! Adminga murojaat qiling.", show_alert=True)
+        caption = (
+            f"⚠️ <b>DIQQAT: Kuratoringizda ushbu daraja faol emas!</b>\n\n"
+            f"Kuratoringiz hali {level}-darajaga ega emasligi sababli to'lov so'rovi yuborilmadi.\n\n"
+            f"Administratorga murojaat qiling:\n"
+            f"👤 <b>Admin:</b> @samandar0855\n"
+            f"🆔 <b>Admin ID:</b> <code>6003608197</code>"
+        )
+        keyboard = get_curator_unqualified_keyboard(from_all=False)
+        try:
+            await callback.message.edit_caption(caption=caption, reply_markup=keyboard, parse_mode="HTML")
+        except Exception:
+            await callback.message.edit_text(text=caption, reply_markup=keyboard, parse_mode="HTML")
+        return
 
     # Log payment attempt to DB
     await db.add_payment_log(buyer_id=user.id, curator_id=curator_id, level=level, amount=price_val)
@@ -323,6 +374,33 @@ async def approve_level_handler(callback: CallbackQuery, bot: Bot):
     parts = callback.data.split(":")
     buyer_id = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
     level = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 1
+
+    curator_id = callback.from_user.id
+    curator_user = await db.get_user(curator_id)
+    curator_level = int(curator_user.get("current_level", 1) or 1) if curator_user else 1
+
+    if curator_id not in ADMINS and curator_level < level:
+        await callback.answer(
+            f"⚠️ Siz hali {level}-darajani faollashtirmagansiz! O'zingizda yo'q darajani tasdiqlay olmaysiz.",
+            show_alert=True
+        )
+        try:
+            await bot.send_message(
+                chat_id=buyer_id,
+                text=(
+                    f"⚠️ <b>DIQQAT: Darajani tasdiqlashda muammo yuz berdi!</b>\n\n"
+                    f"Siz so'ragan <b>{level}-daraja</b> kuratoringiz tomonidan tasdiqlana olmadi, "
+                    f"chunki kuratoringizning hozirgi darajasi ({curator_level}-daraja) siz so'ragan darajadan past.\n\n"
+                    f"Iltimos, ushbu masalani hal qilish uchun administratorga murojaat qiling:\n\n"
+                    f"👤 <b>Admin:</b> @samandar0855\n"
+                    f"🆔 <b>Admin ID:</b> <code>6003608197</code>"
+                ),
+                reply_markup=get_curator_unqualified_keyboard(from_all=False),
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+        return
 
     await db.set_user_level(buyer_id, level)
 
