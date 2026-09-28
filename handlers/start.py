@@ -149,6 +149,27 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
     user = message.from_user
     args = command.args
 
+    # 0. Check if user is in blacklist (banned or deleted)
+    block_info = await db.is_user_banned_or_deleted(user.id)
+    if block_info:
+        b_type = block_info.get("type", "banned")
+        if b_type == "deleted":
+            await message.answer(
+                "⛔️ <b>Sizning hisobingiz tizimdan butunlay o'chirilgan!</b>\n\n"
+                "Qayta ro'yxatdan o'tish yoki botdan foydalanish taqiqlangan.\n"
+                "Savollar yoki murojaat uchun adminga yozing:\n"
+                "👤 <b>Admin:</b> @samandar0855 (ID: <code>6003608197</code>)",
+                parse_mode="HTML"
+            )
+        else:
+            await message.answer(
+                "⛔️ <b>Sizning hisobingiz qoidabuzarlik sababli bloklangan!</b>\n\n"
+                "Blokdan chiqarish yoki masalani hal qilish uchun adminga murojaat qiling:\n"
+                "👤 <b>Admin:</b> @samandar0855 (ID: <code>6003608197</code>)",
+                parse_mode="HTML"
+            )
+        return
+
     # 1. Resolve and sync user (merges username pseudo-records and syncs state)
     existing_user = await db.resolve_and_sync_user(
         user_id=user.id,
@@ -156,11 +177,6 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
         first_name=user.first_name or "",
         last_name=user.last_name or ""
     )
-
-    # If user is banned, block access
-    if existing_user and existing_user.get("is_banned"):
-        await message.answer("⛔️ <b>Sizning hisobingiz qoidabuzarlik sababli bloklangan.</b>", parse_mode="HTML")
-        return
 
     # If user is already fully registered with a curator (or is admin), go directly to main menu
     if existing_user and (existing_user.get("referrer_id", 0) != 0 or user.id in ADMINS):
@@ -334,6 +350,11 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
 @router.callback_query(F.data.startswith("confirm_reg:"))
 async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
     user = callback.from_user
+
+    block_info = await db.is_user_banned_or_deleted(user.id)
+    if block_info:
+        await callback.answer("⛔️ Sizning hisobingiz bloklangan yoki o'chirilgan!", show_alert=True)
+        return
 
     # Check if user's profile meets requirements (valid name + username)
     is_valid, err_msg = validate_user_profile(user)

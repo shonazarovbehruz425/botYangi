@@ -185,6 +185,23 @@ class Database:
                 """
             )
 
+            # 10. Banned & Deleted Users Blacklist Table
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS banned_deleted_users (
+                    user_id INTEGER PRIMARY KEY,
+                    first_name TEXT DEFAULT '',
+                    last_name TEXT DEFAULT '',
+                    username TEXT DEFAULT '',
+                    phone TEXT DEFAULT '',
+                    type TEXT DEFAULT 'banned',
+                    reason TEXT DEFAULT '',
+                    action_date TEXT,
+                    admin_id INTEGER DEFAULT 0
+                )
+                """
+            )
+
             # Ensure Admin exists
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             for admin_id in ADMINS:
@@ -269,28 +286,166 @@ class Database:
             await db.commit()
             await self.log_activity(user_id, "ADMIN_EDIT", f"Profil admin tomonidan tahrirlandi: Level {level}, Balans ${balance}")
 
-    async def set_user_ban_status(self, user_id: int, is_banned: int):
+    async def set_user_ban_status(self, user_id: int, is_banned: int, reason: str = "", admin_id: int = 0):
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
             await db.execute("UPDATE users SET is_banned = ? WHERE user_id = ?", (is_banned, user_id))
+            if is_banned:
+                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+                u = await cursor.fetchone()
+                fn = u["first_name"] if u and u["first_name"] else ""
+                ln = u["last_name"] if u and u["last_name"] else ""
+                un = u["username"] if u and u["username"] else ""
+                ph = u["phone"] if u and u["phone"] else ""
+                r_txt = reason or "Admin tomonidan bloklandi"
+                await db.execute(
+                    """
+                    INSERT INTO banned_deleted_users (user_id, first_name, last_name, username, phone, type, reason, action_date, admin_id)
+                    VALUES (?, ?, ?, ?, ?, 'banned', ?, ?, ?)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        type = 'banned',
+                        reason = excluded.reason,
+                        action_date = excluded.action_date,
+                        admin_id = excluded.admin_id
+                    """,
+                    (user_id, fn, ln, un, ph, r_txt, now_str, admin_id)
+                )
+            else:
+                await db.execute("DELETE FROM banned_deleted_users WHERE user_id = ?", (user_id,))
             await db.commit()
             action = "BAN" if is_banned else "UNBAN"
             await self.log_activity(user_id, action, f"Foydalanuvchi {'bloklandi' if is_banned else 'blokdan chiqarildi'}")
 
-    async def delete_user(self, user_id: int):
-        """Foydalanuvchini bazadan butunlay o'chiradi va uning referallarini kuratoriga o'tkazadi."""
+    async def delete_user(self, user_id: int, reason: str = "", admin_id: int = 0):
+        """Foydalanuvchini bazadan butunlay o'chiradi, referallarini kuratoriga o'tkazadi va qora ro'yxatga kiritadi."""
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
             user = await self.get_user(user_id)
             referrer_id = user.get("referrer_id", 0) if user else 0
+            fn = user.get("first_name", "") if user else ""
+            ln = user.get("last_name", "") if user else ""
+            un = user.get("username", "") if user else ""
+            ph = user.get("phone", "") if user else ""
+            r_txt = reason or "Admin tomonidan tizimdan o'chirildi"
 
-            # Referallarni o'chirilgan foydalanuvchining kuratoriga biriktirish (zanjir uzilmasligi uchun)
+            # 1. Record into banned_deleted_users table as 'deleted'
+            await db.execute(
+                """
+                INSERT INTO banned_deleted_users (user_id, first_name, last_name, username, phone, type, reason, action_date, admin_id)
+                VALUES (?, ?, ?, ?, ?, 'deleted', ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    type = 'deleted',
+                    reason = excluded.reason,
+                    action_date = excluded.action_date,
+                    admin_id = excluded.admin_id
+                """,
+                (user_id, fn, ln, un, ph, r_txt, now_str, admin_id)
+            )
+
+            # 2. Reattach children to curator so tree chain remains intact
             await db.execute("UPDATE users SET referrer_id = ? WHERE referrer_id = ?", (referrer_id, user_id))
+
+            # 3. Delete from users table
             await db.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
             await db.commit()
 
             if referrer_id:
                 await self.update_user_rank(referrer_id)
 
-            await self.log_activity(user_id, "USER_DELETED", f"Foydalanuvchi bazadan butunlay o'chirildi. Referallari kurator {referrer_id} ga o'tkazildi.")
+            await self.log_activity(user_id, "USER_DELETED", f"Foydalanuvchi o'chirildi va qora ro'yxatga qayd etildi. Referallari kurator {referrer_id} ga o'tkazildi.")
+
+    async def is_user_banned_or_deleted(self, user_id: int) -> dict:
+        """Foydalanuvchi bloklangan yoki o'chirilganligini tekshiradi."""
+        if not user_id:
+            return None
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM banned_deleted_users WHERE user_id = ?", (user_id,))
+            row = await cursor.fetchone()
+            if row:
+                return dict(row)
+            cursor = await db.execute("SELECT user_id, is_banned, first_name, username FROM users WHERE user_id = ? AND is_banned = 1", (user_id,))
+            row2 = await cursor.fetchone()
+            if row2:
+                return {
+                    "user_id": user_id,
+                    "type": "banned",
+                    "reason": "Admin tomonidan bloklangan",
+                    "first_name": row2["first_name"] or "",
+                    "username": row2["username"] or "",
+                    "action_date": ""
+                }
+            return None
+
+    async def get_banned_and_deleted_users(self) -> list:
+        """Bloklangan va o'chirilgan barcha foydalanuvchilar ro'yxatini qaytaradi."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM banned_deleted_users ORDER BY action_date DESC")
+            rows = await cursor.fetchall()
+            banned_map = {r["user_id"]: dict(r) for r in rows}
+
+            # Also check users table for any is_banned=1 users not yet in banned_deleted_users
+            cursor2 = await db.execute("SELECT user_id, first_name, last_name, username, phone, last_active FROM users WHERE is_banned = 1")
+            rows2 = await cursor2.fetchall()
+            for r2 in rows2:
+                uid = r2["user_id"]
+                if uid not in banned_map:
+                    banned_map[uid] = {
+                        "user_id": uid,
+                        "first_name": r2["first_name"] or "",
+                        "last_name": r2["last_name"] or "",
+                        "username": r2["username"] or "",
+                        "phone": r2["phone"] or "",
+                        "type": "banned",
+                        "reason": "Admin tomonidan bloklangan",
+                        "action_date": r2["last_active"] or "",
+                        "admin_id": 0
+                    }
+
+            return list(banned_map.values())
+
+    async def restore_banned_or_deleted_user(self, user_id: int) -> bool:
+        """Foydalanuvchini blokdan / qora ro'yxatdan chiqaradi."""
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM banned_deleted_users WHERE user_id = ?", (user_id,))
+            b_row = await cursor.fetchone()
+            was_deleted = b_row and b_row["type"] == "deleted"
+
+            await db.execute("DELETE FROM banned_deleted_users WHERE user_id = ?", (user_id,))
+            await db.execute("UPDATE users SET is_banned = 0 WHERE user_id = ?", (user_id,))
+
+            # If user was completely deleted, re-create placeholder in users so they can log in
+            if was_deleted:
+                cursor2 = await db.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+                if not await cursor2.fetchone():
+                    fn = b_row["first_name"] or f"User_{str(user_id)[-4:]}"
+                    ln = b_row["last_name"] or ""
+                    un = b_row["username"] or ""
+                    ph = b_row["phone"] or ""
+                    await db.execute(
+                        """
+                        INSERT OR IGNORE INTO users 
+                        (user_id, first_name, last_name, username, phone, referrer_id, current_level, status, registered_at, last_active, visits_count)
+                        VALUES (?, ?, ?, ?, ?, 0, 1, '🌱 Boshlang''ich', ?, ?, 1)
+                        """,
+                        (user_id, fn, ln, un, ph, now_str, now_str)
+                    )
+
+            await db.commit()
+            await self.log_activity(user_id, "UNBAN_RESTORE", "Foydalanuvchi qora ro'yxatdan chiqarildi / qayta tiklandi")
+            return True
+
+    async def permanent_delete_blacklist_record(self, user_id: int) -> bool:
+        """Blacklist yozuvini butunlay tozalaydi."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("DELETE FROM banned_deleted_users WHERE user_id = ?", (user_id,))
+            await db.commit()
+            return True
 
     async def resolve_and_sync_user(self, user_id: int, username: str = "", first_name: str = "", last_name: str = "", phone: str = "") -> dict:
         """

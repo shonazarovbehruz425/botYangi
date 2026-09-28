@@ -199,6 +199,7 @@
     .badge-gold { background: rgba(250, 204, 21, 0.15); color: var(--gold-primary); border: 1px solid var(--border-gold); }
     .badge-banned { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
     .badge-active { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); }
+    .badge-deleted { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.4); }
 
     /* Forms & Inputs */
     .form-group { margin-bottom: 16px; }
@@ -395,6 +396,7 @@
       <button class="tab-btn" onclick="switchTab('tab-levels')">⚙️ Marketing Narxlari</button>
       <button class="tab-btn" onclick="switchTab('tab-announcements')">📣 E'lonlar & Kanalga Post</button>
       <button class="tab-btn" onclick="switchTab('tab-logs')">📜 Faollik Jurnali</button>
+      <button class="tab-btn" onclick="switchTab('tab-banned')">🚫 Bloklanganlar <span class="badge" id="banned-count-badge" style="background:#ef4444; color:#fff; font-size:11px; padding:2px 6px; border-radius:10px; margin-left:4px; display:none;">0</span></button>
     </div>
 
     <!-- TAB 1: OVERVIEW -->
@@ -685,6 +687,50 @@
       </div>
     </div>
 
+    <!-- TAB 8: BANNED & DELETED USERS -->
+    <div class="tab-content" id="tab-banned">
+      <div class="card-section">
+        <div class="section-title">
+          <span>🚫 Bloklangan va O'chirilgan Foydalanuvchilar (Qora Ro'yxat)</span>
+          <div style="font-size: 13px; color: var(--text-muted);">
+            Jami: <b id="banned-total-count" style="color: #f87171;">0</b> nafar
+          </div>
+        </div>
+
+        <!-- SEARCH AND FILTER BAR -->
+        <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(250, 204, 21, 0.25); border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="flex: 1; min-width: 250px;">
+              <input type="text" id="banned-search" class="form-control" placeholder="🔍 ID, Ism, Username, Telefon yoki sabab orqali qidirish..." oninput="filterBannedList()">
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-filter active" id="banned-flt-all" onclick="filterBannedType('all')">Barchasi <span id="cnt-banned-all" class="badge-subtle">0</span></button>
+              <button type="button" class="btn btn-filter" id="banned-flt-banned" onclick="filterBannedType('banned')">🚫 Bloklanganlar <span id="cnt-banned-only" class="badge-subtle">0</span></button>
+              <button type="button" class="btn btn-filter" id="banned-flt-deleted" onclick="filterBannedType('deleted')">🗑️ O'chirilganlar <span id="cnt-deleted-only" class="badge-subtle">0</span></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Telegram ID</th>
+                <th>Foydalanuvchi</th>
+                <th>Username</th>
+                <th>Telefon</th>
+                <th>Holat (Turi)</th>
+                <th>Sabab</th>
+                <th>Sana</th>
+                <th>Amallar</th>
+              </tr>
+            </thead>
+            <tbody id="banned-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- MODAL: EDIT USER -->
@@ -925,6 +971,7 @@
       loadLevels();
       loadBroadcastHistory();
       loadLogs();
+      loadBannedDeletedUsers();
     }
 
     let currentDateFilter = 'all';
@@ -1185,6 +1232,7 @@
         _deleteUserId = null;
         if (d.success) {
           loadUsers();
+          loadBannedDeletedUsers();
           showNotif(`✅ Foydalanuvchi (ID: ${uid}) muvaffaqiyatli o'chirildi!`, 'green');
         } else {
           showNotif('❌ Xatolik: ' + (d.error || 'Noma\'lum xato'), 'red');
@@ -1264,7 +1312,10 @@
       })
       .then(res => res.json())
       .then(d => {
-        if (d.success) loadUsers();
+        if (d.success) {
+          loadUsers();
+          loadBannedDeletedUsers();
+        }
       });
     }
 
@@ -2092,6 +2143,158 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    }
+
+    // ====== BANNED & DELETED USERS MANAGEMENT ======
+    let allBannedDeletedUsers = [];
+    let currentBannedTypeFilter = 'all';
+
+    function loadBannedDeletedUsers() {
+      fetch('/api/admin/banned-deleted/list')
+        .then(res => res.json())
+        .then(data => {
+          allBannedDeletedUsers = data.items || data.data || [];
+          const totalCount = allBannedDeletedUsers.length;
+          const bannedCount = allBannedDeletedUsers.filter(x => x.type === 'banned').length;
+          const deletedCount = allBannedDeletedUsers.filter(x => x.type === 'deleted').length;
+
+          const badge = document.getElementById('banned-count-badge');
+          if (badge) {
+            badge.innerText = totalCount;
+            badge.style.display = totalCount > 0 ? 'inline-block' : 'none';
+          }
+
+          if (document.getElementById('banned-total-count')) {
+            document.getElementById('banned-total-count').innerText = totalCount;
+          }
+          if (document.getElementById('cnt-banned-all')) {
+            document.getElementById('cnt-banned-all').innerText = totalCount;
+          }
+          if (document.getElementById('cnt-banned-only')) {
+            document.getElementById('cnt-banned-only').innerText = bannedCount;
+          }
+          if (document.getElementById('cnt-deleted-only')) {
+            document.getElementById('cnt-deleted-only').innerText = deletedCount;
+          }
+
+          filterBannedList();
+        })
+        .catch(err => {
+          console.error('Banned list load error:', err);
+        });
+    }
+
+    function filterBannedType(type) {
+      currentBannedTypeFilter = type;
+      document.querySelectorAll('#tab-banned .btn-filter').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById('banned-flt-' + type);
+      if (activeBtn) activeBtn.classList.add('active');
+      filterBannedList();
+    }
+
+    function filterBannedList() {
+      const q = (document.getElementById('banned-search') ? document.getElementById('banned-search').value : '').toLowerCase().trim();
+      const filtered = allBannedDeletedUsers.filter(u => {
+        if (currentBannedTypeFilter !== 'all' && u.type !== currentBannedTypeFilter) {
+          return false;
+        }
+        if (q) {
+          const str = `${u.user_id} ${u.first_name || ''} ${u.last_name || ''} ${u.username || ''} ${u.phone || ''} ${u.reason || ''}`.toLowerCase();
+          if (!str.includes(q)) return false;
+        }
+        return true;
+      });
+      renderBannedDeletedTable(filtered);
+    }
+
+    function renderBannedDeletedTable(list) {
+      const tbody = document.getElementById('banned-table-body');
+      if (!tbody) return;
+      if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">Bloklangan yoki o\'chirilgan foydalanuvchilar topilmadi</td></tr>';
+        return;
+      }
+      tbody.innerHTML = list.map(u => {
+        const name = `${u.first_name || ''} ${u.last_name || ''}`.trim() || '-';
+        const uname = u.username ? `@${u.username}` : '-';
+        const phone = u.phone ? u.phone : '-';
+        const isBanned = u.type === 'banned';
+        const typeBadge = isBanned
+          ? '<span class="badge badge-banned">🚫 Bloklangan</span>'
+          : '<span class="badge badge-deleted">🗑️ O\'chirilgan</span>';
+        const reason = u.reason || (isBanned ? 'Admin tomonidan bloklangan' : 'Admin tomonidan o\'chirilgan');
+        const dateHtml = formatRegDateDisplay(u.action_date);
+
+        return `
+          <tr>
+            <td><code>${u.user_id}</code></td>
+            <td><b>${name}</b></td>
+            <td><span style="color: var(--blue);">${uname}</span></td>
+            <td><span style="color: #94a3b8; font-size:12px;">${phone}</span></td>
+            <td>${typeBadge}</td>
+            <td style="color: #fca5a5; font-size: 12px; max-width: 220px;">${reason}</td>
+            <td>${dateHtml}</td>
+            <td>
+              <div style="display: flex; gap: 6px;">
+                <button class="btn btn-green" style="padding: 4px 10px; font-size: 11.5px;" onclick="restoreBannedDeletedUser(${u.user_id}, '${u.type}')" title="${isBanned ? 'Blokdan chiqarish' : 'Qora ro\'yxatdan tiklash'}">
+                  🔄 Tiklash
+                </button>
+                <button class="btn btn-red" style="padding: 4px 10px; font-size: 11.5px; background: rgba(239,68,68,0.3);" onclick="permanentDeleteBlacklist(${u.user_id})" title="Qora ro'yxatdan butunlay tozalash">
+                  ❌ Tozalash
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function restoreBannedDeletedUser(uid, type) {
+      const msg = type === 'banned'
+        ? `Foydalanuvchi (ID: ${uid}) ni blokdan chiqarmoqchimisiz?`
+        : `Foydalanuvchi (ID: ${uid}) ni qora ro'yxatdan tiklamoqchimisiz? (U qayta botdan ro'yxatdan o'tishi mumkin bo'ladi)`;
+      if (!confirm(msg)) return;
+
+      fetch('/api/admin/banned-deleted/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: uid })
+      })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) {
+          showNotif(`✅ Foydalanuvchi (ID: ${uid}) muvaffaqiyatli tiklandi!`, 'green');
+          loadBannedDeletedUsers();
+          loadUsers();
+        } else {
+          showNotif('❌ Xatolik: ' + (d.error || 'Noma\'lum xato'), 'red');
+        }
+      })
+      .catch(() => {
+        showNotif('❌ Server bilan bog\'lanishda xatolik', 'red');
+      });
+    }
+
+    function permanentDeleteBlacklist(uid) {
+      if (!confirm(`Haqiqatan ham ID: ${uid} ni qora ro'yxatdan butunlay o'chirmoqchimisiz? (Keyin bu ID ro'yxatdan o'ta oladi)`)) return;
+
+      fetch('/api/admin/banned-deleted/delete-permanent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: uid })
+      })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) {
+          showNotif(`✅ Qora ro'yxat yozuvi (ID: ${uid}) butunlay tozalandi!`, 'green');
+          loadBannedDeletedUsers();
+        } else {
+          showNotif('❌ Xatolik: ' + (d.error || 'Noma\'lum xato'), 'red');
+        }
+      })
+      .catch(() => {
+        showNotif('❌ Server bilan bog\'lanishda xatolik', 'red');
+      });
     }
 
     function closeModal(id) {

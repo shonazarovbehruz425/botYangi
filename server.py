@@ -51,6 +51,35 @@ async def start_webapp_server(bot: Bot = None):
             first_name = request.query.get("first_name", "")
             last_name = request.query.get("last_name", "")
 
+            # Check if user is in banned or deleted blacklist
+            block_info = await db.is_user_banned_or_deleted(uid)
+            if block_info:
+                return web.json_response({
+                    "success": True,
+                    "registered": False,
+                    "is_banned": 1,
+                    "banned_type": block_info.get("type", "banned"),
+                    "user": {
+                        "user_id": uid,
+                        "first_name": "Bloklangan Foydalanuvchi",
+                        "last_name": "",
+                        "username": "",
+                        "current_level": 0,
+                        "balance": 0.0,
+                        "total_earned": 0.0,
+                        "status": "⛔️ Bloklangan / O'chirilgan",
+                        "registered_at": "-",
+                        "referrer_name": "-",
+                        "direct_referrals": 0,
+                        "active_in_marketing": 0,
+                        "team_total": 0,
+                        "is_banned": 1,
+                        "is_admin": False,
+                        "multi_tier": {"level_1": 0, "level_2": 0, "level_3": 0, "total_team": 0},
+                        "wallets": {"bep20": "", "card": "", "trc20": "", "payeer": ""}
+                    }
+                })
+
             user = await db.resolve_and_sync_user(uid, username=username, first_name=first_name, last_name=last_name)
             
             if not user:
@@ -468,7 +497,9 @@ async def start_webapp_server(bot: Bot = None):
             data = await request.json()
             user_id = int(data.get("user_id"))
             is_banned = int(data.get("is_banned", 0))
-            await db.set_user_ban_status(user_id, is_banned)
+            reason = str(data.get("reason", "")).strip()
+            admin_id = int(data.get("admin_id", 0))
+            await db.set_user_ban_status(user_id, is_banned, reason=reason, admin_id=admin_id)
             return web.json_response({"success": True, "is_banned": is_banned})
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=400)
@@ -493,16 +524,46 @@ async def start_webapp_server(bot: Bot = None):
         try:
             data = await request.json()
             user_id = int(data.get("user_id"))
+            reason = str(data.get("reason", "")).strip()
+            admin_id = int(data.get("admin_id", 0))
             from config import ADMINS
             if user_id in ADMINS:
                 return web.json_response({"success": False, "error": "Admin hisobini o'chirish mumkin emas!"}, status=403)
-            await db.delete_user(user_id)
+            await db.delete_user(user_id, reason=reason, admin_id=admin_id)
 
             if _bot_instance:
                 from database.backup import send_database_backup_to_channel
                 asyncio.create_task(send_database_backup_to_channel(_bot_instance, reason=f"Foydalanuvchi o'chirildi (ID: {user_id})"))
 
-            return web.json_response({"success": True, "message": f"Foydalanuvchi {user_id} o'chirildi"})
+            return web.json_response({"success": True, "message": f"Foydalanuvchi {user_id} o'chirildi va qora ro'yxatga olindi"})
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=400)
+
+    # 8c. Admin Banned & Deleted Users List API
+    async def admin_get_banned_deleted_list(request):
+        try:
+            items = await db.get_banned_and_deleted_users()
+            return web.json_response({"success": True, "items": items, "data": items, "count": len(items)})
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=500)
+
+    # 8d. Admin Restore Banned / Deleted User API
+    async def admin_restore_banned_deleted(request):
+        try:
+            data = await request.json()
+            user_id = int(data.get("user_id"))
+            await db.restore_banned_or_deleted_user(user_id)
+            return web.json_response({"success": True, "message": f"Foydalanuvchi (ID: {user_id}) muvaffaqiyatli tiklandi / blokdan chiqarildi!"})
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=400)
+
+    # 8e. Admin Permanently Delete Blacklist Record API
+    async def admin_permanent_delete_blacklist(request):
+        try:
+            data = await request.json()
+            user_id = int(data.get("user_id"))
+            await db.permanent_delete_blacklist_record(user_id)
+            return web.json_response({"success": True, "message": f"Yozuv butunlay tozalandi (ID: {user_id})"})
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=400)
 
@@ -736,6 +797,9 @@ async def start_webapp_server(bot: Bot = None):
     app.router.add_post("/api/admin/user/update", admin_update_user)
     app.router.add_post("/api/admin/user/ban", admin_ban_user)
     app.router.add_post("/api/admin/user/delete", admin_delete_user)
+    app.router.add_get("/api/admin/banned-deleted/list", admin_get_banned_deleted_list)
+    app.router.add_post("/api/admin/banned-deleted/restore", admin_restore_banned_deleted)
+    app.router.add_post("/api/admin/banned-deleted/delete-permanent", admin_permanent_delete_blacklist)
     app.router.add_post("/api/admin/user/referrer", admin_change_referrer)
     app.router.add_get("/api/admin/user/tree", admin_get_tree)
     app.router.add_get("/api/admin/leaders", admin_get_leaders)
