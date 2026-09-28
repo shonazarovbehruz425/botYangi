@@ -295,15 +295,13 @@ class Database:
     async def resolve_and_sync_user(self, user_id: int, username: str = "", first_name: str = "", last_name: str = "", phone: str = "") -> dict:
         """
         Resolves, migrates, and synchronizes a user by real numeric user_id and/or @username.
-        If the admin added/replaced someone using @username or pseudo ID (>=900000000),
-        this automatically merges/migrates all tables (users, user_replacements, linked_accounts, account_link_otps, payment_logs)
-        to their real Telegram user_id and synchronizes level, balance, and tree connections.
+        If the admin added/replaced someone using @username with a pseudo ID (>=900000000),
+        this automatically merges/migrates all tables to their real Telegram user_id.
         """
         if not user_id:
             return None
 
         clean_uname = str(username).strip().lstrip("@").lower() if username else ""
-        clean_fname = str(first_name).strip().lstrip("@").lower() if first_name else ""
         clean_phone = "".join(ch for ch in str(phone) if ch.isdigit()) if phone else ""
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -315,33 +313,29 @@ class Database:
             user_row = await cursor.fetchone()
             user_data = dict(user_row) if user_row else None
 
-            # 2. Check if a pseudo/placeholder record exists with this username, first_name, phone, or in replacements/linked accounts
+            # 2. Check if a pseudo/placeholder record (user_id >= 900000000) exists ONLY if user is not in DB yet
+            # CRITICAL: Never match normal users (< 900000000) and NEVER match by first_name!
             pseudo_data = None
-            if clean_uname or clean_fname:
+            if not user_data and clean_uname:
                 cursor = await db.execute(
                     """
                     SELECT * FROM users 
-                    WHERE user_id != ? AND (
-                        user_id >= 900000000 
-                        OR status = '🌱 Boshlang''ich'
-                        OR current_level >= 1
-                    ) AND (
-                        (? != '' AND (LOWER(username) = ? OR REPLACE(LOWER(username), '@', '') = ? OR LOWER(first_name) = ?))
-                        OR (? != '' AND (LOWER(username) = ? OR LOWER(first_name) = ? OR REPLACE(LOWER(username), '@', '') = ?))
+                    WHERE user_id >= 900000000 AND user_id != ? AND (
+                        LOWER(username) = ? OR REPLACE(LOWER(username), '@', '') = ?
                     )
                     ORDER BY current_level DESC, balance DESC, user_id DESC LIMIT 1
                     """,
-                    (user_id, clean_uname, clean_uname, clean_uname, clean_uname, clean_fname, clean_fname, clean_fname, clean_fname)
+                    (user_id, clean_uname, clean_uname)
                 )
                 p_row = await cursor.fetchone()
                 if p_row:
                     pseudo_data = dict(p_row)
 
-            if not pseudo_data and clean_phone and len(clean_phone) >= 7:
+            if not user_data and not pseudo_data and clean_phone and len(clean_phone) >= 7:
                 cursor = await db.execute(
                     """
                     SELECT * FROM users 
-                    WHERE user_id != ? AND phone != '' AND (
+                    WHERE user_id >= 900000000 AND user_id != ? AND phone != '' AND (
                         phone = ? 
                         OR REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', '') = ?
                     )
@@ -353,8 +347,8 @@ class Database:
                 if p_row:
                     pseudo_data = dict(p_row)
 
-            # Check if any pseudo ID >= 900000000 is linked to this user or in replacements
-            if not pseudo_data:
+            # Check if any pseudo ID >= 900000000 is explicitly linked to this user in linked_accounts / replacements
+            if not user_data and not pseudo_data:
                 cursor = await db.execute(
                     """
                     SELECT u.* FROM users u
@@ -412,58 +406,7 @@ class Database:
                 res_row = await cursor.fetchone()
                 user_data = dict(res_row) if res_row else None
 
-            # Case B: Both real user_id and pseudo_data exist -> Merge pseudo into real
-            elif user_data and pseudo_data:
-                pseudo_id = pseudo_data["user_id"]
-                final_level = max(int(user_data.get("current_level", 1) or 1), int(pseudo_data.get("current_level", 1) or 1))
-                final_balance = float(user_data.get("balance", 0.0) or 0.0) + float(pseudo_data.get("balance", 0.0) or 0.0)
-                final_total = float(user_data.get("total_earned", 0.0) or 0.0) + float(pseudo_data.get("total_earned", 0.0) or 0.0)
-                final_ref = pseudo_data.get("referrer_id", 0) or user_data.get("referrer_id", 0)
-                final_card = user_data.get("wallet_card") or pseudo_data.get("wallet_card") or ""
-                final_bep20 = user_data.get("wallet_bep20") or pseudo_data.get("wallet_bep20") or ""
-                final_trc20 = user_data.get("wallet_trc20") or pseudo_data.get("wallet_trc20") or ""
-                final_payeer = user_data.get("wallet_payeer") or pseudo_data.get("wallet_payeer") or ""
-                fn = first_name or user_data.get("first_name", "") or pseudo_data.get("first_name", "")
-                ln = last_name or user_data.get("last_name", "") or pseudo_data.get("last_name", "")
-                un = clean_uname or user_data.get("username", "") or pseudo_data.get("username", "")
-
-                await db.execute(
-                    """
-                    UPDATE users SET
-                        current_level = ?,
-                        balance = ?,
-                        total_earned = ?,
-                        referrer_id = ?,
-                        wallet_card = ?,
-                        wallet_bep20 = ?,
-                        wallet_trc20 = ?,
-                        wallet_payeer = ?,
-                        first_name = ?,
-                        last_name = ?,
-                        username = ?,
-                        last_active = ?
-                    WHERE user_id = ?
-                    """,
-                    (final_level, final_balance, final_total, final_ref, final_card, final_bep20, final_trc20, final_payeer, fn, ln, un, now_str, user_id)
-                )
-                await db.execute("UPDATE users SET referrer_id = ? WHERE referrer_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE user_replacements SET new_user_id = ? WHERE new_user_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE user_replacements SET old_user_id = ? WHERE old_user_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE linked_accounts SET owner_id = ? WHERE owner_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE linked_accounts SET linked_id = ? WHERE linked_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE account_link_otps SET requester_id = ? WHERE requester_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE account_link_otps SET target_id = ? WHERE target_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE payment_logs SET curator_id = ? WHERE curator_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE payment_logs SET buyer_id = ? WHERE buyer_id = ?", (user_id, pseudo_id))
-                await db.execute("DELETE FROM users WHERE user_id = ?", (pseudo_id,))
-                await db.execute("DELETE FROM linked_accounts WHERE owner_id = linked_id")
-                await db.commit()
-
-                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
-                res_row = await cursor.fetchone()
-                user_data = dict(res_row) if res_row else None
-
-            # Case C: Only real user exists, update names if passed
+            # Case B: Real user exists -> update profile info
             elif user_data:
                 fn = first_name or user_data.get("first_name", "")
                 ln = last_name or user_data.get("last_name", "")
@@ -664,6 +607,17 @@ class Database:
         """Returns the active user ID if referrer_id was replaced by someone else."""
         if not referrer_id:
             return 0
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                db.row_factory = aiosqlite.Row
+                cursor = await db.execute("SELECT user_id, current_level, is_banned FROM users WHERE user_id = ?", (referrer_id,))
+                row = await cursor.fetchone()
+                # If referrer is an active, unbanned real user (user_id < 900000000), return their ID directly
+                if row and int(row["user_id"]) < 900000000 and int(row["current_level"] or 0) >= 1 and not row["is_banned"]:
+                    return referrer_id
+        except Exception:
+            pass
+
         rep_map = await self.get_replacement_map()
         return rep_map.get(referrer_id, referrer_id)
 

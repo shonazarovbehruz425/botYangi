@@ -162,8 +162,13 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
         await message.answer("⛔️ <b>Sizning hisobingiz qoidabuzarlik sababli bloklangan.</b>", parse_mode="HTML")
         return
 
-    # If user is already registered in DB -> allow immediate access to main menu without blocking
-    if existing_user:
+    # If user is already fully registered with a curator (or is admin), go directly to main menu
+    if existing_user and (existing_user.get("referrer_id", 0) != 0 or user.id in ADMINS):
+        await send_main_menu(message)
+        return
+
+    # If user is already registered in DB and no referral link was clicked
+    if existing_user and not args:
         await send_main_menu(message)
         return
 

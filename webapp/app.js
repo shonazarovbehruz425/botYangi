@@ -148,15 +148,20 @@ function detectTelegramUser() {
   // Record primary Telegram account in saved accounts
   if (detectedTgId && detectedUser) {
     const primaryStored = localStorage.getItem('bh_primary_account_id');
-    if (!primaryStored) {
+    if (!primaryStored || Number(primaryStored) !== detectedTgId) {
       localStorage.setItem('bh_primary_account_id', String(detectedTgId));
+      localStorage.setItem('bh_active_account_id', String(detectedTgId));
+      userState.id = detectedTgId;
     }
     ensureAccountInSaved(detectedUser);
   }
 
-  // 5. Active account resolution: prioritize user-selected active account
+  // 5. Active account resolution: prioritize user-selected active account if linked
   const activeStoredId = localStorage.getItem('bh_active_account_id');
-  if (activeStoredId && !isNaN(activeStoredId) && Number(activeStoredId) > 0) {
+  const savedAccounts = getSavedAccounts();
+  const isValidSaved = savedAccounts.some(a => Number(a.id) === Number(activeStoredId));
+
+  if (activeStoredId && !isNaN(activeStoredId) && Number(activeStoredId) > 0 && isValidSaved) {
     userState.id = Number(activeStoredId);
   } else if (detectedTgId) {
     userState.id = detectedTgId;
