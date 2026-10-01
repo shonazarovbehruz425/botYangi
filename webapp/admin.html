@@ -358,6 +358,24 @@
       background: rgba(250,204,21,0.12);
       color: #facc15; margin-left: 6px;
     }
+
+    /* Tree Search Highlighting */
+    .tree-person-card.tree-search-match {
+      background: rgba(250, 204, 21, 0.28) !important;
+      border: 2px solid #facc15 !important;
+      box-shadow: 0 0 16px rgba(250, 204, 21, 0.6) !important;
+      transform: scale(1.02);
+      z-index: 5;
+    }
+    .tree-person-card.tree-search-dim {
+      opacity: 0.35;
+      filter: grayscale(0.6);
+      transition: opacity 0.2s, filter 0.2s;
+    }
+    .tree-person-card.tree-search-dim:hover {
+      opacity: 0.85;
+      filter: none;
+    }
   </style>
 </head>
 <body>
@@ -906,13 +924,31 @@
 
   <div class="modal-overlay" id="tree-modal">
     <div class="modal-card" style="width: 720px; max-height: 88vh; display: flex; flex-direction: column;">
-      <div class="modal-header" style="flex-shrink: 0;">
+      <div class="modal-header" style="flex-shrink: 0; margin-bottom: 12px;">
         <div>
           <h3 id="tree-title">🌳 Jamoa Daraxti</h3>
           <div id="tree-subtitle" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;"></div>
         </div>
         <button class="close-modal" onclick="closeModal('tree-modal')">&times;</button>
       </div>
+
+      <!-- SEARCH & CONTROLS TOOLBAR -->
+      <div style="flex-shrink: 0; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(250, 204, 21, 0.25); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px;">
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <div style="position: relative; flex: 1; min-width: 200px;">
+            <input type="text" id="tree-search-input" class="form-control" placeholder="🔍 Daraxtdan qidirish (Ism, Username, ID)..." style="padding-right: 32px; font-size: 13px;" oninput="onTreeSearchInput()">
+            <button type="button" id="tree-search-clear" onclick="clearTreeSearch()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; font-size: 14px; cursor: pointer; display: none; line-height: 1;">✕</button>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" class="btn btn-outline" style="padding: 6px 10px; font-size: 11.5px;" onclick="expandAllTree()" title="Barcha shoxchalarni ochish">➕ Barchasi</button>
+            <button type="button" class="btn btn-outline" style="padding: 6px 10px; font-size: 11.5px;" onclick="collapseAllTree()" title="Barcha shoxchalarni yopish">➖ Yopish</button>
+          </div>
+        </div>
+        <div id="tree-search-stats" style="font-size: 11.5px; color: #94a3b8; margin-top: 6px; display: none;">
+          Natija: <b id="tree-search-count" style="color: #facc15;">0</b> ta a'zo topildi
+        </div>
+      </div>
+
       <div id="tree-content" style="font-size: 13px; overflow-y: auto; flex: 1; padding-right: 4px;">
         <div style="text-align:center; color: var(--text-muted); padding: 24px;">⏳ Yuklanmoqda...</div>
       </div>
@@ -1611,11 +1647,12 @@
       const cardClass = isRoot ? 'tree-person-card root-card' : 'tree-person-card';
       const rootIcon = isRoot ? '👑' : getLvlEmoji(lvl);
       const canMoveUp = !isRoot && parentId && parentId != 0;
+      const searchAttr = `${fullName.toLowerCase()} ${node.user_id} ${(node.username || '').toLowerCase()} ${lvl}-daraja ${(node.phone || '').toLowerCase()}`;
 
       const html = `
         <div class="tree-person" id="${nodeId}">
           ${toggleBtn}
-          <div class="${cardClass}" onclick="openRefModal(${node.user_id}, '${fullName.replace(/'/g,"\\'")}', ${node.referrer_id || parentId || 0}, '${(node.username||'').replace(/'/g,"\\'")}', ${lvl})">
+          <div class="${cardClass}" data-search="${searchAttr}" onclick="openRefModal(${node.user_id}, '${fullName.replace(/'/g,"\\'")}', ${node.referrer_id || parentId || 0}, '${(node.username||'').replace(/'/g,"\\'")}', ${lvl})">
             <div class="tree-avatar">${rootIcon}</div>
             <div class="tree-info">
               <div class="tree-name">${fullName} ${countBadge}</div>
@@ -1657,10 +1694,103 @@
       btn.textContent = isVisible ? '+' : '−';
     }
 
+    // ====== TREE SEARCH & CONTROLS ======
+    function onTreeSearchInput() {
+      const input = document.getElementById('tree-search-input');
+      const clearBtn = document.getElementById('tree-search-clear');
+      const statsEl = document.getElementById('tree-search-stats');
+      const countEl = document.getElementById('tree-search-count');
+
+      const q = (input ? input.value : '').trim().toLowerCase();
+      if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+
+      const cards = document.querySelectorAll('#tree-content .tree-person-card');
+
+      if (!q) {
+        if (statsEl) statsEl.style.display = 'none';
+        cards.forEach(c => {
+          c.classList.remove('tree-search-match', 'tree-search-dim');
+        });
+        return;
+      }
+
+      let matchCount = 0;
+      let firstMatchCard = null;
+
+      cards.forEach(card => {
+        const text = (card.getAttribute('data-search') || card.innerText || '').toLowerCase();
+        const isMatch = text.includes(q);
+
+        if (isMatch) {
+          matchCount++;
+          card.classList.add('tree-search-match');
+          card.classList.remove('tree-search-dim');
+          if (!firstMatchCard) firstMatchCard = card;
+
+          // Expand all ancestor .tree-children containers
+          let parent = card.closest('.tree-children');
+          while (parent) {
+            parent.style.display = '';
+            const parentChildrenId = parent.id;
+            const toggleBtn = document.querySelector(`[onclick*="${parentChildrenId}"]`);
+            if (toggleBtn) toggleBtn.textContent = '−';
+            parent = parent.parentElement ? parent.parentElement.closest('.tree-children') : null;
+          }
+        } else {
+          card.classList.remove('tree-search-match');
+          card.classList.add('tree-search-dim');
+        }
+      });
+
+      if (statsEl) {
+        statsEl.style.display = 'block';
+        if (countEl) countEl.innerText = matchCount;
+      }
+
+      if (firstMatchCard) {
+        firstMatchCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    function clearTreeSearch() {
+      const input = document.getElementById('tree-search-input');
+      if (input) {
+        input.value = '';
+        onTreeSearchInput();
+        input.focus();
+      }
+    }
+
+    function expandAllTree() {
+      document.querySelectorAll('#tree-content .tree-children').forEach(el => {
+        el.style.display = '';
+      });
+      document.querySelectorAll('#tree-content .tree-toggle').forEach(btn => {
+        btn.textContent = '−';
+      });
+    }
+
+    function collapseAllTree() {
+      document.querySelectorAll('#tree-content .tree-children').forEach(el => {
+        el.style.display = 'none';
+      });
+      document.querySelectorAll('#tree-content .tree-toggle').forEach(btn => {
+        btn.textContent = '+';
+      });
+    }
+
     function openTreeModal(uid, name) {
       document.getElementById('tree-title').innerText = `🌳 Jamoa Daraxti`;
       document.getElementById('tree-subtitle').innerText = `${name} (ID: ${uid}) — daraxtini yuklash...`;
       document.getElementById('tree-content').innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:30px">⏳ Yuklanmoqda...</div>';
+      
+      const searchInput = document.getElementById('tree-search-input');
+      if (searchInput) searchInput.value = '';
+      const clearBtn = document.getElementById('tree-search-clear');
+      if (clearBtn) clearBtn.style.display = 'none';
+      const statsEl = document.getElementById('tree-search-stats');
+      if (statsEl) statsEl.style.display = 'none';
+
       document.getElementById('tree-modal').classList.add('active');
 
       fetch(`/api/admin/user/tree?user_id=${uid}`)
