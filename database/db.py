@@ -23,7 +23,7 @@ class Database:
                     balance REAL DEFAULT 0.0,
                     total_earned REAL DEFAULT 0.0,
                     status TEXT DEFAULT '🌱 Boshlang''ich',
-                    current_level INTEGER DEFAULT 1,
+                    current_level INTEGER DEFAULT 0,
                     wallet_bep20 TEXT DEFAULT '',
                     wallet_card TEXT DEFAULT '',
                     wallet_trc20 TEXT DEFAULT '',
@@ -50,7 +50,7 @@ class Database:
                 "ALTER TABLE users ADD COLUMN wallet_card TEXT DEFAULT ''",
                 "ALTER TABLE users ADD COLUMN wallet_trc20 TEXT DEFAULT ''",
                 "ALTER TABLE users ADD COLUMN wallet_payeer TEXT DEFAULT ''",
-                "ALTER TABLE users ADD COLUMN current_level INTEGER DEFAULT 1"
+                "ALTER TABLE users ADD COLUMN current_level INTEGER DEFAULT 0"
             ]:
                 try:
                     await db.execute(col_sql)
@@ -244,17 +244,6 @@ class Database:
             status = "👑 Admin" if user_id in ADMINS else "🌱 Boshlang'ich"
             default_level = 5 if user_id in ADMINS else 0
 
-            # Guard: check if referrer already has 3 or more direct referrals
-            if referrer_id and referrer_id != 0:
-                cursor = await db.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ? AND user_id != ?", (referrer_id, user_id))
-                cnt = (await cursor.fetchone())[0]
-                if cnt >= 3:
-                    # Referrer is full (max 3 allowed)
-                    cursor = await db.execute("SELECT referrer_id FROM users WHERE user_id = ?", (user_id,))
-                    row = await cursor.fetchone()
-                    if not row or row[0] != referrer_id:
-                        referrer_id = 0
-
             await db.execute(
                 """
                 INSERT INTO users (user_id, first_name, last_name, username, referrer_id, status, current_level, registered_at, last_active, visits_count)
@@ -443,7 +432,7 @@ class Database:
                         """
                         INSERT OR IGNORE INTO users 
                         (user_id, first_name, last_name, username, phone, referrer_id, current_level, status, registered_at, last_active, visits_count)
-                        VALUES (?, ?, ?, ?, ?, 0, 1, '🌱 Boshlang''ich', ?, ?, 1)
+                        VALUES (?, ?, ?, ?, ?, 0, 0, '🌱 Boshlang''ich', ?, ?, 1)
                         """,
                         (user_id, fn, ln, un, ph, now_str, now_str)
                     )
@@ -706,7 +695,7 @@ class Database:
 
                 if ref_activity > 0 or user_id in ADMINS:
                     status = "👑 Admin" if user_id in ADMINS else "🌱 Boshlang'ich"
-                    def_level = 5 if user_id in ADMINS else 1
+                    def_level = 5 if user_id in ADMINS else 0
                     fn = first_name or f"User_{str(user_id)[-4:]}"
                     ln = last_name or ""
                     un = clean_uname or ""
@@ -752,7 +741,7 @@ class Database:
                 await db.execute(
                     """
                     INSERT OR IGNORE INTO users (user_id, first_name, last_name, username, referrer_id, current_level, registered_at)
-                    VALUES (?, ?, ?, ?, 0, 1, ?)
+                    VALUES (?, ?, ?, ?, 0, 0, ?)
                     """,
                     (uid, f"User_{clean_id[-4:]}", "", "", now_str)
                 )
@@ -794,7 +783,7 @@ class Database:
             await db.execute(
                 """
                 INSERT OR IGNORE INTO users (user_id, first_name, last_name, username, referrer_id, current_level, registered_at)
-                VALUES (?, ?, ?, ?, 0, 1, ?)
+                VALUES (?, ?, ?, ?, 0, 0, ?)
                 """,
                 (pseudo_id, clean_id, "", clean_uname, now_str)
             )
@@ -874,7 +863,7 @@ class Database:
                 cursor = await db.execute("SELECT user_id, current_level, is_banned FROM users WHERE user_id = ?", (referrer_id,))
                 row = await cursor.fetchone()
                 # If referrer is an active, unbanned real user (user_id < 900000000), return their ID directly
-                if row and int(row["user_id"]) < 900000000 and int(row["current_level"] or 0) >= 1 and not row["is_banned"]:
+                if row and int(row["user_id"]) < 900000000 and not row["is_banned"]:
                     return referrer_id
         except Exception:
             pass
@@ -1938,7 +1927,7 @@ class Database:
                 await db.execute(
                     """
                     INSERT OR IGNORE INTO users (user_id, first_name, last_name, username, referrer_id, current_level, registered_at)
-                    VALUES (?, ?, ?, ?, 0, 1, ?)
+                    VALUES (?, ?, ?, ?, 0, 0, ?)
                     """,
                     (uid, f"User_{digits_only[-4:]}", "", "", now_str)
                 )
@@ -1953,7 +1942,7 @@ class Database:
                     "last_name": "",
                     "username": "",
                     "phone": "",
-                    "current_level": 1,
+                    "current_level": 0,
                     "balance": 0.0,
                     "total_earned": 0.0
                 }
