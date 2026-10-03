@@ -202,6 +202,18 @@ class Database:
                 """
             )
 
+            # 11. Pending Referral Sessions Table (Ro'yxatdan o'tishgacha referalni saqlab turish)
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS pending_referrals (
+                    user_id INTEGER PRIMARY KEY,
+                    referrer_id INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+
             # Ensure Admin exists
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             for admin_id in ADMINS:
@@ -775,6 +787,50 @@ class Database:
 
         rep_map = await self.get_replacement_map()
         return rep_map.get(referrer_id, referrer_id)
+
+    async def set_pending_referral(self, user_id: int, referrer_id: int) -> None:
+        """Saves or updates pending referral session for user_id."""
+        if not user_id or not referrer_id or user_id == referrer_id:
+            return
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute(
+                    """
+                    INSERT INTO pending_referrals (user_id, referrer_id, created_at, updated_at)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        referrer_id = excluded.referrer_id,
+                        updated_at = excluded.updated_at
+                    """,
+                    (user_id, referrer_id, now_str, now_str)
+                )
+                await db.commit()
+        except Exception:
+            pass
+
+    async def get_pending_referral(self, user_id: int) -> int:
+        """Gets pending referral ID for user_id."""
+        if not user_id:
+            return 0
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                cursor = await db.execute("SELECT referrer_id FROM pending_referrals WHERE user_id = ?", (user_id,))
+                row = await cursor.fetchone()
+                return int(row[0]) if row and row[0] else 0
+        except Exception:
+            return 0
+
+    async def clear_pending_referral(self, user_id: int) -> None:
+        """Clears pending referral session once registered."""
+        if not user_id:
+            return
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute("DELETE FROM pending_referrals WHERE user_id = ?", (user_id,))
+                await db.commit()
+        except Exception:
+            pass
 
     async def sync_all_replacements(self) -> dict:
         """Synchronizes all replaced users: transfers balance, total_earned, level, wallets, referrals and payment logs."""

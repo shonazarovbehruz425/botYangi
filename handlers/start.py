@@ -1,4 +1,6 @@
 import os
+import unicodedata
+import asyncio
 from aiogram import Router, F, Bot
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
@@ -23,10 +25,10 @@ BANNER_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets",
 INVALID_NAME_TEXT = (
     "⚠️ <b>Ismingizda xatolik aniqlandi!</b>\n\n"
     "Sizning Telegram profilingizdagi ismda <b>haqiqiy harflar</b> mavjud emas (ismingiz faqat nuqta, bo'sh joy, belgi yoki faqat emojilardan iborat).\n\n"
-    "Bot tizimida ro'yxatdan o'tish uchun ismingizda kamida <b>harflar</b> qatnashgan bo'lishi shart!\n\n"
+    "Bot tizimida ro'yxatdan o'tish uchun ismingizda kamida <b>harflar</b> (o'zbek, rus yoki lotin alifbosida) qatnashgan bo'lishi shart!\n\n"
     "📝 <b>Nima qilish kerak?</b>\n"
-    "1. Telegram sozlamalaringizga (<i>Settings ➔ Edit Name</i>) kiring.\n"
-    "2. Ismingizni harflar bilan to'g'ri yozing (masalan: <i>Ali</i> yoki <i>Shamsiddin</i>).\n"
+    "1. Telegram sozlamalaringizga (<i>Settings ➔ Edit Name / Изменить имя</i>) kiring.\n"
+    "2. Ismingizni harflar bilan to'g'ri yozing (masalan: <i>Ali</i>, <i>Самандар</i> yoki <i>Shamsiddin</i>).\n"
     "3. So'ng quyidagi <b>«🔄 Ismimni to'g'irladim»</b> tugmasini bosing yoki botga qayta /start yuboring.\n\n"
     "Savollar yoki yordam uchun adminga murojaat qiling:\n"
     "👤 <b>Admin:</b> @samandar0855\n"
@@ -35,66 +37,33 @@ INVALID_NAME_TEXT = (
 
 
 def has_valid_letters(first_name: str, last_name: str = "") -> bool:
-    """Returns True if the name contains at least one alphabetic letter."""
+    """
+    Returns True if first_name or last_name contains at least one alphabetic letter
+    in any alphabet/language (Latin, Cyrillic, Russian, Uzbek, etc.).
+    """
     full = f"{first_name or ''} {last_name or ''}".strip()
     if not full:
         return False
-    return any(c.isalpha() for c in full)
+    for char in full:
+        if char.isalpha():
+            return True
+        cat = unicodedata.category(char)
+        if cat.startswith("L"):
+            return True
+    return False
 
 
 def validate_user_profile(user) -> tuple[bool, str]:
     """
     Checks if user meets requirements:
-    1. Must have a Telegram @username
-    2. Name must contain at least one alphabetic letter
+    Name must contain at least one real alphabetic letter.
     Returns (is_valid, error_message)
     """
     if user.id in ADMINS:
         return True, ""
 
-    has_letters = has_valid_letters(user.first_name, user.last_name)
-    has_username = bool(user.username and user.username.strip())
-
-    if not has_letters and not has_username:
-        return False, (
-            "⚠️ <b>Profil ma'lumotlarida xatolik aniqlandi!</b>\n\n"
-            "1. Ismingizda <b>haqiqiy harflar</b> mavjud emas (faqat nuqta, belgi yoki faqat emojilardan iborat).\n"
-            "2. Telegram profilingizda <b>Username (@foydalanuvchi_nomi)</b> o'rnatilmagan.\n\n"
-            "Bot tizimida ishtirok etish uchun ismingizni to'g'ri yozish va username o'rnatish shart!\n\n"
-            "📝 <b>Nima qilish kerak?</b>\n"
-            "1. Telegram sozlamalaringizga (<i>Settings</i>) kiring.\n"
-            "2. Ismingizni harflar bilan to'g'ri yozing (<i>Edit Name</i>).\n"
-            "3. O'zingizga <i>Username</i> tanlang va saqlang.\n"
-            "4. So'ng quyidagi <b>«🔄 Qayta tekshirish»</b> tugmasini bosing yoki botga qayta /start yuboring.\n\n"
-            "Savollar yoki yordam uchun adminga murojaat qiling:\n"
-            "👤 <b>Admin:</b> @samandar0855\n"
-            "🆔 <b>Admin ID:</b> <code>6003608197</code>"
-        )
-    elif not has_letters:
-        return False, (
-            "⚠️ <b>Ismingizda xatolik aniqlandi!</b>\n\n"
-            "Sizning Telegram profilingizdagi ismda <b>haqiqiy harflar</b> mavjud emas (ismingiz faqat nuqta, bo'sh joy, belgi yoki faqat emojilardan iborat).\n\n"
-            "Bot tizimida ro'yxatdan o'tish uchun ismingizda kamida <b>harflar</b> qatnashgan bo'lishi shart!\n\n"
-            "📝 <b>Nima qilish kerak?</b>\n"
-            "1. Telegram sozlamalaringizga (<i>Settings ➔ Edit Name</i>) kiring.\n"
-            "2. Ismingizni harflar bilan to'g'ri yozing (masalan: <i>Ali</i> yoki <i>Shamsiddin</i>).\n"
-            "3. So'ng quyidagi <b>«🔄 Qayta tekshirish»</b> tugmasini bosing yoki botga qayta /start yuboring.\n\n"
-            "Savollar yoki yordam uchun adminga murojaat qiling:\n"
-            "👤 <b>Admin:</b> @samandar0855\n"
-            "🆔 <b>Admin ID:</b> <code>6003608197</code>"
-        )
-    elif not has_username:
-        return False, (
-            "⚠️ <b>Telegram Username (@username) topilmadi!</b>\n\n"
-            "Bot tizimida ro'yxatdan o'tish va kuratoringiz siz bilan bog'lana olishi uchun Telegram profilingizda <b>Username (@foydalanuvchi_nomi)</b> o'rnatilgan bo'lishi shart!\n\n"
-            "📝 <b>Nima qilish kerak?</b>\n"
-            "1. Telegram sozlamalaringizga (<i>Settings ➔ Username / Foydalanuvchi nomi</i>) kiring.\n"
-            "2. O'zingizga mos username tanlang va saqlang (masalan: <i>@ali_2024</i>).\n"
-            "3. So'ng quyidagi <b>«🔄 Qayta tekshirish»</b> tugmasini bosing yoki botga qayta /start yuboring.\n\n"
-            "Savollar yoki yordam uchun adminga murojaat qiling:\n"
-            "👤 <b>Admin:</b> @samandar0855\n"
-            "🆔 <b>Admin ID:</b> <code>6003608197</code>"
-        )
+    if not has_valid_letters(user.first_name, user.last_name):
+        return False, INVALID_NAME_TEXT
 
     return True, ""
 
@@ -170,7 +139,24 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
             )
         return
 
-    # 1. Resolve and sync user (merges username pseudo-records and syncs state)
+    # 1. Parse and record incoming referral parameter
+    raw_referrer_id = 0
+    if args:
+        ref_str = args.replace("ref_", "").strip()
+        if ref_str.isdigit():
+            raw_referrer_id = int(ref_str)
+            if raw_referrer_id != user.id:
+                await db.set_pending_referral(user.id, raw_referrer_id)
+
+    # 2. Check pending referral if args was not present
+    if not raw_referrer_id:
+        pending_ref = await db.get_pending_referral(user.id)
+        if pending_ref and pending_ref != user.id:
+            raw_referrer_id = pending_ref
+
+    referrer_id = await db.get_effective_referrer_id(raw_referrer_id) if raw_referrer_id else 0
+
+    # 3. Resolve and sync user in DB
     existing_user = await db.resolve_and_sync_user(
         user_id=user.id,
         username=user.username or "",
@@ -183,12 +169,7 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
         await send_main_menu(message)
         return
 
-    # If user is already registered in DB and no referral link was clicked
-    if existing_user and not args:
-        await send_main_menu(message)
-        return
-
-    # 2. For NEW users only: Check if user's profile meets requirements (valid name + username)
+    # 4. Check if user's profile meets requirements (must have valid alphabetic letters)
     is_valid, err_msg = validate_user_profile(user)
     if not is_valid:
         await message.answer(
@@ -198,151 +179,118 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
         )
         return
 
-    # User is not registered in DB yet. Check if referral parameter is provided
-    if not args:
-        # Check if user is admin - allow admin to self-register without ref link
-        if user.id in ADMINS:
-            await db.register_user(
-                user_id=user.id,
-                first_name=user.first_name or "",
-                last_name=user.last_name or "",
-                username=user.username or "",
-                referrer_id=0
+    # 5. User has a valid name and is registering!
+    if referrer_id and referrer_id != user.id:
+        ref_count = await db.get_referral_count(referrer_id)
+        if ref_count >= 3:
+            await message.answer(
+                "⚠️ <b>Ushbu taklif qiluvchining 1-darajali jamoasi to'lgan!</b>\n\n"
+                f"Tizim qoidasiga ko'ra, har bir ishtirokchi to'g'ridan-to'g'ri faqat <b>3 ta</b> hamkorni qabul qila oladi (hozirda: <b>{ref_count}/3</b>).\n"
+                "Iltimos, ushbu jamoaning boshqa a'zosi referal havolasi orqali kiring yoki Bosh Tizim orqali davom eting.",
+                parse_mode="HTML"
             )
-            await message.answer("👑 <b>Admin sifatida ro'yxatdan o'tdingiz!</b>", parse_mode="HTML")
-            await send_main_menu(message)
+            # Show Bosh Admin registration fallback
+            admin_ref_id = ADMINS[0] if ADMINS else 0
+            await message.answer(
+                "👑 <b>Bosh Tizim orqali ro'yxatdan o'tish:</b>",
+                reply_markup=get_register_keyboard(admin_ref_id),
+                parse_mode="HTML"
+            )
             return
 
-        # Check if this user was already referenced in tree replacements or linked accounts
-        rep_map = await db.get_replacement_map()
-        if user.id in rep_map.values() or user.id in rep_map.keys():
-            await db.register_user(
-                user_id=user.id,
-                first_name=user.first_name or "",
-                last_name=user.last_name or "",
-                username=user.username or "",
-                referrer_id=0
+        # AUTOMATIC REGISTRATION & TEAM TREE JOIN
+        await db.register_user(
+            user_id=user.id,
+            first_name=user.first_name or "",
+            last_name=user.last_name or "",
+            username=user.username or "",
+            referrer_id=referrer_id
+        )
+        await db.clear_pending_referral(user.id)
+
+        # Automatically send updated database .js backup to channel
+        from database import send_database_backup_to_channel
+        asyncio.create_task(send_database_backup_to_channel(bot, reason=f"Yangi a'zo: {user.full_name} (ID: {user.id})"))
+
+        # Notify inviter (referrer)
+        try:
+            username_tag = f"(@{user.username})" if user.username else ""
+            new_ref_count = await db.get_referral_count(referrer_id)
+            await bot.send_message(
+                chat_id=referrer_id,
+                text=(
+                    "🎉 <b>Yangi hamkor qo'shildi!</b>\n\n"
+                    f"Sizning referal havolangiz orqali yangi a'zo jamoangizga muvaffaqiyatli qo'shildi:\n"
+                    f"👤 <b>{user.full_name}</b> {username_tag}\n"
+                    f"🆔 ID: <code>{user.id}</code>\n\n"
+                    f"📊 Jami to'g'ridan-to'g'ri referallaringiz: <b>{new_ref_count}</b> ta"
+                ),
+                parse_mode="HTML"
             )
-            await send_main_menu(message)
-            return
+        except Exception:
+            pass
 
-        # Registration under Bosh Admin / Tizim
-        admin_ref_id = ADMINS[0] if ADMINS else 0
-        curator_user = await db.get_user(admin_ref_id) if admin_ref_id else None
-        curator_name = f"{curator_user.get('first_name', '')} {curator_user.get('last_name', '')}".strip() if curator_user else "Bosh Admin (Tizim)"
-        curator_uname = f"@{curator_user.get('username')}" if curator_user and curator_user.get("username") else "-"
-        user_uname_display = f"@{user.username}" if user.username else "Mavjud emas"
-
-        info_card = (
-            "🏆 <b>Sizning Kuratoringiz.</b>\n\n"
-            f"<b>Ism:</b> {curator_name}\n"
-            f"<b>Telegram:</b> {curator_uname}\n\n"
-            "🏆 <b>Sizning Ma'lumotlaringiz.</b>\n\n"
-            f"<b>Ism:</b> {user.first_name or '-'}\n"
-            f"<b>Familiya:</b> {user.last_name or '-'}\n"
-            f"<b>Login:</b> {user.username or '-'}\n"
-            f"<b>Telegram:</b> {user_uname_display}\n\n"
-            "<i>Dasturda ishtirok etish uchun quyidagi tugmani bosib ro'yxatdan o'ting:</i>"
-        )
+        # Fetch curator name
+        curator_in_db = await db.get_user(referrer_id)
+        curator_name = f"{curator_in_db.get('first_name', '')} {curator_in_db.get('last_name', '')}".strip() if curator_in_db else f"ID: {referrer_id}"
 
         await message.answer(
-            info_card,
-            reply_markup=get_register_keyboard(admin_ref_id),
+            f"🎉 <b>Xush kelibsiz, {user.first_name}!</b>\n\n"
+            f"Siz tizimdan muvaffaqiyatli ro'yxatdan o'tdingiz va <b>{curator_name}</b> jamoa daraxtiga biriktirildingiz!",
             parse_mode="HTML"
         )
+        await send_main_menu(message)
         return
 
-    # Parse referral argument (supports 'ref_12345' or '12345')
-    ref_str = args.replace("ref_", "").strip()
-    if not ref_str.isdigit():
-        await message.answer(
-            "⚠️ <b>Noto'g'ri referal havola!</b>\nIltimos, taklif qiluvchingiz yuborgan to'g'ri havoladan kiring.",
-            parse_mode="HTML"
+    # User is not registered in DB yet and has no referral link
+    # Check if user is admin - allow admin to self-register without ref link
+    if user.id in ADMINS:
+        await db.register_user(
+            user_id=user.id,
+            first_name=user.first_name or "",
+            last_name=user.last_name or "",
+            username=user.username or "",
+            referrer_id=0
         )
+        await message.answer("👑 <b>Admin sifatida ro'yxatdan o'tdingiz!</b>", parse_mode="HTML")
+        await send_main_menu(message)
         return
 
-    raw_referrer_id = int(ref_str)
-    # Automatically resolve if referrer_id was replaced by a new active user
-    referrer_id = await db.get_effective_referrer_id(raw_referrer_id)
-
-    # Check if user tries to refer themselves
-    if referrer_id == user.id or raw_referrer_id == user.id:
-        await message.answer(
-            "⚠️ <b>Siz o'z referal havolangiz orqali ro'yxatdan o'ta olmaysiz!</b>",
-            parse_mode="HTML"
+    # Check if this user was already referenced in tree replacements or linked accounts
+    rep_map = await db.get_replacement_map()
+    if user.id in rep_map.values() or user.id in rep_map.keys():
+        await db.register_user(
+            user_id=user.id,
+            first_name=user.first_name or "",
+            last_name=user.last_name or "",
+            username=user.username or "",
+            referrer_id=0
         )
+        await send_main_menu(message)
         return
 
-    # Check if referrer exists in DB or is in admin list
-    referrer_in_db = await db.get_user(referrer_id)
-    referrer_info = None
-
-    # Always try Telegram API first for fresh real data
-    try:
-        chat = await bot.get_chat(referrer_id)
-        referrer_info = {
-            "first_name": chat.first_name or "-",
-            "last_name": chat.last_name or "-",
-            "username": chat.username or "-"
-        }
-    except Exception:
-        pass
-
-    # If API failed, fall back to DB
-    if not referrer_info and referrer_in_db:
-        referrer_info = {
-            "first_name": referrer_in_db.get("first_name") or "-",
-            "last_name": referrer_in_db.get("last_name") or "-",
-            "username": referrer_in_db.get("username") or "-"
-        }
-
-    # If neither worked but referrer_id is valid admin
-    if not referrer_info and referrer_id in ADMINS:
-        referrer_info = {
-            "first_name": f"ID: {referrer_id}",
-            "last_name": "-",
-            "username": "-"
-        }
-
-    if not referrer_info:
-        await message.answer(
-            "⚠️ <b>Taklif qiluvchi topilmadi yoki havola eskirgan.</b>\n"
-            "Iltimos, to'g'ri referal havoladan foydalaning.",
-            parse_mode="HTML"
-        )
-        return
-
-    # Check if referrer already has 3 direct referrals
-    ref_count = await db.get_referral_count(referrer_id)
-    if ref_count >= 3:
-        await message.answer(
-            "⚠️ <b>Ushbu taklif qiluvchining 1-darajali jamoasi to'lgan!</b>\n\n"
-            f"Tizim qoidasiga ko'ra, har bir ishtirokchi to'g'ridan-to'g'ri faqat <b>3 ta</b> hamkorni qabul qila oladi (hozirda: <b>{ref_count}/3</b>).\n"
-            "Iltimos, ushbu jamoaning boshqa a'zosi referal havolasi orqali kiring.",
-            parse_mode="HTML"
-        )
-        return
-
-    # Format Curator (Inviter) & User info card in Uzbek
-    curator_username_display = f"@{referrer_info['username']}" if referrer_info['username'] != "-" else "Mavjud emas"
-    user_username_display = f"@{user.username}" if user.username else "Mavjud emas"
+    # Registration under Bosh Admin / Tizim
+    admin_ref_id = ADMINS[0] if ADMINS else 0
+    curator_user = await db.get_user(admin_ref_id) if admin_ref_id else None
+    curator_name = f"{curator_user.get('first_name', '')} {curator_user.get('last_name', '')}".strip() if curator_user else "Bosh Admin (Tizim)"
+    curator_uname = f"@{curator_user.get('username')}" if curator_user and curator_user.get("username") else "-"
+    user_uname_display = f"@{user.username}" if user.username else "Mavjud emas"
 
     info_card = (
-        "🏆 <b>Sizning Kuratoringiz.</b>\n\n"
-        f"<b>Ism:</b> {referrer_info['first_name']}\n"
-        f"<b>Familiya:</b> {referrer_info['last_name']}\n"
-        f"<b>Login:</b> {referrer_info['username']}\n"
-        f"<b>Telegram:</b> {curator_username_display}\n\n"
-        "🏆 <b>Sizning Ma'lumotlaringiz.</b>\n\n"
+        "🏆 <b>Sizning Kuratoringiz:</b> 👑 <b>BUYUK HAYOT (Bosh Tizim)</b>\n\n"
+        f"<b>Ism:</b> {curator_name}\n"
+        f"<b>Telegram:</b> {curator_uname}\n\n"
+        "🏆 <b>Sizning Ma'lumotlaringiz:</b>\n\n"
         f"<b>Ism:</b> {user.first_name or '-'}\n"
         f"<b>Familiya:</b> {user.last_name or '-'}\n"
         f"<b>Login:</b> {user.username or '-'}\n"
-        f"<b>Telegram:</b> {user_username_display}"
+        f"<b>Telegram:</b> {user_uname_display}\n\n"
+        "<i>Dasturda ishtirok etish uchun quyidagi tugmani bosib ro'yxatdan o'ting:</i>"
     )
 
     await message.answer(
         info_card,
-        reply_markup=get_register_keyboard(referrer_id),
+        reply_markup=get_register_keyboard(admin_ref_id),
         parse_mode="HTML"
     )
 
@@ -356,10 +304,10 @@ async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
         await callback.answer("⛔️ Sizning hisobingiz bloklangan yoki o'chirilgan!", show_alert=True)
         return
 
-    # Check if user's profile meets requirements (valid name + username)
+    # Check if user's profile meets requirements (valid name)
     is_valid, err_msg = validate_user_profile(user)
     if not is_valid:
-        await callback.answer("⚠️ Profil ma'lumotlaringiz to'liq emas! Ismingiz va usernameni to'g'rilang.", show_alert=True)
+        await callback.answer("⚠️ Ismingizda haqiqiy harflar yo'q! Iltimos, ismingizni to'g'rilang.", show_alert=True)
         await callback.message.answer(
             err_msg,
             reply_markup=get_invalid_name_keyboard(),
@@ -392,10 +340,10 @@ async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
         username=user.username or "",
         referrer_id=referrer_id
     )
+    await db.clear_pending_referral(user.id)
 
     # Automatically send updated database .js backup to channel
     from database import send_database_backup_to_channel
-    import asyncio
     asyncio.create_task(send_database_backup_to_channel(bot, reason=f"Yangi a'zo: {user.full_name} (ID: {user.id})"))
 
     await callback.answer("✅ Ro'yxatdan o'tish muvaffaqiyatli yakunlandi!", show_alert=False)
@@ -427,18 +375,21 @@ async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
 @router.callback_query(F.data == "recheck_name")
 async def recheck_name_handler(callback: CallbackQuery, bot: Bot):
     user = callback.from_user
-    is_valid, err_msg = validate_user_profile(user)
-    if not is_valid:
-        if not user.username and not has_valid_letters(user.first_name, user.last_name):
-            alert_text = "⚠️ Ismingizda harflar yo'q va Telegram username ham o'rnatilmagan! Iltimos, ikkalasini ham to'g'rilang."
-        elif not user.username:
-            alert_text = "⚠️ Telegram username (@username) hali o'rnatilmagan! Iltimos, Telegram Settings orqali username tanlang."
-        else:
-            alert_text = "⚠️ Ismingiz hali ham faqat belgi, nuqta yoki emojilardan iborat. Iltimos, harflar bilan ism yozing!"
-        await callback.answer(alert_text, show_alert=True)
+
+    block_info = await db.is_user_banned_or_deleted(user.id)
+    if block_info:
+        await callback.answer("⛔️ Sizning hisobingiz bloklangan yoki o'chirilgan!", show_alert=True)
         return
 
-    await callback.answer("✅ Ma'lumotlaringiz qabul qilindi!", show_alert=False)
+    is_valid, err_msg = validate_user_profile(user)
+    if not is_valid:
+        await callback.answer(
+            "⚠️ Ismingizda hali ham haqiqiy harflar mavjud emas! Iltimos, Telegram sozlamalari (Edit Name) orqali ismingizni to'g'ri yozing.",
+            show_alert=True
+        )
+        return
+
+    await callback.answer("✅ Ismingiz qabul qilindi!", show_alert=False)
     try:
         await callback.message.delete()
     except Exception:
@@ -451,11 +402,59 @@ async def recheck_name_handler(callback: CallbackQuery, bot: Bot):
         last_name=user.last_name or ""
     )
 
-    if existing_user:
+    if existing_user and (existing_user.get("referrer_id", 0) != 0 or user.id in ADMINS):
         await send_main_menu(callback, bot=bot, user_id=user.id)
         return
 
-    # Show registration card under Bosh Admin
+    # Check pending referral
+    pending_ref = await db.get_pending_referral(user.id)
+    referrer_id = await db.get_effective_referrer_id(pending_ref) if pending_ref else 0
+
+    if referrer_id and referrer_id != user.id:
+        ref_count = await db.get_referral_count(referrer_id)
+        if ref_count < 3:
+            # AUTOMATIC REGISTRATION & TEAM TREE JOIN
+            await db.register_user(
+                user_id=user.id,
+                first_name=user.first_name or "",
+                last_name=user.last_name or "",
+                username=user.username or "",
+                referrer_id=referrer_id
+            )
+            await db.clear_pending_referral(user.id)
+
+            from database import send_database_backup_to_channel
+            asyncio.create_task(send_database_backup_to_channel(bot, reason=f"Yangi a'zo: {user.full_name} (ID: {user.id})"))
+
+            try:
+                username_tag = f"(@{user.username})" if user.username else ""
+                new_ref_count = await db.get_referral_count(referrer_id)
+                await bot.send_message(
+                    chat_id=referrer_id,
+                    text=(
+                        "🎉 <b>Yangi hamkor qo'shildi!</b>\n\n"
+                        f"Sizning referal havolangiz orqali yangi a'zo jamoangizga muvaffaqiyatli qo'shildi:\n"
+                        f"👤 <b>{user.full_name}</b> {username_tag}\n"
+                        f"🆔 ID: <code>{user.id}</code>\n\n"
+                        f"📊 Jami to'g'ridan-to'g'ri referallaringiz: <b>{new_ref_count}</b> ta"
+                    ),
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+
+            curator_in_db = await db.get_user(referrer_id)
+            curator_name = f"{curator_in_db.get('first_name', '')} {curator_in_db.get('last_name', '')}".strip() if curator_in_db else f"ID: {referrer_id}"
+
+            await callback.message.answer(
+                f"🎉 <b>Xush kelibsiz, {user.first_name}!</b>\n\n"
+                f"Siz tizimdan muvaffaqiyatli ro'yxatdan o'tdingiz va <b>{curator_name}</b> jamoa daraxtiga qo'shildingiz!",
+                parse_mode="HTML"
+            )
+            await send_main_menu(callback, bot=bot, user_id=user.id)
+            return
+
+    # If no pending referral, show registration under Bosh Admin
     admin_ref_id = ADMINS[0] if ADMINS else 0
     curator_user = await db.get_user(admin_ref_id) if admin_ref_id else None
     curator_name = f"{curator_user.get('first_name', '')} {curator_user.get('last_name', '')}".strip() if curator_user else "Bosh Admin (Tizim)"
@@ -464,7 +463,9 @@ async def recheck_name_handler(callback: CallbackQuery, bot: Bot):
 
     info_card = (
         "🏆 <b>Sizning Kuratoringiz:</b> 👑 <b>BUYUK HAYOT (Bosh Tizim)</b>\n\n"
-        "🏆 <b>Sizning Ma'lumotlaringiz:</b>\n"
+        f"<b>Ism:</b> {curator_name}\n"
+        f"<b>Telegram:</b> {curator_uname}\n\n"
+        "🏆 <b>Sizning Ma'lumotlaringiz:</b>\n\n"
         f"<b>Ism:</b> {user.first_name or '-'}\n"
         f"<b>Familiya:</b> {user.last_name or '-'}\n"
         f"<b>Login:</b> {user.username or '-'}\n"
