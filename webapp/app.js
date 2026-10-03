@@ -859,46 +859,6 @@ function updateUI() {
   if (document.getElementById("bc-name")) document.getElementById("bc-name").innerText = fullName;
   if (document.getElementById("bc-handle")) document.getElementById("bc-handle").innerText = handle;
   if (document.getElementById("bc-id")) document.getElementById("bc-id").innerText = userState.id ? `ID: ${userState.id}` : "";
-
-  // Dynamic Marketing Levels Grid
-  const levelsGrid = document.querySelector("#view-marketing .levels-grid");
-  if (levelsGrid) {
-    const levelConfigs = [
-      { lvl: 1, name: "1-Bosqich", price: "200 000 so'm" },
-      { lvl: 2, name: "2-Bosqich", price: "2 700 000 so'm" },
-      { lvl: 3, name: "3-Bosqich", price: "35 000 000 so'm" },
-      { lvl: 4, name: "4-Bosqich", price: "1 377 000 000 so'm" },
-      { lvl: 5, name: "5-Bosqich", price: "17 100 000 000 so'm" }
-    ];
-    const uLvl = Number(userState.level || 0);
-    levelsGrid.innerHTML = levelConfigs.map(item => {
-      if (uLvl >= item.lvl) {
-        return `
-          <div class="lvl-card active">
-            <div class="lvl-num">${item.name}</div>
-            <div class="lvl-price">${item.price}</div>
-            <div class="lvl-status">✅ Faollashtirilgan</div>
-          </div>
-        `;
-      } else if (uLvl === item.lvl - 1) {
-        return `
-          <div class="lvl-card">
-            <div class="lvl-num">${item.name}</div>
-            <div class="lvl-price">${item.price}</div>
-            <button class="lvl-btn" onclick="showToast('Botda «Barcha darajalar» bo\'limidan faollashtiring!')">Faollashtirish</button>
-          </div>
-        `;
-      } else {
-        return `
-          <div class="lvl-card">
-            <div class="lvl-num">${item.name}</div>
-            <div class="lvl-price">${item.price}</div>
-            <button class="lvl-btn" onclick="showToast('Avval oldingi ${item.lvl - 1}-bosqichni to\'lang! 🔒')">Qulflangan 🔒</button>
-          </div>
-        `;
-      }
-    }).join("");
-  }
 }
 
 // Navigation & Sidebar

@@ -32,7 +32,7 @@ def get_invalid_name_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="🔄 Ismimni to'g'irladim",
+                    text="🔄 Qayta tekshirish",
                     callback_data="recheck_name"
                 )
             ]

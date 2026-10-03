@@ -220,10 +220,10 @@ async def marketing_level_click_handler(callback: CallbackQuery, bot: Bot):
     curator_first = curator_data.get("first_name", "")
     curator_last = curator_data.get("last_name", "")
     curator_full_name = f"{curator_first} {curator_last}".strip() or f"ID: {curator_id}"
-    curator_level = int(curator_data.get("current_level", 0) or 0) if curator_data else 0
+    curator_level = int(curator_data.get("current_level", 1) or 1) if curator_data else 1
 
-    # Check if curator has the required level (Admins are always qualified; Level 1 is always payable to direct referrer)
-    if level > 1 and curator_id not in ADMINS and curator_level < level:
+    # Check if curator has the required level (Admins are always qualified)
+    if curator_id not in ADMINS and curator_level < level:
         caption = (
             f"⚠️ <b>DIQQAT: Kuratoringizda ushbu daraja faol emas!</b>\n\n"
             f"Sizning {level}-darajali kuratoringiz: <b>{curator_full_name}</b> (Hozirgi darajasi: <b>{curator_level}-daraja</b>).\n\n"
@@ -309,11 +309,11 @@ async def marketing_paid_click_handler(callback: CallbackQuery, bot: Bot):
 
     # Fetch curator info
     curator_data = await db.get_user(curator_id)
-    curator_level = int(curator_data.get("current_level", 0) or 0) if curator_data else 0
+    curator_level = int(curator_data.get("current_level", 1) or 1) if curator_data else 1
     curator_username = curator_data.get("username", "") if curator_data else ""
 
-    # Check curator qualification (Level 1 is always payable to direct referrer; higher levels require curator qualification)
-    if level > 1 and curator_id not in ADMINS and curator_level < level:
+    # Check curator qualification
+    if curator_id not in ADMINS and curator_level < level:
         await callback.answer(f"⚠️ Kuratoringizda hali {level}-daraja faol emas! Adminga murojaat qiling.", show_alert=True)
         caption = (
             f"⚠️ <b>DIQQAT: Kuratoringizda ushbu daraja faol emas!</b>\n\n"
@@ -377,9 +377,9 @@ async def approve_level_handler(callback: CallbackQuery, bot: Bot):
 
     curator_id = callback.from_user.id
     curator_user = await db.get_user(curator_id)
-    curator_level = int(curator_user.get("current_level", 0) or 0) if curator_user else 0
+    curator_level = int(curator_user.get("current_level", 1) or 1) if curator_user else 1
 
-    if level > 1 and curator_id not in ADMINS and curator_level < level:
+    if curator_id not in ADMINS and curator_level < level:
         await callback.answer(
             f"⚠️ Siz hali {level}-darajani faollashtirmagansiz! O'zingizda yo'q darajani tasdiqlay olmaysiz.",
             show_alert=True
