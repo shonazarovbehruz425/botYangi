@@ -462,8 +462,10 @@ class Database:
     async def resolve_and_sync_user(self, user_id: int, username: str = "", first_name: str = "", last_name: str = "", phone: str = "") -> dict:
         """
         Resolves, migrates, and synchronizes a user by real numeric user_id and/or @username.
-        If the admin added/replaced someone using @username with a pseudo ID (>=900000000),
-        this automatically merges/migrates all tables to their real Telegram user_id.
+        If the admin added/replaced someone using @username or created a pseudo ID (>=900000000),
+        or if the user changed their Telegram username, this automatically merges all pseudo records,
+        transfers their tree/curator, level, balance, and referrals to their real Telegram user_id,
+        and cleans up duplicate records.
         """
         if not user_id:
             return None
@@ -480,25 +482,24 @@ class Database:
             user_row = await cursor.fetchone()
             user_data = dict(user_row) if user_row else None
 
-            # 2. Check if a pseudo/placeholder record (user_id >= 900000000) exists ONLY if user is not in DB yet
-            # CRITICAL: Never match normal users (< 900000000) and NEVER match by first_name!
-            pseudo_data = None
-            if not user_data and clean_uname:
+            # 2. Find ALL pseudo/placeholder records (user_id >= 900000000) that match username, phone, or links
+            pseudo_records = []
+            if clean_uname:
                 cursor = await db.execute(
                     """
                     SELECT * FROM users 
                     WHERE user_id >= 900000000 AND user_id != ? AND (
                         LOWER(username) = ? OR REPLACE(LOWER(username), '@', '') = ?
                     )
-                    ORDER BY current_level DESC, balance DESC, user_id DESC LIMIT 1
+                    ORDER BY current_level DESC, balance DESC, user_id DESC
                     """,
                     (user_id, clean_uname, clean_uname)
                 )
-                p_row = await cursor.fetchone()
-                if p_row:
-                    pseudo_data = dict(p_row)
+                p_rows = await cursor.fetchall()
+                for pr in p_rows:
+                    pseudo_records.append(dict(pr))
 
-            if not user_data and not pseudo_data and clean_phone and len(clean_phone) >= 7:
+            if clean_phone and len(clean_phone) >= 7:
                 cursor = await db.execute(
                     """
                     SELECT * FROM users 
@@ -506,75 +507,157 @@ class Database:
                         phone = ? 
                         OR REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', '') = ?
                     )
-                    ORDER BY current_level DESC, balance DESC, user_id DESC LIMIT 1
+                    ORDER BY current_level DESC, balance DESC, user_id DESC
                     """,
                     (user_id, phone, clean_phone)
                 )
-                p_row = await cursor.fetchone()
-                if p_row:
-                    pseudo_data = dict(p_row)
+                p_rows = await cursor.fetchall()
+                for pr in p_rows:
+                    p_dict = dict(pr)
+                    if p_dict["user_id"] not in [x["user_id"] for x in pseudo_records]:
+                        pseudo_records.append(p_dict)
 
-            # Check if any pseudo ID >= 900000000 is explicitly linked to this user in linked_accounts / replacements
-            if not user_data and not pseudo_data:
-                cursor = await db.execute(
-                    """
-                    SELECT u.* FROM users u
-                    WHERE u.user_id >= 900000000 AND u.user_id != ? AND (
-                        u.user_id IN (SELECT linked_id FROM linked_accounts WHERE owner_id = ?)
-                        OR u.user_id IN (SELECT owner_id FROM linked_accounts WHERE linked_id = ?)
-                        OR u.user_id IN (SELECT target_id FROM account_link_otps WHERE requester_id = ?)
-                        OR u.user_id IN (SELECT requester_id FROM account_link_otps WHERE target_id = ?)
-                        OR u.user_id IN (SELECT new_user_id FROM user_replacements WHERE old_user_id = ?)
-                        OR u.user_id IN (SELECT old_user_id FROM user_replacements WHERE new_user_id = ?)
+            # Also check if any pseudo ID >= 900000000 is explicitly linked in replacements or linked_accounts
+            cursor = await db.execute(
+                """
+                SELECT u.* FROM users u
+                WHERE u.user_id >= 900000000 AND u.user_id != ? AND (
+                    u.user_id IN (SELECT linked_id FROM linked_accounts WHERE owner_id = ?)
+                    OR u.user_id IN (SELECT owner_id FROM linked_accounts WHERE linked_id = ?)
+                    OR u.user_id IN (SELECT target_id FROM account_link_otps WHERE requester_id = ?)
+                    OR u.user_id IN (SELECT requester_id FROM account_link_otps WHERE target_id = ?)
+                    OR u.user_id IN (SELECT new_user_id FROM user_replacements WHERE old_user_id = ?)
+                    OR u.user_id IN (SELECT old_user_id FROM user_replacements WHERE new_user_id = ?)
+                )
+                """,
+                (user_id, user_id, user_id, user_id, user_id, user_id, user_id)
+            )
+            p_rows = await cursor.fetchall()
+            for pr in p_rows:
+                p_dict = dict(pr)
+                if p_dict["user_id"] not in [x["user_id"] for x in pseudo_records]:
+                    pseudo_records.append(p_dict)
+
+            # 3. Process each matching pseudo record
+            for p in pseudo_records:
+                pseudo_id = p["user_id"]
+                p_ref = p.get("referrer_id", 0) or 0
+                p_lvl = int(p.get("current_level", 0) or 0)
+                p_bal = float(p.get("balance", 0.0) or 0.0)
+                p_tot = float(p.get("total_earned", 0.0) or 0.0)
+                p_vis = int(p.get("visits_count", 1) or 1)
+                p_card = p.get("wallet_card", "") or ""
+                p_bep20 = p.get("wallet_bep20", "") or ""
+                p_trc20 = p.get("wallet_trc20", "") or ""
+                p_payeer = p.get("wallet_payeer", "") or ""
+
+                if not user_data:
+                    # Case A: Real user_id was NOT in DB -> directly migrate pseudo_id to real user_id
+                    fn = first_name or p.get("first_name", "")
+                    ln = last_name or p.get("last_name", "")
+                    un = clean_uname or p.get("username", "")
+
+                    await db.execute(
+                        """
+                        UPDATE users SET
+                            user_id = ?,
+                            first_name = ?,
+                            last_name = ?,
+                            username = ?,
+                            last_active = ?
+                        WHERE user_id = ?
+                        """,
+                        (user_id, fn, ln, un, now_str, pseudo_id)
                     )
-                    LIMIT 1
-                    """,
-                    (user_id, user_id, user_id, user_id, user_id, user_id, user_id)
-                )
-                p_row = await cursor.fetchone()
-                if p_row:
-                    pseudo_data = dict(p_row)
+                    await db.execute("UPDATE users SET referrer_id = ? WHERE (referrer_id = ? OR CAST(referrer_id AS TEXT) = ?) AND user_id != ?", (user_id, pseudo_id, str(pseudo_id), user_id))
+                    await db.execute("UPDATE user_replacements SET new_user_id = ? WHERE new_user_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE user_replacements SET old_user_id = ? WHERE old_user_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE linked_accounts SET owner_id = ? WHERE owner_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE linked_accounts SET linked_id = ? WHERE linked_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE account_link_otps SET requester_id = ? WHERE requester_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE account_link_otps SET target_id = ? WHERE target_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE payment_logs SET curator_id = ? WHERE curator_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE payment_logs SET buyer_id = ? WHERE buyer_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE activity_logs SET user_id = ? WHERE user_id = ?", (user_id, pseudo_id))
+                    await db.execute("DELETE FROM linked_accounts WHERE owner_id = linked_id")
+                    await db.commit()
 
-            # Case A: Real user_id was NOT in DB, but pseudo_data was created (e.g. Admin replaced with @username)
-            if not user_data and pseudo_data:
-                pseudo_id = pseudo_data["user_id"]
-                fn = first_name or pseudo_data.get("first_name", "")
-                ln = last_name or pseudo_data.get("last_name", "")
-                un = clean_uname or pseudo_data.get("username", "")
+                    cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+                    res_row = await cursor.fetchone()
+                    user_data = dict(res_row) if res_row else None
+                else:
+                    # Case B: Real user_id ALREADY exists in DB -> merge pseudo data into real user_id
+                    u_lvl = int(user_data.get("current_level", 0) or 0)
+                    u_bal = float(user_data.get("balance", 0.0) or 0.0)
+                    u_tot = float(user_data.get("total_earned", 0.0) or 0.0)
+                    u_vis = int(user_data.get("visits_count", 1) or 1)
+                    u_ref = user_data.get("referrer_id", 0) or 0
 
-                # Migrate pseudo_id -> real user_id
-                await db.execute(
-                    """
-                    UPDATE users SET
-                        user_id = ?,
-                        first_name = ?,
-                        last_name = ?,
-                        username = ?,
-                        last_active = ?
-                    WHERE user_id = ?
-                    """,
-                    (user_id, fn, ln, un, now_str, pseudo_id)
-                )
-                await db.execute("UPDATE users SET referrer_id = ? WHERE referrer_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE user_replacements SET new_user_id = ? WHERE new_user_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE user_replacements SET old_user_id = ? WHERE old_user_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE linked_accounts SET owner_id = ? WHERE owner_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE linked_accounts SET linked_id = ? WHERE linked_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE account_link_otps SET requester_id = ? WHERE requester_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE account_link_otps SET target_id = ? WHERE target_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE payment_logs SET curator_id = ? WHERE curator_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE payment_logs SET buyer_id = ? WHERE buyer_id = ?", (user_id, pseudo_id))
-                await db.execute("UPDATE activity_logs SET user_id = ? WHERE user_id = ?", (user_id, pseudo_id))
-                # Clean up self-links
-                await db.execute("DELETE FROM linked_accounts WHERE owner_id = linked_id")
-                await db.commit()
+                    final_level = max(u_lvl, p_lvl)
+                    final_balance = u_bal + p_bal
+                    final_total_earned = u_tot + p_tot
+                    final_visits = max(u_vis, p_vis)
+                    # If pseudo has a valid curator assigned by admin, prioritize it; otherwise keep existing
+                    final_ref = p_ref if (p_ref and p_ref != 0 and p_ref != user_id) else (u_ref or 0)
 
-                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
-                res_row = await cursor.fetchone()
-                user_data = dict(res_row) if res_row else None
+                    final_card = user_data.get("wallet_card") or p_card
+                    final_bep20 = user_data.get("wallet_bep20") or p_bep20
+                    final_trc20 = user_data.get("wallet_trc20") or p_trc20
+                    final_payeer = user_data.get("wallet_payeer") or p_payeer
 
-            # Case B: Real user exists -> update profile info
-            elif user_data:
+                    fn = first_name or user_data.get("first_name", "") or p.get("first_name", "")
+                    ln = last_name or user_data.get("last_name", "") or p.get("last_name", "")
+                    un = clean_uname or user_data.get("username", "")
+
+                    await db.execute(
+                        """
+                        UPDATE users SET
+                            first_name = CASE WHEN ? != '' THEN ? ELSE first_name END,
+                            last_name = CASE WHEN ? != '' THEN ? ELSE last_name END,
+                            username = ?,
+                            referrer_id = ?,
+                            current_level = ?,
+                            balance = ?,
+                            total_earned = ?,
+                            wallet_card = ?,
+                            wallet_bep20 = ?,
+                            wallet_trc20 = ?,
+                            wallet_payeer = ?,
+                            visits_count = ?,
+                            last_active = ?
+                        WHERE user_id = ?
+                        """,
+                        (
+                            fn, fn, ln, ln, un,
+                            final_ref, final_level, final_balance, final_total_earned,
+                            final_card, final_bep20, final_trc20, final_payeer,
+                            final_visits, now_str, user_id
+                        )
+                    )
+
+                    # Reassign all children/referrals pointing to pseudo_id to user_id
+                    await db.execute("UPDATE users SET referrer_id = ? WHERE (referrer_id = ? OR CAST(referrer_id AS TEXT) = ?) AND user_id != ?", (user_id, pseudo_id, str(pseudo_id), user_id))
+                    await db.execute("UPDATE user_replacements SET new_user_id = ? WHERE new_user_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE user_replacements SET old_user_id = ? WHERE old_user_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE linked_accounts SET owner_id = ? WHERE owner_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE linked_accounts SET linked_id = ? WHERE linked_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE account_link_otps SET requester_id = ? WHERE requester_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE account_link_otps SET target_id = ? WHERE target_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE payment_logs SET curator_id = ? WHERE curator_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE payment_logs SET buyer_id = ? WHERE buyer_id = ?", (user_id, pseudo_id))
+                    await db.execute("UPDATE activity_logs SET user_id = ? WHERE user_id = ?", (user_id, pseudo_id))
+                    
+                    # Delete the merged pseudo record
+                    await db.execute("DELETE FROM users WHERE user_id = ?", (pseudo_id,))
+                    await db.execute("DELETE FROM linked_accounts WHERE owner_id = linked_id")
+                    await db.commit()
+
+                    cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+                    res_row = await cursor.fetchone()
+                    user_data = dict(res_row) if res_row else None
+
+            # 4. If user_data exists and no pseudo records were merged, update profile name & username
+            if user_data and not pseudo_records:
                 fn = first_name or user_data.get("first_name", "")
                 ln = last_name or user_data.get("last_name", "")
                 un = clean_uname or user_data.get("username", "")
@@ -594,9 +677,20 @@ class Database:
                 res_row = await cursor.fetchone()
                 user_data = dict(res_row) if res_row else None
 
-            # Case D: User not in users table yet, but referenced in replacements, linked accounts, or as curator
+            # 5. Clean up duplicate usernames across all other rows
+            if clean_uname:
+                # Remove duplicate username from any other row so that this username is uniquely attached to real user
+                await db.execute(
+                    """
+                    UPDATE users SET username = '' 
+                    WHERE user_id != ? AND (LOWER(username) = ? OR REPLACE(LOWER(username), '@', '') = ?)
+                    """,
+                    (user_id, clean_uname, clean_uname)
+                )
+                await db.commit()
+
+            # 6. If user not in users table yet, check if referenced in replacements, linked accounts, or as curator
             if not user_data:
-                # Check if this user is in replacements, linked accounts, or has referrals
                 cursor = await db.execute(
                     """
                     SELECT (
