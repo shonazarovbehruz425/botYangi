@@ -198,48 +198,33 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
             )
             return
 
-        # AUTOMATIC REGISTRATION & TEAM TREE JOIN
-        await db.register_user(
-            user_id=user.id,
-            first_name=user.first_name or "",
-            last_name=user.last_name or "",
-            username=user.username or "",
-            referrer_id=referrer_id
+        # Fetch curator info
+        curator = await db.get_user(referrer_id)
+        curator_name = f"{curator.get('first_name', '')} {curator.get('last_name', '')}".strip() if curator else f"Hamkor #{referrer_id}"
+        curator_username = f"@{curator.get('username')}" if curator and curator.get("username") else "Mavjud emas"
+        curator_id_display = str(referrer_id)
+
+        user_name = user.full_name or "Foydalanuvchi"
+        user_username_display = f"@{user.username}" if user.username else "Mavjud emas"
+
+        info_card = (
+            "🤝 <b>Siz taklif havolasi orqali kirdingiz!</b>\n\n"
+            "🏆 <b>Sizning Kuratoringiz:</b>\n"
+            f"👤 <b>Nomi:</b> {curator_name}\n"
+            f"🌐 <b>Username:</b> {curator_username}\n"
+            f"🆔 <b>ID raqami:</b> <code>{curator_id_display}</code>\n\n"
+            "👤 <b>Sizning ma'lumotlaringiz:</b>\n"
+            f"<b>Ism:</b> {user_name}\n"
+            f"<b>Username:</b> {user_username_display}\n"
+            f"<b>ID:</b> <code>{user.id}</code>\n\n"
+            "<i>Dasturda ishtirok etish va ushbu kurator jamoasiga qo'shilish uchun quyidagi «📝 Ro'yxatdan o'tish» tugmasini bosing:</i>"
         )
-        await db.clear_pending_referral(user.id)
-
-        # Automatically send updated database .js backup to channel
-        from database import send_database_backup_to_channel
-        asyncio.create_task(send_database_backup_to_channel(bot, reason=f"Yangi a'zo: {user.full_name} (ID: {user.id})"))
-
-        # Notify inviter (referrer)
-        try:
-            username_tag = f"(@{user.username})" if user.username else ""
-            new_ref_count = await db.get_referral_count(referrer_id)
-            await bot.send_message(
-                chat_id=referrer_id,
-                text=(
-                    "🎉 <b>Yangi hamkor qo'shildi!</b>\n\n"
-                    f"Sizning referal havolangiz orqali yangi a'zo jamoangizga muvaffaqiyatli qo'shildi:\n"
-                    f"👤 <b>{user.full_name}</b> {username_tag}\n"
-                    f"🆔 ID: <code>{user.id}</code>\n\n"
-                    f"📊 Jami to'g'ridan-to'g'ri referallaringiz: <b>{new_ref_count}</b> ta"
-                ),
-                parse_mode="HTML"
-            )
-        except Exception:
-            pass
-
-        # Fetch curator name
-        curator_in_db = await db.get_user(referrer_id)
-        curator_name = f"{curator_in_db.get('first_name', '')} {curator_in_db.get('last_name', '')}".strip() if curator_in_db else f"ID: {referrer_id}"
 
         await message.answer(
-            f"🎉 <b>Xush kelibsiz, {user.first_name}!</b>\n\n"
-            f"Siz tizimdan muvaffaqiyatli ro'yxatdan o'tdingiz va <b>{curator_name}</b> jamoa daraxtiga biriktirildingiz!",
+            info_card,
+            reply_markup=get_register_keyboard(referrer_id),
             parse_mode="HTML"
         )
-        await send_main_menu(message)
         return
 
     # User is not registered in DB yet and has no referral link
@@ -348,6 +333,10 @@ async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
 
     await callback.answer("✅ Ro'yxatdan o'tish muvaffaqiyatli yakunlandi!", show_alert=False)
 
+    # Fetch curator name
+    curator_in_db = await db.get_user(referrer_id) if referrer_id else None
+    curator_name = f"{curator_in_db.get('first_name', '')} {curator_in_db.get('last_name', '')}".strip() if curator_in_db else f"ID: {referrer_id}"
+
     # Notify inviter (referrer)
     if referrer_id and referrer_id != user.id:
         try:
@@ -367,6 +356,12 @@ async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
             )
         except Exception:
             pass
+
+    await callback.message.answer(
+        f"🎉 <b>Xush kelibsiz, {user.first_name}!</b>\n\n"
+        f"Siz tizimdan muvaffaqiyatli ro'yxatdan o'tdingiz va <b>{curator_name}</b> jamoa daraxtiga biriktirildingiz!",
+        parse_mode="HTML"
+    )
 
     # Send Main Menu
     await send_main_menu(callback)
@@ -412,47 +407,48 @@ async def recheck_name_handler(callback: CallbackQuery, bot: Bot):
 
     if referrer_id and referrer_id != user.id:
         ref_count = await db.get_referral_count(referrer_id)
-        if ref_count < 3:
-            # AUTOMATIC REGISTRATION & TEAM TREE JOIN
-            await db.register_user(
-                user_id=user.id,
-                first_name=user.first_name or "",
-                last_name=user.last_name or "",
-                username=user.username or "",
-                referrer_id=referrer_id
-            )
-            await db.clear_pending_referral(user.id)
-
-            from database import send_database_backup_to_channel
-            asyncio.create_task(send_database_backup_to_channel(bot, reason=f"Yangi a'zo: {user.full_name} (ID: {user.id})"))
-
-            try:
-                username_tag = f"(@{user.username})" if user.username else ""
-                new_ref_count = await db.get_referral_count(referrer_id)
-                await bot.send_message(
-                    chat_id=referrer_id,
-                    text=(
-                        "🎉 <b>Yangi hamkor qo'shildi!</b>\n\n"
-                        f"Sizning referal havolangiz orqali yangi a'zo jamoangizga muvaffaqiyatli qo'shildi:\n"
-                        f"👤 <b>{user.full_name}</b> {username_tag}\n"
-                        f"🆔 ID: <code>{user.id}</code>\n\n"
-                        f"📊 Jami to'g'ridan-to'g'ri referallaringiz: <b>{new_ref_count}</b> ta"
-                    ),
-                    parse_mode="HTML"
-                )
-            except Exception:
-                pass
-
-            curator_in_db = await db.get_user(referrer_id)
-            curator_name = f"{curator_in_db.get('first_name', '')} {curator_in_db.get('last_name', '')}".strip() if curator_in_db else f"ID: {referrer_id}"
-
+        if ref_count >= 3:
             await callback.message.answer(
-                f"🎉 <b>Xush kelibsiz, {user.first_name}!</b>\n\n"
-                f"Siz tizimdan muvaffaqiyatli ro'yxatdan o'tdingiz va <b>{curator_name}</b> jamoa daraxtiga qo'shildingiz!",
+                "⚠️ <b>Ushbu taklif qiluvchining 1-darajali jamoasi to'lgan!</b>\n\n"
+                f"Tizim qoidasiga ko'ra, har bir ishtirokchi to'g'ridan-to'g'ri faqat <b>3 ta</b> hamkorni qabul qila oladi (hozirda: <b>{ref_count}/3</b>).\n"
+                "Iltimos, ushbu jamoaning boshqa a'zosi referal havolasi orqali kiring yoki Bosh Tizim orqali davom eting.",
                 parse_mode="HTML"
             )
-            await send_main_menu(callback, bot=bot, user_id=user.id)
+            admin_ref_id = ADMINS[0] if ADMINS else 0
+            await callback.message.answer(
+                "👑 <b>Bosh Tizim orqali ro'yxatdan o'tish:</b>",
+                reply_markup=get_register_keyboard(admin_ref_id),
+                parse_mode="HTML"
+            )
             return
+
+        curator = await db.get_user(referrer_id)
+        curator_name = f"{curator.get('first_name', '')} {curator.get('last_name', '')}".strip() if curator else f"Hamkor #{referrer_id}"
+        curator_username = f"@{curator.get('username')}" if curator and curator.get("username") else "Mavjud emas"
+        curator_id_display = str(referrer_id)
+
+        user_name = user.full_name or "Foydalanuvchi"
+        user_username_display = f"@{user.username}" if user.username else "Mavjud emas"
+
+        info_card = (
+            "🤝 <b>Siz taklif havolasi orqali kirdingiz!</b>\n\n"
+            "🏆 <b>Sizning Kuratoringiz:</b>\n"
+            f"👤 <b>Nomi:</b> {curator_name}\n"
+            f"🌐 <b>Username:</b> {curator_username}\n"
+            f"🆔 <b>ID raqami:</b> <code>{curator_id_display}</code>\n\n"
+            "👤 <b>Sizning ma'lumotlaringiz:</b>\n"
+            f"<b>Ism:</b> {user_name}\n"
+            f"<b>Username:</b> {user_username_display}\n"
+            f"<b>ID:</b> <code>{user.id}</code>\n\n"
+            "<i>Dasturda ishtirok etish va ushbu kurator jamoasiga qo'shilish uchun quyidagi «📝 Ro'yxatdan o'tish» tugmasini bosing:</i>"
+        )
+
+        await callback.message.answer(
+            info_card,
+            reply_markup=get_register_keyboard(referrer_id),
+            parse_mode="HTML"
+        )
+        return
 
     # If no pending referral, show registration under Bosh Admin
     admin_ref_id = ADMINS[0] if ADMINS else 0
