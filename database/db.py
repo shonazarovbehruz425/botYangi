@@ -482,6 +482,10 @@ class Database:
             user_row = await cursor.fetchone()
             user_data = dict(user_row) if user_row else None
 
+            # Fallback username: if clean_uname is empty, check user_data
+            if not clean_uname and user_data and user_data.get("username"):
+                clean_uname = str(user_data["username"]).strip().lstrip("@").lower()
+
             # 2. Find ALL pseudo/placeholder records (user_id >= 900000000) that match username, phone, or links
             pseudo_records = []
             if clean_uname:
@@ -538,6 +542,19 @@ class Database:
                 if p_dict["user_id"] not in [x["user_id"] for x in pseudo_records]:
                     pseudo_records.append(p_dict)
 
+            # Also check if user_id was replaced by or replaces a pseudo account in user_replacements
+            cursor = await db.execute("SELECT old_user_id, new_user_id FROM user_replacements WHERE old_user_id = ? OR new_user_id = ?", (user_id, user_id))
+            rep_tuples = await cursor.fetchall()
+            for r_old, r_new in rep_tuples:
+                for candidate_id in (r_old, r_new):
+                    if candidate_id and int(candidate_id) >= 900000000 and int(candidate_id) != user_id:
+                        p_cur = await db.execute("SELECT * FROM users WHERE user_id = ?", (candidate_id,))
+                        p_row = await p_cur.fetchone()
+                        if p_row:
+                            p_dict = dict(p_row)
+                            if p_dict["user_id"] not in [x["user_id"] for x in pseudo_records]:
+                                pseudo_records.append(p_dict)
+
             # 3. Process each matching pseudo record
             for p in pseudo_records:
                 pseudo_id = p["user_id"]
@@ -593,7 +610,7 @@ class Database:
                     u_vis = int(user_data.get("visits_count", 1) or 1)
                     u_ref = user_data.get("referrer_id", 0) or 0
 
-                    final_level = max(u_lvl, p_lvl)
+                    final_level = max(u_lvl, p_lvl, 1)
                     final_balance = u_bal + p_bal
                     final_total_earned = u_tot + p_tot
                     final_visits = max(u_vis, p_vis)
@@ -609,6 +626,11 @@ class Database:
                     ln = last_name or user_data.get("last_name", "") or p.get("last_name", "")
                     un = clean_uname or user_data.get("username", "")
 
+                    final_status = "👑 Admin" if user_id in ADMINS else (
+                        p.get("status") if (p.get("status") and any(k in p.get("status") for k in ("Hamkor", "Lider", "VIP", "Bosqich")))
+                        else (user_data.get("status") or "🌱 Boshlang'ich")
+                    )
+
                     await db.execute(
                         """
                         UPDATE users SET
@@ -619,6 +641,7 @@ class Database:
                             current_level = ?,
                             balance = ?,
                             total_earned = ?,
+                            status = ?,
                             wallet_card = ?,
                             wallet_bep20 = ?,
                             wallet_trc20 = ?,
@@ -630,6 +653,7 @@ class Database:
                         (
                             fn, fn, ln, ln, un,
                             final_ref, final_level, final_balance, final_total_earned,
+                            final_status,
                             final_card, final_bep20, final_trc20, final_payeer,
                             final_visits, now_str, user_id
                         )
@@ -731,7 +755,12 @@ class Database:
 
     async def find_or_create_user_by_identifier(self, identifier: str) -> dict:
         """Finds user by user_id, @username, or phone number, or registers placeholder if valid numeric ID."""
-        clean_id = str(identifier).strip().lstrip("@")
+        import hashlib
+        raw_str = str(identifier).strip()
+        for prefix in ("https://t.me/", "http://t.me/", "t.me/"):
+            if raw_str.lower().startswith(prefix):
+                raw_str = raw_str[len(prefix):].strip()
+        clean_id = raw_str.lstrip("@").strip()
         if not clean_id:
             return None
 
@@ -740,8 +769,8 @@ class Database:
 
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            # 1. Try finding by numeric user_id
-            if clean_id.isdigit():
+            # 1. Try finding by numeric Telegram user_id (typically 6 to 11 digits, not a full international phone)
+            if clean_id.isdigit() and len(clean_id) <= 11 and not clean_id.startswith("998"):
                 uid = int(clean_id)
                 cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (uid,))
                 row = await cursor.fetchone()
@@ -761,9 +790,14 @@ class Database:
                 new_row = await cursor.fetchone()
                 return dict(new_row) if new_row else None
 
-            # 2. Try finding by username (case-insensitive, with or without @)
+            # 2. Try finding by username (case-insensitive, prioritizing real users over pseudo)
             cursor = await db.execute(
-                "SELECT * FROM users WHERE LOWER(username) = ? OR REPLACE(LOWER(username), '@', '') = ?",
+                """
+                SELECT * FROM users 
+                WHERE LOWER(username) = ? OR REPLACE(LOWER(username), '@', '') = ?
+                ORDER BY (user_id < 900000000) DESC, current_level DESC, balance DESC
+                LIMIT 1
+                """,
                 (clean_uname, clean_uname)
             )
             row = await cursor.fetchone()
@@ -780,16 +814,26 @@ class Database:
                         OR REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', '') = ?
                         OR phone LIKE ?
                     )
+                    ORDER BY (user_id < 900000000) DESC, current_level DESC
                     LIMIT 1
                     """,
-                    (identifier, digits_only, f"%{digits_only}%")
+                    (raw_str, digits_only, f"%{digits_only}%")
                 )
                 row = await cursor.fetchone()
                 if row:
                     return dict(row)
 
-            # 4. If username not found, generate a pseudo user_id based on hash or random ID to register them
-            pseudo_id = 900000000 + abs(hash(clean_id)) % 99999999
+            # 4. If identifier is pure digits of any length, fallback to numeric user_id
+            if clean_id.isdigit():
+                uid = int(clean_id)
+                cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (uid,))
+                row = await cursor.fetchone()
+                if row:
+                    return dict(row)
+
+            # 5. If username not found, generate a deterministic pseudo user_id based on md5 hash
+            hash_int = int(hashlib.md5(clean_uname.encode('utf-8')).hexdigest()[:8], 16)
+            pseudo_id = 900000000 + (hash_int % 99999999)
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             await db.execute(
                 """
@@ -868,19 +912,28 @@ class Database:
         """Returns the active user ID if referrer_id was replaced by someone else."""
         if not referrer_id:
             return 0
+        rep_map = await self.get_replacement_map()
+        if referrer_id in rep_map:
+            return rep_map[referrer_id]
+
         try:
             async with aiosqlite.connect(self.db_path) as db:
                 db.row_factory = aiosqlite.Row
                 cursor = await db.execute("SELECT user_id, current_level, is_banned FROM users WHERE user_id = ?", (referrer_id,))
                 row = await cursor.fetchone()
-                # If referrer is an active, unbanned real user (user_id < 900000000), return their ID directly
                 if row and int(row["user_id"]) < 900000000 and int(row["current_level"] or 0) >= 1 and not row["is_banned"]:
                     return referrer_id
         except Exception:
             pass
 
+        return referrer_id
+
+    async def get_effective_user_id(self, user_id: int) -> int:
+        """Returns the active replacement user ID if user_id was replaced by someone else."""
+        if not user_id:
+            return 0
         rep_map = await self.get_replacement_map()
-        return rep_map.get(referrer_id, referrer_id)
+        return rep_map.get(user_id, user_id)
 
     async def set_pending_referral(self, user_id: int, referrer_id: int) -> None:
         """Saves or updates pending referral session for user_id."""
@@ -1052,7 +1105,7 @@ class Database:
         if requester_id not in ADMINS and requester_id not in (1001, 0) and ADMINS:
             return {"success": False, "error": "Faqatgina adminlar a'zolarni almashtirish huquqiga ega"}
 
-        parent_id = target_user.get("referrer_id", 0)
+        parent_id = target_user.get("referrer_id", 0) or (ADMINS[0] if ADMINS else 0)
 
         # Read old user stats to transfer
         target_level = int(target_user.get("current_level", 1) or 1)
@@ -1070,7 +1123,7 @@ class Database:
         new_total_earned = float(new_user.get("total_earned", 0.0) or 0.0)
         new_visits = int(new_user.get("visits_count", 1) or 1)
 
-        final_level = max(new_level, target_level)
+        final_level = max(new_level, target_level, 1)
         final_balance = new_balance + target_balance
         final_total_earned = new_total_earned + target_total_earned
         final_visits = max(new_visits, target_visits)
@@ -1080,8 +1133,16 @@ class Database:
         final_trc20 = new_user.get("wallet_trc20") or target_trc20
         final_payeer = new_user.get("wallet_payeer") or target_payeer
 
+        new_status = "👑 Admin" if new_user_id in ADMINS else (
+            "👑 5-Bosqich VIP Hamkor" if final_level >= 5 else
+            "🥈 4-Bosqich Lider" if final_level >= 4 else
+            "🥉 3-Bosqich Hamkor" if final_level >= 3 else
+            "⚡️ 2-Bosqich Hamkor" if final_level >= 2 else
+            "🌱 1-Bosqich Hamkor"
+        )
+
         async with aiosqlite.connect(self.db_path) as db:
-            # 1. Update new_user with target's position, level, balance, earnings, wallets
+            # 1. Update new_user with target's position, level, balance, earnings, wallets, status
             await db.execute(
                 """
                 UPDATE users SET
@@ -1094,6 +1155,7 @@ class Database:
                     wallet_trc20 = ?,
                     wallet_payeer = ?,
                     visits_count = ?,
+                    status = ?,
                     is_banned = 0
                 WHERE user_id = ?
                 """,
@@ -1107,6 +1169,7 @@ class Database:
                     final_trc20,
                     final_payeer,
                     final_visits,
+                    new_status,
                     new_user_id
                 )
             )
@@ -1135,11 +1198,15 @@ class Database:
                 (target_user_id,)
             )
 
-            # 5. Record in user_replacements table
+            # 5. Record in user_replacements table and update multi-hop chains
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             await db.execute(
                 "INSERT OR REPLACE INTO user_replacements (old_user_id, new_user_id, replaced_at) VALUES (?, ?, ?)",
                 (target_user_id, new_user_id, now)
+            )
+            await db.execute(
+                "UPDATE user_replacements SET new_user_id = ? WHERE new_user_id = ? AND old_user_id != ?",
+                (new_user_id, target_user_id, new_user_id)
             )
             await db.commit()
 
@@ -1209,12 +1276,13 @@ class Database:
 
         to_balance = float(to_user.get("balance", 0.0) or 0.0) + from_balance
         to_total = float(to_user.get("total_earned", 0.0) or 0.0) + from_total
-        to_level = max(int(to_user.get("current_level", 1) or 1), from_level)
+        to_level = max(int(to_user.get("current_level", 1) or 1), from_level, 1)
 
         final_card = to_user.get("wallet_card") or (from_user.get("wallet_card") if from_user else "") or ""
         final_bep20 = to_user.get("wallet_bep20") or (from_user.get("wallet_bep20") if from_user else "") or ""
         final_trc20 = to_user.get("wallet_trc20") or (from_user.get("wallet_trc20") if from_user else "") or ""
         final_payeer = to_user.get("wallet_payeer") or (from_user.get("wallet_payeer") if from_user else "") or ""
+        final_ref = to_user.get("referrer_id", 0) or (from_user.get("referrer_id", 0) if from_user else 0) or 0
 
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
@@ -1233,6 +1301,7 @@ class Database:
             await db.execute(
                 """
                 UPDATE users SET
+                    referrer_id = CASE WHEN referrer_id = 0 THEN ? ELSE referrer_id END,
                     current_level = ?,
                     balance = ?,
                     total_earned = ?,
@@ -1242,7 +1311,7 @@ class Database:
                     wallet_payeer = ?
                 WHERE user_id = ?
                 """,
-                (to_level, to_balance, to_total, final_card, final_bep20, final_trc20, final_payeer, to_user_id)
+                (final_ref, to_level, to_balance, to_total, final_card, final_bep20, final_trc20, final_payeer, to_user_id)
             )
 
             # 3. Reset from_user
@@ -1454,10 +1523,16 @@ class Database:
 
     async def get_referrals(self, user_id: int, offset: int = 0, limit: int = 100):
         rep_map = await self.get_replacement_map()
+        effective_uid = rep_map.get(user_id, user_id)
         alias_ids = [user_id]
+        if effective_uid not in alias_ids:
+            alias_ids.append(effective_uid)
         for old_id, new_id in rep_map.items():
-            if new_id == user_id and old_id not in alias_ids:
-                alias_ids.append(old_id)
+            if (new_id == user_id or new_id == effective_uid or old_id == user_id or old_id == effective_uid):
+                if old_id not in alias_ids:
+                    alias_ids.append(old_id)
+                if new_id not in alias_ids:
+                    alias_ids.append(new_id)
 
         placeholders = ",".join("?" for _ in alias_ids)
         str_placeholders = ",".join("?" for _ in alias_ids)
@@ -1479,10 +1554,16 @@ class Database:
 
     async def get_referral_count(self, user_id: int) -> int:
         rep_map = await self.get_replacement_map()
+        effective_uid = rep_map.get(user_id, user_id)
         alias_ids = [user_id]
+        if effective_uid not in alias_ids:
+            alias_ids.append(effective_uid)
         for old_id, new_id in rep_map.items():
-            if new_id == user_id and old_id not in alias_ids:
-                alias_ids.append(old_id)
+            if (new_id == user_id or new_id == effective_uid or old_id == user_id or old_id == effective_uid):
+                if old_id not in alias_ids:
+                    alias_ids.append(old_id)
+                if new_id not in alias_ids:
+                    alias_ids.append(new_id)
 
         placeholders = ",".join("?" for _ in alias_ids)
         str_placeholders = ",".join("?" for _ in alias_ids)
@@ -1499,6 +1580,13 @@ class Database:
     async def get_multi_tier_stats(self, user_id: int) -> dict:
         """Calculates multi-tier team statistics for all 5 marketing levels with replacement support."""
         rep_map = await self.get_replacement_map()
+        effective_uid = rep_map.get(user_id, user_id)
+        alias_uids = {user_id, effective_uid}
+        for old_id, new_id in rep_map.items():
+            if new_id in alias_uids or old_id in alias_uids:
+                alias_uids.add(old_id)
+                alias_uids.add(new_id)
+
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("SELECT user_id, referrer_id FROM users WHERE is_banned IS NULL OR is_banned = 0")
@@ -1515,10 +1603,13 @@ class Database:
                     children_map[ref_id] = []
                 children_map[ref_id].append(u_id)
 
-            visited = set([user_id])
-            current_tier = children_map.get(user_id, [])
-            for c in current_tier:
-                visited.add(c)
+            visited = set(alias_uids)
+            current_tier = []
+            for a_id in alias_uids:
+                for c in children_map.get(a_id, []):
+                    if c not in visited:
+                        visited.add(c)
+                        current_tier.append(c)
 
             l1_ids = list(current_tier)
             
@@ -1608,6 +1699,7 @@ class Database:
         """Returns deep multi-tier hierarchy structure for visual tree rendering (fast in-memory builder with alias resolution)."""
         try:
             rep_map = await self.get_replacement_map()
+            effective_user_id = rep_map.get(user_id, user_id)
             async with aiosqlite.connect(self.db_path) as db_conn:
                 db_conn.row_factory = aiosqlite.Row
                 # Fetch all unbanned users in one single query
@@ -1627,14 +1719,14 @@ class Database:
                     children_map[ref_id] = []
                 children_map[ref_id].append(u)
 
-            root_user = users_by_id.get(user_id)
+            root_user = users_by_id.get(effective_user_id) or users_by_id.get(user_id)
             if not root_user:
                 return {
                     "user_id": user_id,
                     "first_name": "Siz",
                     "last_name": "",
                     "username": "",
-                    "current_level": 0,
+                    "current_level": 1,
                     "status": "🌱 Boshlang'ich",
                     "total_earned": 0,
                     "registered_at": "",
@@ -1648,7 +1740,13 @@ class Database:
                 visited.add(uid)
                 children_nodes = []
                 if depth < max_depth:
-                    for ch in children_map.get(uid, []):
+                    node_children = list(children_map.get(uid, []))
+                    for old_id, new_id in rep_map.items():
+                        if new_id == uid and old_id != uid:
+                            for ch in children_map.get(old_id, []):
+                                if ch not in node_children:
+                                    node_children.append(ch)
+                    for ch in node_children:
                         ch_id = ch.get("user_id", 0)
                         if ch_id not in visited:
                             children_nodes.append(_build_node(ch, depth + 1))
@@ -1658,7 +1756,7 @@ class Database:
                     "first_name": u_dict.get("first_name", ""),
                     "last_name": u_dict.get("last_name", ""),
                     "username": u_dict.get("username", ""),
-                    "current_level": u_dict.get("current_level", 1),
+                    "current_level": max(1, int(u_dict.get("current_level", 1) or 1)),
                     "status": u_dict.get("status", "🌱 Boshlang'ich"),
                     "total_earned": u_dict.get("total_earned", 0.0),
                     "registered_at": u_dict.get("registered_at", ""),
@@ -1673,7 +1771,7 @@ class Database:
                 "first_name": "Siz",
                 "last_name": "",
                 "username": "",
-                "current_level": 0,
+                "current_level": 1,
                 "status": "🌱 Boshlang'ich",
                 "total_earned": 0,
                 "registered_at": "",

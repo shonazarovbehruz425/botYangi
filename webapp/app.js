@@ -700,9 +700,9 @@ function fetchLiveUserData() {
   // Also sync verified linked accounts from database
   syncLinkedAccountsFromDb();
 
-  const unameParam = encodeURIComponent(userState.username || '');
-  const fnParam = encodeURIComponent(userState.first_name || '');
-  const lnParam = encodeURIComponent(userState.last_name || '');
+  const unameParam = encodeURIComponent(userState.username || tg?.initDataUnsafe?.user?.username || '');
+  const fnParam = encodeURIComponent(userState.first_name || tg?.initDataUnsafe?.user?.first_name || '');
+  const lnParam = encodeURIComponent(userState.last_name || tg?.initDataUnsafe?.user?.last_name || '');
   fetch(`/api/user/profile?user_id=${userState.id}&username=${unameParam}&first_name=${fnParam}&last_name=${lnParam}`)
     .then(res => res.json())
     .then(data => {
@@ -716,7 +716,7 @@ function fetchLiveUserData() {
         userState.teamTotal = u.team_total || 0;
         userState.directRefs = u.direct_referrals || 0;
         userState.activeRefs = u.active_in_marketing || 0;
-        userState.level = u.current_level || 0;
+        userState.level = Math.max(1, parseInt(u.current_level || 1, 10));
         userState.regDate = u.registered_at || "-";
         userState.referrerName = u.referrer_name || "Bosh Admin (Tizim)";
         userState.multiTier = u.multi_tier || userState.multiTier;
@@ -1887,7 +1887,7 @@ function loadUserTree(retryCount) {
     first_name: userState.first_name || 'Siz',
     last_name: userState.last_name || '',
     username: userState.username || '',
-    current_level: userState.level || 0,
+    current_level: Math.max(1, parseInt(userState.level || 1, 10)),
     children: []
   };
 
@@ -1899,7 +1899,7 @@ function loadUserTree(retryCount) {
     fitToScreen();
   }
 
-  const unameParam = encodeURIComponent(userState.username || '');
+  const unameParam = encodeURIComponent(userState.username || tg?.initDataUnsafe?.user?.username || '');
   fetch(`/api/user/tree?user_id=${targetUid}&username=${unameParam}`)
     .then(res => res.json())
     .then(d => {

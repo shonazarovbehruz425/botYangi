@@ -82,15 +82,25 @@ async def start_webapp_server(bot: Bot = None):
 
             user = await db.resolve_and_sync_user(uid, username=username, first_name=first_name, last_name=last_name)
             
+            # Check if uid has an active replacement alias
+            effective_uid = await db.get_effective_user_id(uid)
+            if effective_uid and effective_uid != uid:
+                effective_user = await db.get_user(effective_uid)
+                if effective_user:
+                    user = effective_user
+
+            if not user and effective_uid:
+                user = await db.get_user(effective_uid)
+
             if not user:
                 return web.json_response({
                     "success": True,
                     "registered": False,
                     "user": {
                         "user_id": uid,
-                        "first_name": "Hamkor",
-                        "last_name": "",
-                        "username": "",
+                        "first_name": first_name or "Hamkor",
+                        "last_name": last_name or "",
+                        "username": username or "",
                         "current_level": 1,
                         "balance": 0.0,
                         "total_earned": 0.0,
@@ -107,13 +117,15 @@ async def start_webapp_server(bot: Bot = None):
                     }
                 })
 
-            # Fetch live stats
+            target_stats_uid = effective_uid if effective_uid else uid
+
+            # Fetch live stats for active position
             try:
-                ref_count = await db.get_referral_count(uid)
+                ref_count = await db.get_referral_count(target_stats_uid)
             except Exception:
                 ref_count = 0
             try:
-                team_stats = await db.get_multi_tier_stats(uid)
+                team_stats = await db.get_multi_tier_stats(target_stats_uid)
             except Exception:
                 team_stats = {"level_1": 0, "level_2": 0, "level_3": 0, "total_team": 0}
             
@@ -131,17 +143,19 @@ async def start_webapp_server(bot: Bot = None):
                 except Exception:
                     curator_text = f"ID: {effective_curator_id}"
 
+            cur_lvl = max(1, int(user.get("current_level", 1) or 1))
+
             return web.json_response({
                 "success": True,
                 "registered": True,
                 "user": {
-                    "user_id": user["user_id"],
-                    "first_name": user.get("first_name", "Hamkor"),
-                    "last_name": user.get("last_name", ""),
-                    "username": user.get("username", ""),
-                    "current_level": user.get("current_level", 1),
-                    "balance": user.get("balance", 0.0),
-                    "total_earned": user.get("total_earned", 0.0),
+                    "user_id": uid,
+                    "first_name": user.get("first_name") or first_name or "Hamkor",
+                    "last_name": user.get("last_name") or last_name or "",
+                    "username": user.get("username") or username or "",
+                    "current_level": cur_lvl,
+                    "balance": float(user.get("balance", 0.0) or 0.0),
+                    "total_earned": float(user.get("total_earned", 0.0) or 0.0),
                     "status": user.get("status", "🌱 Boshlang'ich"),
                     "registered_at": user.get("registered_at", "-")[:10] if user.get("registered_at") else "-",
                     "referrer_name": curator_text,
@@ -149,7 +163,7 @@ async def start_webapp_server(bot: Bot = None):
                     "active_in_marketing": max(0, ref_count * 2),
                     "team_total": team_stats.get("total_team", 0),
                     "is_banned": user.get("is_banned", 0),
-                    "is_admin": (uid in ADMINS),
+                    "is_admin": (uid in ADMINS or target_stats_uid in ADMINS),
                     "multi_tier": team_stats,
                     "wallets": {
                         "bep20": user.get("wallet_bep20", ""),
@@ -171,10 +185,14 @@ async def start_webapp_server(bot: Bot = None):
                 return web.json_response({"success": False, "error": "user_id missing"}, status=400)
             uid = int(user_id_param)
             username = request.query.get("username", "")
-            if username:
-                await db.resolve_and_sync_user(uid, username=username)
-            tree = await db.get_user_tree(uid)
-            return web.json_response({"success": True, "tree": tree, "is_admin": (uid in ADMINS)})
+
+            await db.resolve_and_sync_user(uid, username=username)
+
+            effective_uid = await db.get_effective_user_id(uid)
+            target_tree_uid = effective_uid if effective_uid else uid
+
+            tree = await db.get_user_tree(target_tree_uid)
+            return web.json_response({"success": True, "tree": tree, "is_admin": (uid in ADMINS or target_tree_uid in ADMINS)})
         except Exception as e:
             logger.error(f"Error in get_user_tree_api: {e}", exc_info=True)
             return web.json_response({"success": False, "error": str(e)}, status=500)
