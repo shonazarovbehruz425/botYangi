@@ -23,7 +23,8 @@ let userState = {
   multiTier: { level_1: 0, level_2: 0, level_3: 0, total_team: 0 },
   wallets: { bep20: "", card: "", trc20: "", payeer: "" },
   isAdmin: false,
-  botUsername: "Buyukhayot_bot"
+  botUsername: "Buyukhayot_bot",
+  isNotRegistered: false
 };
 
 // ==========================================
@@ -688,12 +689,86 @@ function formatSom(amount) {
   return n.toLocaleString('uz-UZ') + " so'm";
 }
 
+function renderNotRegisteredScreen() {
+  userState.isNotRegistered = true;
+  const botUser = userState.botUsername || "Buyukhayot_bot";
+
+  if (typeof otpAutoPollTimer !== 'undefined' && otpAutoPollTimer) {
+    clearInterval(otpAutoPollTimer);
+  }
+
+  document.body.innerHTML = `
+    <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px 20px; background: radial-gradient(circle at 50% 20%, #0f3d26 0%, #071710 70%, #030a06 100%); color: #fff; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; box-sizing: border-box;">
+      <div style="width: 80px; height: 80px; border-radius: 24px; background: rgba(34, 197, 94, 0.12); border: 2px solid rgba(34, 197, 94, 0.35); display: flex; align-items: center; justify-content: center; font-size: 38px; margin-bottom: 24px; box-shadow: 0 0 35px rgba(34, 197, 94, 0.25);">
+        🔒
+      </div>
+
+      <h2 style="font-size: 22px; font-weight: 800; margin: 0 0 10px 0; background: linear-gradient(135deg, #ffffff 40%, #86efac); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        Ro'yxatdan o'tish talab etiladi
+      </h2>
+
+      <p style="color: #94a3b8; font-size: 14.5px; line-height: 1.6; max-width: 320px; margin: 0 0 28px 0;">
+        Hurmatli foydalanuvchi! Mini App va shaxsiy kabinetingizdan foydalanish uchun avval <b>@${botUser}</b> orqali ro'yxatdan o'tishingiz kerak.
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 300px;">
+        <button onclick="openTelegramBotRegister()" style="width: 100%; padding: 15px 20px; background: linear-gradient(135deg, #16a34a, #15803d); border: 1px solid #4ade80; border-radius: 14px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 20px rgba(34, 197, 94, 0.35); transition: transform 0.15s; display: flex; align-items: center; justify-content: center; gap: 10px;">
+          <span>🤖</span>
+          <span>Botda Ro'yxatdan o'tish</span>
+        </button>
+
+        <button onclick="closeMiniApp()" style="width: 100%; padding: 13px 20px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 14px; color: #cbd5e1; font-size: 14px; font-weight: 600; cursor: pointer;">
+          Ilovani yopish
+        </button>
+      </div>
+
+      <div style="margin-top: 32px; font-size: 12px; color: rgba(255, 255, 255, 0.35);">
+        BUYUK HAYOTGA YO'L &bull; 2026
+      </div>
+    </div>
+  `;
+}
+
+function renderBannedScreen() {
+  document.body.innerHTML = `
+    <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px 20px; background: radial-gradient(circle at 50% 20%, #3f1010 0%, #1a0808 70%, #0d0303 100%); color: #fff; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; box-sizing: border-box;">
+      <div style="width: 80px; height: 80px; border-radius: 24px; background: rgba(239, 68, 68, 0.12); border: 2px solid rgba(239, 68, 68, 0.35); display: flex; align-items: center; justify-content: center; font-size: 38px; margin-bottom: 24px;">
+        ⛔️
+      </div>
+      <h2 style="font-size: 22px; font-weight: 800; color: #ef4444; margin-bottom: 12px;">Hisobingiz Bloklangan</h2>
+      <p style="color: #94a3b8; font-size: 14.5px; line-height: 1.6; max-width: 320px; margin-bottom: 24px;">Qoidabuzarlik sababli sizning profil cheklangan. Adminga murojaat qiling.</p>
+      <button onclick="closeMiniApp()" style="padding: 13px 28px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 14px; color: #cbd5e1; font-size: 14px; font-weight: 600; cursor: pointer;">
+        Ilovani yopish
+      </button>
+    </div>
+  `;
+}
+
+function openTelegramBotRegister() {
+  const botUser = userState.botUsername || "Buyukhayot_bot";
+  const link = `https://t.me/${botUser}?start=app`;
+  if (tg && typeof tg.openTelegramLink === 'function') {
+    tg.openTelegramLink(link);
+  } else {
+    window.location.href = link;
+  }
+}
+
+function closeMiniApp() {
+  if (tg && typeof tg.close === 'function') {
+    tg.close();
+  } else {
+    window.close();
+  }
+}
+
 // Fetch Real Live Data from Server for this User
 function fetchLiveUserData() {
   detectTelegramUser();
 
   if (!userState.id) {
-    updateUI();
+    userState.isNotRegistered = true;
+    renderNotRegisteredScreen();
     return;
   }
 
@@ -706,6 +781,21 @@ function fetchLiveUserData() {
   fetch(`/api/user/profile?user_id=${userState.id}&username=${unameParam}&first_name=${fnParam}&last_name=${lnParam}`)
     .then(res => res.json())
     .then(data => {
+      // 1. Check if user is banned
+      if (data.is_banned === 1 || (data.user && data.user.is_banned === 1)) {
+        renderBannedScreen();
+        return;
+      }
+
+      // 2. Check if user is not registered in bot
+      if (data.registered === false || data.error === 'not_registered' || (!data.user && !data.is_admin)) {
+        userState.isNotRegistered = true;
+        renderNotRegisteredScreen();
+        return;
+      }
+
+      userState.isNotRegistered = false;
+
       if (data.success && data.user) {
         const u = data.user;
         // Always keep Telegram name if server returns generic placeholder
@@ -734,17 +824,6 @@ function fetchLiveUserData() {
           balance: u.balance || 0,
           total_earned: userState.income
         });
-
-        // Check if user is banned
-        if (u.is_banned === 1) {
-          document.body.innerHTML = `
-            <div style="padding: 40px 20px; text-align: center; color: #fff; font-family: sans-serif;">
-              <h2 style="color: #ef4444; margin-bottom: 12px;">⛔️ Hisobingiz Bloklangan</h2>
-              <p style="color: #94a3b8; font-size: 14px;">Qoidabuzarlik sababli sizning profil cheklangan. Adminga murojaat qiling.</p>
-            </div>
-          `;
-          return;
-        }
       }
       updateUI();
     })
@@ -1876,33 +1955,37 @@ function closeModal(modalId) {
 
 // Load Tree Data from Database API
 function loadUserTree(retryCount) {
+  if (userState.isNotRegistered) {
+    renderNotRegisteredScreen();
+    return;
+  }
+
   const loadingOverlay = document.getElementById('canvas-loading-overlay');
   if (loadingOverlay) loadingOverlay.style.display = 'none';
 
   detectTelegramUser();
   const targetUid = userState.id || 0;
-
-  const fallbackTree = {
-    user_id: userState.id || 10475,
-    first_name: userState.first_name || 'Siz',
-    last_name: userState.last_name || '',
-    username: userState.username || '',
-    current_level: Math.max(1, parseInt(userState.level || 1, 10)),
-    children: []
-  };
-
-  // Immediate default render if no canvasRoot yet
-  if (!canvasRoot) {
-    canvasRoot = buildCanvasTree(fallbackTree, 0, null);
-    attachCanvasListeners();
-    renderCanvasTree();
-    fitToScreen();
+  if (!targetUid) {
+    userState.isNotRegistered = true;
+    renderNotRegisteredScreen();
+    return;
   }
 
   const unameParam = encodeURIComponent(userState.username || tg?.initDataUnsafe?.user?.username || '');
   fetch(`/api/user/tree?user_id=${targetUid}&username=${unameParam}`)
     .then(res => res.json())
     .then(d => {
+      if (d.registered === false || d.error === 'not_registered') {
+        userState.isNotRegistered = true;
+        renderNotRegisteredScreen();
+        return;
+      }
+
+      if (d.is_banned === 1 || d.error === 'banned') {
+        renderBannedScreen();
+        return;
+      }
+
       if (d.is_admin !== undefined) {
         userState.isAdmin = Boolean(d.is_admin);
       }

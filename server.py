@@ -92,29 +92,13 @@ async def start_webapp_server(bot: Bot = None):
             if not user and effective_uid:
                 user = await db.get_user(effective_uid)
 
-            if not user:
+            if not user and uid not in ADMINS:
                 return web.json_response({
                     "success": True,
                     "registered": False,
-                    "user": {
-                        "user_id": uid,
-                        "first_name": first_name or "Hamkor",
-                        "last_name": last_name or "",
-                        "username": username or "",
-                        "current_level": 1,
-                        "balance": 0.0,
-                        "total_earned": 0.0,
-                        "status": "🌱 Boshlang'ich",
-                        "registered_at": "-",
-                        "referrer_name": "Tizim",
-                        "direct_referrals": 0,
-                        "active_in_marketing": 0,
-                        "team_total": 0,
-                        "is_banned": 0,
-                        "is_admin": (uid in ADMINS),
-                        "multi_tier": {"level_1": 0, "level_2": 0, "level_3": 0, "total_team": 0},
-                        "wallets": {"bep20": "", "card": "", "trc20": "", "payeer": ""}
-                    }
+                    "error": "not_registered",
+                    "message": "Foydalanuvchi botdan ro'yxatdan o'tmagan",
+                    "user": None
                 })
 
             target_stats_uid = effective_uid if effective_uid else uid
@@ -186,9 +170,26 @@ async def start_webapp_server(bot: Bot = None):
             uid = int(user_id_param)
             username = request.query.get("username", "")
 
+            # Check if user is banned or deleted
+            block_info = await db.is_user_banned_or_deleted(uid)
+            if block_info:
+                return web.json_response({"success": False, "error": "banned", "is_banned": 1}, status=403)
+
             await db.resolve_and_sync_user(uid, username=username)
 
+            user = await db.get_user(uid)
             effective_uid = await db.get_effective_user_id(uid)
+            if not user and effective_uid:
+                user = await db.get_user(effective_uid)
+
+            if not user and uid not in ADMINS:
+                return web.json_response({
+                    "success": False,
+                    "registered": False,
+                    "error": "not_registered",
+                    "message": "Foydalanuvchi botdan ro'yxatdan o'tmagan"
+                }, status=403)
+
             target_tree_uid = effective_uid if effective_uid else uid
 
             tree = await db.get_user_tree(target_tree_uid)
