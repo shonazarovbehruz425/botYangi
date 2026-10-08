@@ -443,6 +443,7 @@
           <span>⚡️ Tezkor Amallar</span>
         </div>
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <button class="btn btn-green" onclick="promptQuickImpersonate()">📱 Foydalanuvchi Mini Appiga Kirish</button>
           <button class="btn btn-gold" onclick="switchTab('tab-broadcast')">📢 Barchaga Xabar Yuborish</button>
           <button class="btn btn-green" onclick="postStatsToChannel()">🚀 Kanalga Kunlik Hisobot Postini Chiqarish</button>
           <button class="btn btn-blue" onclick="switchTab('tab-levels')">⚙️ Marketing Narxlarini Sozlash</button>
@@ -457,6 +458,9 @@
           <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <span>👥 Barcha Foydalanuvchilar Ro'yxati</span>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-green" onclick="promptQuickImpersonate()" title="Ixtiyoriy a'zoning Mini App akkauntiga real kirish" style="padding: 7px 14px; font-size: 12.5px; background: rgba(34,197,94,0.2); border: 1px solid #22c55e; color: #4ade80;">
+                📱 Akkauntga kirish
+              </button>
               <button type="button" class="btn btn-gold" onclick="executeAdminSyncReplacements()" title="Almashtirilgan a'zolarning daraja, balans, daromad va strukturalarini sinxronlash" style="padding: 7px 14px; font-size: 12.5px;">
                 🔄 Sinxronlash
               </button>
@@ -564,6 +568,7 @@
                 <th>Taklif Qilgan A'zolari</th>
                 <th>Daraja</th>
                 <th>Umumiy Daromad</th>
+                <th>Amal</th>
               </tr>
             </thead>
             <tbody id="leaders-table-body"></tbody>
@@ -793,7 +798,14 @@
         <label>USDT (BEP20):</label>
         <input type="text" id="edit-bep20" class="form-control">
       </div>
-      <button class="btn btn-gold" style="width: 100%; justify-content: center; margin-top: 10px;" onclick="saveUserEdit()">Saqlash</button>
+      <div style="display: flex; gap: 10px; margin-top: 10px;">
+        <button type="button" class="btn btn-green" style="flex: 1; justify-content: center; background: rgba(34,197,94,0.2); border: 1px solid #22c55e; color: #4ade80;" onclick="openImpersonateFromEdit()">
+          📱 Mini Appga Kirish
+        </button>
+        <button type="button" class="btn btn-gold" style="flex: 1; justify-content: center;" onclick="saveUserEdit()">
+          💾 Saqlash
+        </button>
+      </div>
     </div>
   </div>
 
@@ -951,6 +963,49 @@
 
       <div id="tree-content" style="font-size: 13px; overflow-y: auto; flex: 1; padding-right: 4px;">
         <div style="text-align:center; color: var(--text-muted); padding: 24px;">⏳ Yuklanmoqda...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: IMPERSONATE USER MINI APP -->
+  <div class="modal-overlay" id="impersonate-modal">
+    <div class="modal-card" style="width: 440px; max-width: 95vw; max-height: 94vh; display: flex; flex-direction: column; padding: 18px 20px; background: #0c0f0d; border: 1.5px solid var(--border-gold); box-shadow: 0 20px 50px rgba(0,0,0,0.85); border-radius: 24px;">
+      
+      <!-- Modal Header -->
+      <div class="modal-header" style="flex-shrink: 0; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <h3 style="color: var(--gold-light); font-size: 17px; margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>📱</span> Mini App Akkaunti
+            </h3>
+            <span id="imp-modal-badge" class="badge badge-gold" style="font-size: 11px;">Faol</span>
+          </div>
+          <div id="imp-modal-user-meta" style="font-size: 12.5px; color: #94a3b8; margin-top: 4px; font-weight: 600;">
+            Yuklanmoqda...
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" class="btn btn-outline" onclick="openCurrentImpInNewTab()" title="Yangi to'liq oynada ochish" style="padding: 5px 9px; font-size: 12px; border-color: rgba(250,204,21,0.4); color: #fde047;">
+            ↗️ Ochish
+          </button>
+          <button type="button" class="btn btn-outline" onclick="refreshImpersonateIframe()" title="Qayta yuklash" style="padding: 5px 9px; font-size: 12px;">
+            🔄
+          </button>
+          <button class="close-modal" onclick="closeModal('impersonate-modal')" style="background:none; border:none; color:#cbd5e1; font-size:22px; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+      </div>
+
+      <!-- Quick Switch Bar -->
+      <div style="flex-shrink: 0; display: flex; gap: 6px; margin-bottom: 12px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 6px 8px;">
+        <input type="text" id="imp-quick-input" class="form-control" placeholder="Boshqa ID yoki @username kiriting..." style="font-size: 12px; padding: 6px 10px; flex: 1;" onkeydown="if(event.key==='Enter') executeQuickSwitchImpersonate()">
+        <button type="button" class="btn btn-gold" onclick="executeQuickSwitchImpersonate()" style="padding: 6px 12px; font-size: 12px; font-weight: 700; white-space: nowrap;">
+          🔍 O'tish
+        </button>
+      </div>
+
+      <!-- Smartphone Frame Container -->
+      <div style="flex: 1; min-height: 560px; height: 68vh; border: 3px solid rgba(250, 204, 21, 0.35); border-radius: 24px; overflow: hidden; background: #000; position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.5);">
+        <iframe id="impersonate-iframe" src="about:blank" style="width: 100%; height: 100%; border: none; background: #000; display: block;" allow="clipboard-write"></iframe>
       </div>
     </div>
   </div>
@@ -1171,6 +1226,7 @@
             <td>${banBadge}</td>
             <td>
               <div style="display: flex; gap: 6px;">
+                <button class="btn btn-green" style="padding: 4px 8px; background: rgba(34,197,94,0.18); border: 1px solid #22c55e; color: #86efac;" onclick="openImpersonateModal(${u.user_id}, '${name.replace(/'/g, "\\'")}', '${u.username || ''}')" title="Mini Appdagi real akkauntiga kirish">📱</button>
                 <button class="btn btn-outline" style="padding: 4px 8px;" onclick="openEditModal(${u.user_id})" title="Tahrirlash">✏️</button>
                 <button class="btn btn-blue" style="padding: 4px 8px;" onclick="openTreeModal(${u.user_id}, '${name.replace(/'/g, "\\'")}')" title="Shajarani ko'rish">🌳</button>
                 <button class="btn btn-gold" style="padding: 4px 8px;" onclick="openRefModal(${u.user_id}, '${name.replace(/'/g, "\\'")}', ${u.referrer_id || 0})" title="Kuratorni o'zgartirish">🔄</button>
@@ -1668,6 +1724,9 @@
                   ⬆️ Kuratorga
                 </button>
               ` : ''}
+              <button class="btn btn-green" style="padding: 3px 6px; font-size: 11px; background: rgba(34,197,94,0.2); border: 1px solid #22c55e; color: #4ade80;" title="Mini Appdagi real akkauntiga kirish" onclick="openImpersonateModal(${node.user_id}, '${fullName.replace(/'/g,"\\'")}', '${(node.username||'').replace(/'/g,"\\'")}')">
+                📱
+              </button>
               <button class="tree-edit-btn" title="Almashtirish yoki Kuratorni o'zgartirish" onclick="openRefModal(${node.user_id}, '${fullName.replace(/'/g,"\\'")}', ${node.referrer_id || parentId || 0}, '${(node.username||'').replace(/'/g,"\\'")}', ${lvl})">
                 ⚙️
               </button>
@@ -1820,20 +1879,26 @@
         .then(d => {
           const tbody = document.getElementById('leaders-table-body');
           if (!d.leaders || !d.leaders.length) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Ma\'lumot yo\'q</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Ma\'lumot yo\'q</td></tr>';
             return;
           }
           tbody.innerHTML = d.leaders.map((l, i) => {
             const medal = i === 0 ? '🥇 #1' : (i === 1 ? '🥈 #2' : (i === 2 ? '🥉 #3' : `#${i+1}`));
+            const lName = `${l.first_name || ''} ${l.last_name || ''}`.trim() || 'Lider';
             return `
               <tr>
                 <td><b>${medal}</b></td>
                 <td><code>${l.user_id}</code></td>
-                <td><b>${l.first_name} ${l.last_name}</b></td>
+                <td><b>${lName}</b></td>
                 <td><span style="color: var(--blue);">@${l.username || '-'}</span></td>
                 <td><span class="badge badge-gold" style="font-size: 13px;">${l.direct_count} ta hamkor</span></td>
                 <td>${l.current_level || 1}-Daraja</td>
                 <td><b>${Number(l.total_earned || 0).toLocaleString('uz-UZ')} so'm</b></td>
+                <td>
+                  <button class="btn btn-green" style="padding: 3px 8px; font-size: 11px; background: rgba(34,197,94,0.18); border: 1px solid #22c55e; color: #86efac;" onclick="openImpersonateModal(${l.user_id}, '${lName.replace(/'/g, "\\'")}', '${l.username || ''}')" title="Mini Appdagi real akkauntiga kirish">
+                    📱 Kirish
+                  </button>
+                </td>
               </tr>
             `;
           }).join('');
@@ -2366,6 +2431,9 @@
             <td>${dateHtml}</td>
             <td>
               <div style="display: flex; gap: 6px;">
+                <button class="btn btn-green" style="padding: 4px 8px; background: rgba(34,197,94,0.18); border: 1px solid #22c55e; color: #86efac;" onclick="openImpersonateModal(${u.user_id}, '${name.replace(/'/g, "\\'")}', '${u.username || ''}')" title="Mini Appdagi holatini ko'rish">
+                  📱
+                </button>
                 <button class="btn btn-green" style="padding: 4px 10px; font-size: 11.5px;" onclick="restoreBannedDeletedUser(${u.user_id}, '${u.type}')" title="${isBanned ? 'Blokdan chiqarish' : 'Qora ro\'yxatdan tiklash'}">
                   🔄 Tiklash
                 </button>
@@ -2427,8 +2495,111 @@
       });
     }
 
+    // ====== IMPERSONATE (REAL USER MINI APP ACCESS) ======
+    let currentImpersonateUserId = 0;
+
+    function openImpersonateModal(userId, name, username) {
+      currentImpersonateUserId = Number(userId);
+      const u = allUsers.find(x => Number(x.user_id) === Number(userId));
+      const dispName = name || (u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() : '') || `ID: ${userId}`;
+      const dispUname = username || (u && u.username ? `@${u.username}` : '');
+      const lvl = u ? (u.current_level || 1) : 1;
+      const isBanned = u ? u.is_banned === 1 : false;
+
+      const metaEl = document.getElementById('imp-modal-user-meta');
+      if (metaEl) {
+        metaEl.innerHTML = `👤 <b>${dispName}</b> ${dispUname ? `<span style="color:var(--blue); font-weight:700;">${dispUname}</span>` : ''} &bull; 🆔 <code>${userId}</code> &bull; 🎖 ${lvl}-Daraja`;
+      }
+
+      const badgeEl = document.getElementById('imp-modal-badge');
+      if (badgeEl) {
+        if (isBanned) {
+          badgeEl.className = 'badge badge-banned';
+          badgeEl.innerText = 'Bloklangan';
+        } else {
+          badgeEl.className = 'badge badge-gold';
+          badgeEl.innerText = `${lvl}-Daraja`;
+        }
+      }
+
+      const inputEl = document.getElementById('imp-quick-input');
+      if (inputEl) inputEl.value = '';
+
+      const iframe = document.getElementById('impersonate-iframe');
+      if (iframe) {
+        iframe.src = `/?impersonate=${userId}&admin=1&t=${Date.now()}`;
+      }
+
+      document.getElementById('impersonate-modal').classList.add('active');
+    }
+
+    function openCurrentImpInNewTab() {
+      if (currentImpersonateUserId > 0) {
+        window.open(`/?impersonate=${currentImpersonateUserId}&admin=1`, '_blank');
+      }
+    }
+
+    function refreshImpersonateIframe() {
+      const iframe = document.getElementById('impersonate-iframe');
+      if (iframe && currentImpersonateUserId > 0) {
+        iframe.src = `/?impersonate=${currentImpersonateUserId}&admin=1&t=${Date.now()}`;
+      }
+    }
+
+    function executeQuickSwitchImpersonate() {
+      const query = (document.getElementById('imp-quick-input').value || '').trim();
+      if (!query) {
+        alert("⚠️ Iltimos, foydalanuvchi ID yoki @username kiriting!");
+        return;
+      }
+      promptQuickImpersonate(query);
+    }
+
+    function promptQuickImpersonate(presetQuery) {
+      const query = presetQuery || prompt("Foydalanuvchi Telegram ID si yoki @username ini kiriting:");
+      if (!query) return;
+
+      const clean = query.trim().replace('@', '');
+      const target = allUsers.find(u => 
+        String(u.user_id) === clean || 
+        (u.username && u.username.toLowerCase() === clean.toLowerCase()) ||
+        (u.phone && u.phone.includes(clean))
+      );
+
+      if (target) {
+        const tName = `${target.first_name || ''} ${target.last_name || ''}`.trim() || 'Hamkor';
+        openImpersonateModal(target.user_id, tName, target.username);
+      } else if (!isNaN(clean) && Number(clean) > 0) {
+        openImpersonateModal(Number(clean), `Foydalanuvchi ${clean}`, '');
+      } else {
+        alert(`❌ "${query}" bo'yicha foydalanuvchi topilmadi!`);
+      }
+    }
+
+    function openImpersonateFromEdit() {
+      const uid = Number(document.getElementById('edit-uid').value);
+      if (uid > 0) {
+        const fname = document.getElementById('edit-fname').value;
+        const lname = document.getElementById('edit-lname').value;
+        const uname = document.getElementById('edit-uname').value;
+        closeModal('edit-user-modal');
+        openImpersonateModal(uid, `${fname} ${lname}`.trim(), uname);
+      }
+    }
+
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.action === 'closeImpersonate') {
+        closeModal('impersonate-modal');
+      }
+    });
+
     function closeModal(id) {
-      document.getElementById(id).classList.remove('active');
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('active');
+      if (id === 'impersonate-modal') {
+        const iframe = document.getElementById('impersonate-iframe');
+        if (iframe) iframe.src = 'about:blank';
+      }
     }
   </script>
 </body>

@@ -24,7 +24,9 @@ let userState = {
   wallets: { bep20: "", card: "", trc20: "", payeer: "" },
   isAdmin: false,
   botUsername: "Buyukhayot_bot",
-  isNotRegistered: false
+  isNotRegistered: false,
+  isImpersonating: false,
+  impersonatedUserId: 0
 };
 
 // ==========================================
@@ -73,6 +75,40 @@ function ensureAccountInSaved(acc) {
 
 // Robust user extraction from Telegram WebApp, URL params, hash, or local cache
 function detectTelegramUser() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const impersonateParam = urlParams.get('impersonate') || urlParams.get('view_as') || urlParams.get('admin_impersonate');
+  const storedImpersonate = sessionStorage.getItem('bh_impersonate_user_id');
+
+  let activeImpId = 0;
+  if (impersonateParam && !isNaN(impersonateParam) && Number(impersonateParam) > 0) {
+    activeImpId = Number(impersonateParam);
+    sessionStorage.setItem('bh_impersonate_user_id', String(activeImpId));
+  } else if (storedImpersonate && !isNaN(storedImpersonate) && Number(storedImpersonate) > 0) {
+    activeImpId = Number(storedImpersonate);
+  }
+
+  if (activeImpId > 0) {
+    if (tg?.initDataUnsafe?.user?.id) {
+      sessionStorage.setItem('bh_admin_orig_id', String(tg.initDataUnsafe.user.id));
+    }
+    userState.isImpersonating = true;
+    userState.impersonatedUserId = activeImpId;
+    userState.id = activeImpId;
+    userState.isNotRegistered = false;
+    localStorage.setItem('bh_active_account_id', String(activeImpId));
+    sessionStorage.setItem('bh_user_id', String(activeImpId));
+
+    const list = getSavedAccounts();
+    const matchedAcc = list.find(a => Number(a.id) === activeImpId);
+    if (matchedAcc) {
+      userState.first_name = matchedAcc.first_name || userState.first_name;
+      userState.last_name = matchedAcc.last_name || "";
+      userState.username = matchedAcc.username || "";
+      if (matchedAcc.level) userState.level = matchedAcc.level;
+    }
+    return;
+  }
+
   let detectedTgId = 0;
   let detectedUser = null;
 
@@ -90,7 +126,6 @@ function detectTelegramUser() {
   }
 
   // 2. Query parameters (?user_id=123 or ?uid=123 or ?tgWebAppStartParam=123)
-  const urlParams = new URLSearchParams(window.location.search);
   const qId = urlParams.get('user_id') || urlParams.get('uid') || urlParams.get('tgWebAppStartParam');
   if (qId && !isNaN(qId) && Number(qId) > 0) {
     if (!detectedTgId) {
@@ -762,6 +797,84 @@ function closeMiniApp() {
   }
 }
 
+function renderImpersonationBanner(u) {
+  let bar = document.getElementById('admin-impersonation-bar');
+  const uName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Foydalanuvchi';
+  const uHandle = u.username ? `@${u.username}` : `ID: ${u.user_id}`;
+  const isBannedHtml = u.is_banned === 1 ? ' <span style="background:#ef4444; color:#fff; font-size:10px; padding:2px 6px; border-radius:6px; font-weight:800; margin-left:4px;">BLOKLANGAN</span>' : '';
+
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'admin-impersonation-bar';
+    bar.style.cssText = `
+      position: sticky; top: 0; left: 0; right: 0; z-index: 999999;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border-bottom: 2px solid #facc15;
+      padding: 9px 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+      font-family: 'Plus Jakarta Sans', sans-serif; color: #fff;
+      box-sizing: border-box;
+    `;
+    document.body.prepend(bar);
+  }
+
+  bar.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+      <span style="font-size: 18px; line-height: 1; flex-shrink: 0;">👑</span>
+      <div style="display: flex; flex-direction: column; min-width: 0; overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; color: #facc15; text-transform: uppercase; letter-spacing: 0.5px;">
+          <span>Admin Ko'rigi (Real Akkaunt)</span>${isBannedHtml}
+        </div>
+        <div style="font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f8fafc;">
+          <b>${uName}</b> <span style="color: #38bdf8; font-weight: 600;">(${uHandle})</span> &bull; <span style="color: #4ade80;">ID: ${u.user_id}</span>
+        </div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+      <button onclick="fetchLiveUserData()" title="Yangilash" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); color: #cbd5e1; padding: 5px 8px; border-radius: 8px; font-size: 12px; cursor: pointer;">
+        🔄
+      </button>
+      <button onclick="exitImpersonation()" style="background: linear-gradient(135deg, #eab308, #ca8a04); border: 1px solid #facc15; color: #000; padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px; white-space: nowrap;">
+        ↩️ Chiqish
+      </button>
+    </div>
+  `;
+}
+
+function exitImpersonation() {
+  sessionStorage.removeItem('bh_impersonate_user_id');
+  userState.isImpersonating = false;
+  userState.impersonatedUserId = 0;
+
+  const origId = sessionStorage.getItem('bh_admin_orig_id');
+  if (origId && Number(origId) > 0) {
+    localStorage.setItem('bh_active_account_id', origId);
+    sessionStorage.setItem('bh_user_id', origId);
+    sessionStorage.removeItem('bh_admin_orig_id');
+  }
+
+  const bar = document.getElementById('admin-impersonation-bar');
+  if (bar) bar.remove();
+
+  // If inside an iframe (e.g. in admin panel modal)
+  if (window.parent && window.parent !== window) {
+    try {
+      window.parent.postMessage({ action: 'closeImpersonate' }, '*');
+      return;
+    } catch(e) {}
+  }
+
+  // If opened in separate window
+  if (window.opener && !window.opener.closed) {
+    window.close();
+    return;
+  }
+
+  // Redirect to admin panel
+  window.location.href = '/admin.html';
+}
+
 // Fetch Real Live Data from Server for this User
 function fetchLiveUserData() {
   detectTelegramUser();
@@ -778,17 +891,20 @@ function fetchLiveUserData() {
   const unameParam = encodeURIComponent(userState.username || tg?.initDataUnsafe?.user?.username || '');
   const fnParam = encodeURIComponent(userState.first_name || tg?.initDataUnsafe?.user?.first_name || '');
   const lnParam = encodeURIComponent(userState.last_name || tg?.initDataUnsafe?.user?.last_name || '');
-  fetch(`/api/user/profile?user_id=${userState.id}&username=${unameParam}&first_name=${fnParam}&last_name=${lnParam}`)
+  const adminParam = userState.isImpersonating ? '&admin=1' : '';
+  fetch(`/api/user/profile?user_id=${userState.id}&username=${unameParam}&first_name=${fnParam}&last_name=${lnParam}${adminParam}`)
     .then(res => res.json())
     .then(data => {
       // 1. Check if user is banned
       if (data.is_banned === 1 || (data.user && data.user.is_banned === 1)) {
-        renderBannedScreen();
-        return;
+        if (!userState.isImpersonating) {
+          renderBannedScreen();
+          return;
+        }
       }
 
       // 2. Check if user is not registered in bot
-      if (data.registered === false || data.error === 'not_registered' || (!data.user && !data.is_admin)) {
+      if ((data.registered === false || data.error === 'not_registered' || (!data.user && !data.is_admin)) && !userState.isImpersonating) {
         userState.isNotRegistered = true;
         renderNotRegisteredScreen();
         return;
@@ -824,6 +940,10 @@ function fetchLiveUserData() {
           balance: u.balance || 0,
           total_earned: userState.income
         });
+
+        if (userState.isImpersonating) {
+          renderImpersonationBanner(u);
+        }
       }
       updateUI();
     })
@@ -1972,16 +2092,17 @@ function loadUserTree(retryCount) {
   }
 
   const unameParam = encodeURIComponent(userState.username || tg?.initDataUnsafe?.user?.username || '');
-  fetch(`/api/user/tree?user_id=${targetUid}&username=${unameParam}`)
+  const adminParam = userState.isImpersonating ? '&admin=1' : '';
+  fetch(`/api/user/tree?user_id=${targetUid}&username=${unameParam}${adminParam}`)
     .then(res => res.json())
     .then(d => {
-      if (d.registered === false || d.error === 'not_registered') {
+      if ((d.registered === false || d.error === 'not_registered') && !userState.isImpersonating) {
         userState.isNotRegistered = true;
         renderNotRegisteredScreen();
         return;
       }
 
-      if (d.is_banned === 1 || d.error === 'banned') {
+      if ((d.is_banned === 1 || d.error === 'banned') && !userState.isImpersonating) {
         renderBannedScreen();
         return;
       }
