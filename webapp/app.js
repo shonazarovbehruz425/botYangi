@@ -1160,8 +1160,8 @@ const CANVAS_NODE_GAP  = 26;
 const CANVAS_LEVEL_H   = 128;
 const CANVAS_MIN_LEAF_W = CANVAS_NODE_W + CANVAS_NODE_GAP;
 const CANVAS_CARD_H    = 64;
-const ZOOM_MIN         = 0.35;
-const ZOOM_MAX         = 2.2;
+const ZOOM_MIN         = 0.12;
+const ZOOM_MAX         = 3.0;
 
 let canvasRoot = null;
 let flatIndex = [];
@@ -1203,7 +1203,7 @@ function buildCanvasTree(apiNode, level = 0, parent = null) {
     registered_at: apiNode.registered_at || '',
     total_earned: apiNode.total_earned || 0,
     status: apiNode.status || "🌱 Boshlang'ich",
-    expanded: level < 2 // Expand root and 1st level by default for clean presentation
+    expanded: true // Expand full tree by default so all 127 members are visible
   };
 
   flatIndex.push(node);
@@ -1294,10 +1294,16 @@ function makeNodeEl(node) {
     const dot = document.createElement('div');
     dot.className = 'expand-dot';
     dot.textContent = node.expanded ? '−' : '+';
+    dot.title = node.expanded ? "Filialni yig'ish" : "Filialni ochish";
+    dot.addEventListener('click', (e) => {
+      e.stopPropagation();
+      node.expanded = !node.expanded;
+      renderCanvasTree();
+    });
     el.appendChild(dot);
   }
 
-  el.addEventListener('click', (e) => {
+  card.addEventListener('click', (e) => {
     e.stopPropagation();
     onCanvasNodeClick(node);
   });
@@ -1365,9 +1371,6 @@ function drawCanvasLinks() {
 }
 
 function onCanvasNodeClick(node) {
-  if (node.children.length) {
-    node.expanded = !node.expanded;
-  }
   selectedUid = node.uid;
   renderCanvasTree();
   openMemberDetails(node.user_id || node.uid, node);
