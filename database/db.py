@@ -486,13 +486,13 @@ class Database:
             if not clean_uname and user_data and user_data.get("username"):
                 clean_uname = str(user_data["username"]).strip().lstrip("@").lower()
 
-            # 2. Find ALL pseudo/placeholder records (user_id >= 900000000) that match username, phone, or links
+            # 2. Find ALL pseudo/placeholder records (900000000 <= user_id <= 999999999) that match username, phone, or links
             pseudo_records = []
             if clean_uname:
                 cursor = await db.execute(
                     """
                     SELECT * FROM users 
-                    WHERE user_id >= 900000000 AND user_id != ? AND (
+                    WHERE (user_id >= 900000000 AND user_id <= 999999999) AND user_id != ? AND (
                         LOWER(username) = ? OR REPLACE(LOWER(username), '@', '') = ?
                     )
                     ORDER BY current_level DESC, balance DESC, user_id DESC
@@ -507,7 +507,7 @@ class Database:
                 cursor = await db.execute(
                     """
                     SELECT * FROM users 
-                    WHERE user_id >= 900000000 AND user_id != ? AND phone != '' AND (
+                    WHERE (user_id >= 900000000 AND user_id <= 999999999) AND user_id != ? AND phone != '' AND (
                         phone = ? 
                         OR REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', '') = ?
                     )
@@ -521,11 +521,11 @@ class Database:
                     if p_dict["user_id"] not in [x["user_id"] for x in pseudo_records]:
                         pseudo_records.append(p_dict)
 
-            # Also check if any pseudo ID >= 900000000 is explicitly linked in replacements or linked_accounts
+            # Also check if any pseudo ID is explicitly linked in replacements or linked_accounts
             cursor = await db.execute(
                 """
                 SELECT u.* FROM users u
-                WHERE u.user_id >= 900000000 AND u.user_id != ? AND (
+                WHERE (u.user_id >= 900000000 AND u.user_id <= 999999999) AND u.user_id != ? AND (
                     u.user_id IN (SELECT linked_id FROM linked_accounts WHERE owner_id = ?)
                     OR u.user_id IN (SELECT owner_id FROM linked_accounts WHERE linked_id = ?)
                     OR u.user_id IN (SELECT target_id FROM account_link_otps WHERE requester_id = ?)
@@ -547,7 +547,7 @@ class Database:
             rep_tuples = await cursor.fetchall()
             for r_old, r_new in rep_tuples:
                 for candidate_id in (r_old, r_new):
-                    if candidate_id and int(candidate_id) >= 900000000 and int(candidate_id) != user_id:
+                    if candidate_id and 900000000 <= int(candidate_id) <= 999999999 and int(candidate_id) != user_id:
                         p_cur = await db.execute("SELECT * FROM users WHERE user_id = ?", (candidate_id,))
                         p_row = await p_cur.fetchone()
                         if p_row:
