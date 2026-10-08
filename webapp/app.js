@@ -83,8 +83,12 @@ function detectTelegramUser() {
   if (impersonateParam && !isNaN(impersonateParam) && Number(impersonateParam) > 0) {
     activeImpId = Number(impersonateParam);
     sessionStorage.setItem('bh_impersonate_user_id', String(activeImpId));
-  } else if (storedImpersonate && !isNaN(storedImpersonate) && Number(storedImpersonate) > 0) {
+  } else if (!tg?.initDataUnsafe?.user?.id && storedImpersonate && !isNaN(storedImpersonate) && Number(storedImpersonate) > 0) {
     activeImpId = Number(storedImpersonate);
+  } else if (tg?.initDataUnsafe?.user?.id && !impersonateParam) {
+    // Direct real Telegram launch: clear any stale admin impersonation
+    sessionStorage.removeItem('bh_impersonate_user_id');
+    userState.isImpersonating = false;
   }
 
   if (activeImpId > 0) {
