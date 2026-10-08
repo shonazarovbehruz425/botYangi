@@ -32,12 +32,107 @@ let userState = {
 // ==========================================
 // MULTI-ACCOUNT STORAGE & HELPERS
 // ==========================================
+function cleanAndDeduplicateAccounts(list) {
+  if (!Array.isArray(list)) return [];
+  const primaryId = Number(localStorage.getItem('bh_primary_account_id')) || 0;
+  const map = new Map();
+
+  for (const item of list) {
+    if (!item) continue;
+    const id = Number(item.id);
+    if (!id || isNaN(id)) continue;
+
+    const rawUname = (item.username || '').replace(/^@+/, '').trim();
+    const unameLower = rawUname.toLowerCase();
+
+    // Check if an existing entry shares the same numeric ID or same non-empty username
+    let matchedKey = null;
+    for (const [key, val] of map.entries()) {
+      if (val.id === id) {
+        matchedKey = key;
+        break;
+      }
+      const valUnameLower = (val.username || '').replace(/^@+/, '').trim().toLowerCase();
+      if (unameLower && valUnameLower && unameLower === valUnameLower) {
+        matchedKey = key;
+        break;
+      }
+    }
+
+    if (matchedKey !== null) {
+      const existing = map.get(matchedKey);
+      // Retain the real primary ID if one of them is primaryId
+      const finalId = (id === primaryId) ? id : ((existing.id === primaryId) ? existing.id : id);
+
+      // Choose cleaner name (avoid placeholder like "Foydalanuvchi")
+      let name = existing.first_name || item.first_name || 'Foydalanuvchi';
+      if (item.first_name && !item.first_name.toLowerCase().startsWith('foydalanuvchi') &&
+          (!existing.first_name || existing.first_name.toLowerCase().startsWith('foydalanuvchi'))) {
+        name = item.first_name;
+      }
+
+      const lastName = item.last_name || existing.last_name || '';
+      const chosenUname = rawUname || existing.username || '';
+      const phone = item.phone || existing.phone || '';
+      const level = Math.max(Number(item.level) || 1, Number(existing.level) || 1);
+      const balance = Math.max(Number(item.balance) || 0, Number(existing.balance) || 0);
+      const totalEarned = Math.max(Number(item.total_earned) || 0, Number(existing.total_earned) || 0);
+
+      map.delete(matchedKey);
+      map.set(finalId, {
+        id: finalId,
+        first_name: name,
+        last_name: lastName,
+        username: chosenUname,
+        phone: phone,
+        level: level,
+        balance: balance,
+        total_earned: totalEarned,
+        is_primary: (primaryId > 0 && finalId === primaryId)
+      });
+    } else {
+      map.set(id, {
+        id: id,
+        first_name: item.first_name || 'Foydalanuvchi',
+        last_name: item.last_name || '',
+        username: rawUname,
+        phone: item.phone || '',
+        level: Number(item.level) || 1,
+        balance: Number(item.balance) || 0,
+        total_earned: Number(item.total_earned) || 0,
+        is_primary: (primaryId > 0 && id === primaryId)
+      });
+    }
+  }
+
+  const result = Array.from(map.values());
+  // Strictly enforce single primary account
+  let primaryFound = false;
+  for (const acc of result) {
+    if (primaryId > 0 && acc.id === primaryId) {
+      acc.is_primary = true;
+      primaryFound = true;
+    } else {
+      acc.is_primary = false;
+    }
+  }
+  if (!primaryFound && result.length > 0) {
+    result[0].is_primary = true;
+    if (primaryId === 0) {
+      localStorage.setItem('bh_primary_account_id', String(result[0].id));
+    }
+  }
+  return result;
+}
+
 function getSavedAccounts() {
   try {
     const raw = localStorage.getItem('bh_saved_accounts');
     if (raw) {
       const list = JSON.parse(raw);
-      if (Array.isArray(list)) return list;
+      if (Array.isArray(list)) {
+        return cleanAndDeduplicateAccounts(list);
+      }
     }
   } catch (e) {}
   return [];
@@ -45,23 +140,33 @@ function getSavedAccounts() {
 
 function saveAccountsList(list) {
   try {
-    localStorage.setItem('bh_saved_accounts', JSON.stringify(list));
+    const cleaned = cleanAndDeduplicateAccounts(list);
+    localStorage.setItem('bh_saved_accounts', JSON.stringify(cleaned));
   } catch (e) {}
 }
 
 function ensureAccountInSaved(acc) {
   if (!acc || !acc.id) return;
   const list = getSavedAccounts();
-  const idx = list.findIndex(a => Number(a.id) === Number(acc.id));
+  const accId = Number(acc.id);
+  const rawUname = (acc.username || '').replace(/^@+/, '').trim();
+  const unameLower = rawUname.toLowerCase();
+
+  const idx = list.findIndex(a => {
+    if (Number(a.id) === accId) return true;
+    const aUnameLower = (a.username || '').replace(/^@+/, '').trim().toLowerCase();
+    return Boolean(unameLower && aUnameLower && unameLower === aUnameLower);
+  });
+
   const fullAcc = {
-    id: Number(acc.id),
-    first_name: acc.first_name || 'Foydalanuvchi',
-    last_name: acc.last_name || '',
-    username: acc.username || '',
-    level: acc.level !== undefined ? acc.level : (acc.current_level || 1),
-    balance: acc.balance || 0,
-    total_earned: acc.total_earned || acc.income || 0,
-    is_primary: acc.is_primary !== undefined ? acc.is_primary : (idx >= 0 ? Boolean(list[idx].is_primary) : false)
+    id: accId,
+    first_name: (acc.first_name && !acc.first_name.toLowerCase().startsWith('foydalanuvchi')) ? acc.first_name : (idx >= 0 ? list[idx].first_name : (acc.first_name || 'Foydalanuvchi')),
+    last_name: acc.last_name !== undefined ? acc.last_name : (idx >= 0 ? list[idx].last_name : ''),
+    username: rawUname || (idx >= 0 ? list[idx].username : ''),
+    phone: acc.phone || (idx >= 0 ? list[idx].phone : ''),
+    level: acc.level !== undefined ? Number(acc.level) : (acc.current_level !== undefined ? Number(acc.current_level) : (idx >= 0 ? list[idx].level : 1)),
+    balance: acc.balance !== undefined ? Number(acc.balance) : (idx >= 0 ? list[idx].balance : 0),
+    total_earned: acc.total_earned !== undefined ? Number(acc.total_earned) : (acc.income !== undefined ? Number(acc.income) : (idx >= 0 ? list[idx].total_earned : 0))
   };
 
   if (idx >= 0) {
@@ -241,48 +346,6 @@ function detectTelegramUser() {
 let pendingLinkTarget = null;
 let otpAutoPollTimer = null;
 
-function getSavedAccounts() {
-  try {
-    const raw = localStorage.getItem('bh_saved_accounts');
-    if (raw) {
-      const list = JSON.parse(raw);
-      if (Array.isArray(list)) return list;
-    }
-  } catch (e) {}
-  return [];
-}
-
-function saveAccountsList(list) {
-  try {
-    localStorage.setItem('bh_saved_accounts', JSON.stringify(list));
-  } catch (e) {}
-}
-
-function ensureAccountInSaved(acc) {
-  if (!acc || !acc.id) return;
-  const list = getSavedAccounts();
-  const idx = list.findIndex(a => Number(a.id) === Number(acc.id));
-  const fullAcc = {
-    id: Number(acc.id),
-    first_name: acc.first_name || 'Foydalanuvchi',
-    last_name: acc.last_name || '',
-    username: acc.username || '',
-    phone: acc.phone || '',
-    level: acc.level !== undefined ? acc.level : (acc.current_level || 1),
-    balance: acc.balance || 0,
-    total_earned: acc.total_earned || acc.income || 0,
-    is_primary: acc.is_primary !== undefined ? acc.is_primary : (idx >= 0 ? Boolean(list[idx].is_primary) : false)
-  };
-
-  if (idx >= 0) {
-    list[idx] = { ...list[idx], ...fullAcc };
-  } else {
-    list.push(fullAcc);
-  }
-  saveAccountsList(list);
-  return fullAcc;
-}
-
 // Sync verified linked accounts from database
 function syncLinkedAccountsFromDb() {
   if (!userState.id) return;
@@ -333,6 +396,8 @@ function renderAccountsList() {
   if (!modalContainer && !pageContainer) return;
 
   const accounts = getSavedAccounts();
+  const primaryId = Number(localStorage.getItem('bh_primary_account_id')) || 0;
+
   // Ensure current user is in list
   if (userState.id && !accounts.some(a => Number(a.id) === Number(userState.id))) {
     ensureAccountInSaved({
@@ -342,7 +407,7 @@ function renderAccountsList() {
       username: userState.username,
       level: userState.level,
       total_earned: userState.income,
-      is_primary: true
+      is_primary: primaryId > 0 ? (Number(userState.id) === primaryId) : false
     });
   }
 
@@ -647,7 +712,10 @@ function confirmSwitchToAccount(targetId) {
   }
 
   const modal = document.getElementById('account-switch-confirm-modal');
-  if (modal) modal.style.display = 'flex';
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+  }
 }
 
 function doSwitchAccount(targetId) {
@@ -2072,12 +2140,18 @@ function submitTreeInsert() {
 
 function closeMemberModal(e) {
   const modal = document.getElementById('member-detail-modal');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.remove('active');
+  }
 }
 
 function closeModal(modalId) {
   const modal = document.getElementById(modalId);
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.remove('active');
+  }
 }
 
 // Load Tree Data from Database API

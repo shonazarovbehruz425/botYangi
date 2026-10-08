@@ -727,6 +727,8 @@ body {
 
 .toast.show {
   transform: translateX(-50%) translateY(0);
+}
+
 /* ============================================================
    VISUAL TEAM TREE & HIERARCHY (JAMOA SHAJARASI / STRUKTURA)
    ============================================================ */

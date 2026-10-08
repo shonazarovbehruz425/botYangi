@@ -1212,6 +1212,7 @@ class Database:
             await db.execute(
                 """
                 UPDATE users SET
+                    username = '',
                     referrer_id = 0,
                     current_level = 0,
                     balance = 0.0,
@@ -1992,6 +1993,27 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
 
+            async def _resolve_user(r):
+                if not r:
+                    return None
+                u_dict = dict(r)
+                curr_uid = u_dict.get("user_id")
+                visited = set()
+                while curr_uid and curr_uid not in visited:
+                    visited.add(curr_uid)
+                    c_rep = await db.execute("SELECT new_user_id FROM user_replacements WHERE old_user_id = ?", (curr_uid,))
+                    rep = await c_rep.fetchone()
+                    if rep and rep[0] and rep[0] != curr_uid:
+                        curr_uid = rep[0]
+                    else:
+                        break
+                if curr_uid and curr_uid != u_dict.get("user_id"):
+                    c_act = await db.execute("SELECT * FROM users WHERE user_id = ?", (curr_uid,))
+                    new_r = await c_act.fetchone()
+                    if new_r:
+                        return dict(new_r)
+                return u_dict
+
             # 1. Exact numeric user_id match
             if digits_only:
                 try:
@@ -1999,19 +2021,25 @@ class Database:
                     cursor = await db.execute("SELECT * FROM users WHERE user_id = ? OR CAST(user_id AS TEXT) = ?", (num_id, digits_only))
                     row = await cursor.fetchone()
                     if row:
-                        return dict(row)
+                        return await _resolve_user(row)
                 except Exception:
                     pass
 
             # 2. @username bo'yicha qidirish (case-insensitive)
             if uname_query:
                 cursor = await db.execute(
-                    "SELECT * FROM users WHERE LOWER(username) = ? OR REPLACE(LOWER(username), '@', '') = ?",
+                    """
+                    SELECT * FROM users 
+                    WHERE LOWER(username) = ? OR REPLACE(LOWER(username), '@', '') = ?
+                    ORDER BY CASE WHEN user_id IN (SELECT old_user_id FROM user_replacements) THEN 1 ELSE 0 END ASC,
+                             user_id DESC
+                    LIMIT 1
+                    """,
                     (uname_query, uname_query)
                 )
                 row = await cursor.fetchone()
                 if row:
-                    return dict(row)
+                    return await _resolve_user(row)
 
             # 3. Telefon raqami bo'yicha chuqur qidirish
             if digits_only and len(digits_only) >= 7:
@@ -2041,7 +2069,7 @@ class Database:
                 )
                 row = await cursor.fetchone()
                 if row:
-                    return dict(row)
+                    return await _resolve_user(row)
 
             # 4. Qidiruv matni bo'yicha first_name / last_name orqali qidirish
             if len(clean) >= 3 and not digits_only:
@@ -2051,7 +2079,7 @@ class Database:
                 )
                 row = await cursor.fetchone()
                 if row:
-                    return dict(row)
+                    return await _resolve_user(row)
 
             # 5. Agar bazada topilmasa, lekin kiritilgan qiymat haqiqiy Telegram raqamli IDsi bo'lsa (masalan: 6003608197)
             if digits_only and 6 <= len(digits_only) <= 15 and (clean.isdigit() or clean.lower().startswith('id') or clean.startswith('#')):
