@@ -776,7 +776,7 @@
         <label>Username:</label>
         <input type="text" id="edit-uname" class="form-control">
       </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
         <div class="form-group">
           <label>Daraja (1 - 5):</label>
           <input type="number" id="edit-level" class="form-control" min="1" max="5">
@@ -784,6 +784,10 @@
         <div class="form-group">
           <label>Balans (so'm):</label>
           <input type="number" id="edit-balance" class="form-control" step="1000">
+        </div>
+        <div class="form-group">
+          <label>Jami Daromad (so'm):</label>
+          <input type="number" id="edit-earned" class="form-control" step="1000">
         </div>
       </div>
       <div class="form-group">
@@ -1362,6 +1366,7 @@
       document.getElementById('edit-uname').value = u.username || '';
       document.getElementById('edit-level').value = u.current_level || 1;
       document.getElementById('edit-balance').value = u.balance || 0;
+      document.getElementById('edit-earned').value = u.total_earned !== undefined ? u.total_earned : (u.balance || 0);
       document.getElementById('edit-status').value = u.status || '🌱 Boshlang\'ich';
       document.getElementById('edit-card').value = u.wallet_card || '';
       document.getElementById('edit-bep20').value = u.wallet_bep20 || '';
@@ -1376,6 +1381,7 @@
         username: document.getElementById('edit-uname').value,
         current_level: document.getElementById('edit-level').value,
         balance: document.getElementById('edit-balance').value,
+        total_earned: document.getElementById('edit-earned').value,
         status: document.getElementById('edit-status').value,
         wallet_card: document.getElementById('edit-card').value,
         wallet_bep20: document.getElementById('edit-bep20').value
@@ -2559,12 +2565,13 @@
       const query = presetQuery || prompt("Foydalanuvchi Telegram ID si yoki @username ini kiriting:");
       if (!query) return;
 
-      const clean = query.trim().replace('@', '');
-      const target = allUsers.find(u => 
+      const candidates = allUsers.filter(u => 
         String(u.user_id) === clean || 
         (u.username && u.username.toLowerCase() === clean.toLowerCase()) ||
         (u.phone && u.phone.includes(clean))
       );
+      candidates.sort((a, b) => ((b.current_level || 1) - (a.current_level || 1)) || ((b.balance || 0) - (a.balance || 0)));
+      const target = candidates[0];
 
       if (target) {
         const tName = `${target.first_name || ''} ${target.last_name || ''}`.trim() || 'Hamkor';

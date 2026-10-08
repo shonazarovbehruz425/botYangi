@@ -93,6 +93,13 @@ async def start_webapp_server(bot: Bot = None):
             if not user and effective_uid:
                 user = await db.get_user(effective_uid)
 
+            if not user and username:
+                clean_un = str(username).strip().lstrip("@").lower()
+                user_by_uname = await db.get_user_by_username(clean_un)
+                if user_by_uname:
+                    user = user_by_uname
+                    effective_uid = user.get("user_id")
+
             if not user and uid not in ADMINS:
                 return web.json_response({
                     "success": True,
@@ -183,6 +190,13 @@ async def start_webapp_server(bot: Bot = None):
             effective_uid = await db.get_effective_user_id(uid)
             if not user and effective_uid:
                 user = await db.get_user(effective_uid)
+
+            if not user and username:
+                clean_un = str(username).strip().lstrip("@").lower()
+                user_by_uname = await db.get_user_by_username(clean_un)
+                if user_by_uname:
+                    user = user_by_uname
+                    effective_uid = user.get("user_id")
 
             if not user and uid not in ADMINS:
                 return web.json_response({
@@ -495,9 +509,10 @@ async def start_webapp_server(bot: Bot = None):
             first_name = data.get("first_name", "")
             last_name = data.get("last_name", "")
             username = data.get("username", "").replace("@", "")
-            level = int(data.get("current_level", 1))
-            balance = float(data.get("balance", 0.0))
-            total_earned = float(data.get("total_earned", 30.0))
+            existing_user = await db.get_user(user_id)
+            default_earned = float(existing_user.get("total_earned", balance)) if existing_user else balance
+            req_earned = data.get("total_earned")
+            total_earned = float(req_earned) if req_earned is not None and str(req_earned).strip() != "" else default_earned
             status = data.get("status", "🌱 Boshlang'ich")
             wallet_bep20 = data.get("wallet_bep20", "")
             wallet_card = data.get("wallet_card", "")

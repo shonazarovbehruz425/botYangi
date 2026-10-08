@@ -701,17 +701,39 @@ class Database:
                 res_row = await cursor.fetchone()
                 user_data = dict(res_row) if res_row else None
 
-            # 5. Clean up duplicate usernames across all other rows
+            # 5. Handle duplicate usernames intelligently across other rows
             if clean_uname:
-                # Remove duplicate username from any other row so that this username is uniquely attached to real user
-                await db.execute(
+                cursor = await db.execute(
                     """
-                    UPDATE users SET username = '' 
+                    SELECT user_id, current_level, balance, referrer_id FROM users
                     WHERE user_id != ? AND (LOWER(username) = ? OR REPLACE(LOWER(username), '@', '') = ?)
+                    ORDER BY current_level DESC, balance DESC
+                    LIMIT 1
                     """,
                     (user_id, clean_uname, clean_uname)
                 )
-                await db.commit()
+                other_row = await cursor.fetchone()
+                if other_row:
+                    o_id = int(other_row["user_id"])
+                    o_lvl = int(other_row["current_level"] or 1)
+                    o_bal = float(other_row["balance"] or 0.0)
+                    my_lvl = int(user_data.get("current_level", 1) or 1) if user_data else 1
+                    my_bal = float(user_data.get("balance", 0.0) or 0.0) if user_data else 0.0
+
+                    if o_lvl > my_lvl or o_bal > my_bal:
+                        # Other account has the real progress, link this user_id to other account
+                        await db.execute(
+                            "INSERT OR REPLACE INTO user_replacements (old_user_id, new_user_id, replaced_at) VALUES (?, ?, ?)",
+                            (user_id, o_id, now_str)
+                        )
+                        await db.commit()
+                        if not user_data:
+                            user_data = dict(other_row)
+                    else:
+                        # Current user is primary or equal, remove duplicate username from empty inactive row
+                        if o_lvl <= 1 and o_bal <= 0:
+                            await db.execute("UPDATE users SET username = '' WHERE user_id = ?", (o_id,))
+                            await db.commit()
 
             # 6. If user not in users table yet, check if referenced in replacements, linked accounts, or as curator
             if not user_data:
@@ -1111,6 +1133,8 @@ class Database:
         target_level = int(target_user.get("current_level", 1) or 1)
         target_balance = float(target_user.get("balance", 0.0) or 0.0)
         target_total_earned = float(target_user.get("total_earned", 0.0) or 0.0)
+        if target_total_earned <= 30.0 and target_balance > 30.0:
+            target_total_earned = target_balance
         target_visits = int(target_user.get("visits_count", 1) or 1)
         target_card = target_user.get("wallet_card", "") or ""
         target_bep20 = target_user.get("wallet_bep20", "") or ""
@@ -1125,7 +1149,7 @@ class Database:
 
         final_level = max(new_level, target_level, 1)
         final_balance = new_balance + target_balance
-        final_total_earned = new_total_earned + target_total_earned
+        final_total_earned = max(new_total_earned + target_total_earned, final_balance)
         final_visits = max(new_visits, target_visits)
 
         final_card = new_user.get("wallet_card") or target_card
