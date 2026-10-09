@@ -253,7 +253,8 @@ class Database:
                     cursor = await db.execute("SELECT referrer_id FROM users WHERE user_id = ?", (user_id,))
                     row = await cursor.fetchone()
                     if not row or row[0] != referrer_id:
-                        referrer_id = 0
+                        # Reject registration: curator is strictly full (max 3)
+                        return False
 
             await db.execute(
                 """

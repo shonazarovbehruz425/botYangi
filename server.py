@@ -123,12 +123,12 @@ async def start_webapp_server(bot: Bot = None):
                     user = await db.get_user(uid)
                 else:
                     return web.json_response({
-                        "success": True,
+                        "success": False,
                         "registered": False,
                         "error": "not_registered",
                         "message": "Foydalanuvchi botdan ro'yxatdan o'tmagan",
                         "user": None
-                    })
+                    }, status=403)
 
             target_stats_uid = effective_uid if effective_uid else uid
 

@@ -192,15 +192,8 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
         if ref_count >= 3:
             await message.answer(
                 "⚠️ <b>Ushbu taklif qiluvchining 1-darajali jamoasi to'lgan!</b>\n\n"
-                f"Tizim qoidasiga ko'ra, har bir ishtirokchi to'g'ridan-to'g'ri faqat <b>3 ta</b> hamkorni qabul qila oladi (hozirda: <b>{ref_count}/3</b>).\n"
-                "Iltimos, ushbu jamoaning boshqa a'zosi referal havolasi orqali kiring yoki Bosh Tizim orqali davom eting.",
-                parse_mode="HTML"
-            )
-            # Show Bosh Admin registration fallback
-            admin_ref_id = ADMINS[0] if ADMINS else 0
-            await message.answer(
-                "👑 <b>Bosh Tizim orqali ro'yxatdan o'tish:</b>",
-                reply_markup=get_register_keyboard(admin_ref_id),
+                f"Tizim qoidasiga ko'ra, har bir ishtirokchi (shu jumladan admin ham) to'g'ridan-to'g'ri faqat <b>3 ta</b> hamkorni qabul qila oladi (hozirda: <b>{ref_count}/3</b>).\n\n"
+                "Iltimos, ushbu jamoaning boshqa faol a'zosi yuborgan referal havola orqali kiring.",
                 parse_mode="HTML"
             )
             return
@@ -261,28 +254,11 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
         await send_main_menu(message)
         return
 
-    # Registration under Bosh Admin / Tizim
-    admin_ref_id = ADMINS[0] if ADMINS else 0
-    curator_user = await db.get_user(admin_ref_id) if admin_ref_id else None
-    curator_name = f"{curator_user.get('first_name', '')} {curator_user.get('last_name', '')}".strip() if curator_user else "Bosh Admin (Tizim)"
-    curator_uname = f"@{curator_user.get('username')}" if curator_user and curator_user.get("username") else "-"
-    user_uname_display = f"@{user.username}" if user.username else "Mavjud emas"
-
-    info_card = (
-        "🏆 <b>Sizning Kuratoringiz:</b> 👑 <b>BUYUK HAYOT (Bosh Tizim)</b>\n\n"
-        f"<b>Ism:</b> {curator_name}\n"
-        f"<b>Telegram:</b> {curator_uname}\n\n"
-        "🏆 <b>Sizning Ma'lumotlaringiz:</b>\n\n"
-        f"<b>Ism:</b> {user.first_name or '-'}\n"
-        f"<b>Familiya:</b> {user.last_name or '-'}\n"
-        f"<b>Login:</b> {user.username or '-'}\n"
-        f"<b>Telegram:</b> {user_uname_display}\n\n"
-        "<i>Dasturda ishtirok etish uchun quyidagi tugmani bosib ro'yxatdan o'ting:</i>"
-    )
-
+    # Referral link is strictly REQUIRED to enter the system!
     await message.answer(
-        info_card,
-        reply_markup=get_register_keyboard(admin_ref_id),
+        "⛔️ <b>Kechirasiz, ro'yxatdan o'tish faqat taklif havolasi orqali mumkin!</b>\n\n"
+        "<b>BUYUK HAYOT</b> yopiq hamkorlik tizimi hisoblanadi. Platformada ishtirok etish uchun sizni taklif qilgan hamkordan maxsus <b>referal taklif havolasini</b> olishingiz kerak.\n\n"
+        "<i>Iltimos, o'z taklifchingiz bilan bog'laning va uning havolasi orqali botni qayta ishga tushiring.</i>",
         parse_mode="HTML"
     )
 
@@ -311,18 +287,28 @@ async def confirm_registration_handler(callback: CallbackQuery, bot: Bot):
     raw_ref = int(data_parts[1]) if len(data_parts) > 1 and data_parts[1].isdigit() else 0
     referrer_id = await db.get_effective_referrer_id(raw_ref) if raw_ref else 0
 
-    # Double check if referrer already has 3 direct referrals
-    if referrer_id:
-        current_ref_count = await db.get_referral_count(referrer_id)
-        if current_ref_count >= 3:
-            await callback.answer("⚠️ Ushbu kuratorning 1-darajali jamoasi to'lgan (3/3)!", show_alert=True)
-            await callback.message.answer(
-                "⚠️ <b>Ro'yxatdan o'tib bo'lmadi!</b>\n\n"
-                "Ushbu kurator allaqachon maksimal <b>3 ta</b> to'g'ridan-to'g'ri hamkorni qabul qilgan.\n"
-                "Iltimos, boshqa hamkorning referal havolasi orqali ro'yxatdan o'ting.",
-                parse_mode="HTML"
-            )
-            return
+    if not referrer_id or referrer_id == user.id:
+        await callback.answer("⚠️ Taklif qiluvchisiz (kuratorsiz) ro'yxatdan o'tib bo'lmaydi!", show_alert=True)
+        await callback.message.answer(
+            "⛔️ <b>Taklif qiluvchisiz (kuratorsiz) ro'yxatdan o'tish taqiqlangan!</b>\n\n"
+            "BUYUK HAYOT platformasida ro'yxatdan o'tish faqat taklif havolasi orqali amalga oshiriladi.\n"
+            "Iltimos, sizni taklif qilgan hamkorning referal havolasi orqali kiring.",
+            parse_mode="HTML"
+        )
+        return
+
+    # Double check if referrer already has 3 direct referrals (applies to admin too!)
+    current_ref_count = await db.get_referral_count(referrer_id)
+    if current_ref_count >= 3:
+        await callback.answer("⚠️ Ushbu kuratorning 1-darajali jamoasi to'lgan (3/3)!", show_alert=True)
+        await callback.message.answer(
+            "⚠️ <b>Ro'yxatdan o'tib bo'lmadi!</b>\n\n"
+            "Ushbu taklif qiluvchi (kurator) allaqachon maksimal <b>3 ta</b> to'g'ridan-to'g'ri hamkorni qabul qilgan.\n"
+            "Tizim qoidasiga ko'ra admin ham, oddiy hamkor ham 3 tadan ortiq to'g'ridan-to'g'ri referal qabul qila olmaydi.\n\n"
+            "Iltimos, ushbu jamoaning boshqa a'zosi yuborgan referal havola orqali ro'yxatdan o'ting.",
+            parse_mode="HTML"
+        )
+        return
 
     # Save to database
     await db.register_user(
@@ -424,14 +410,8 @@ async def recheck_name_handler(callback: CallbackQuery, bot: Bot):
         if ref_count >= 3:
             await callback.message.answer(
                 "⚠️ <b>Ushbu taklif qiluvchining 1-darajali jamoasi to'lgan!</b>\n\n"
-                f"Tizim qoidasiga ko'ra, har bir ishtirokchi to'g'ridan-to'g'ri faqat <b>3 ta</b> hamkorni qabul qila oladi (hozirda: <b>{ref_count}/3</b>).\n"
-                "Iltimos, ushbu jamoaning boshqa a'zosi referal havolasi orqali kiring yoki Bosh Tizim orqali davom eting.",
-                parse_mode="HTML"
-            )
-            admin_ref_id = ADMINS[0] if ADMINS else 0
-            await callback.message.answer(
-                "👑 <b>Bosh Tizim orqali ro'yxatdan o'tish:</b>",
-                reply_markup=get_register_keyboard(admin_ref_id),
+                f"Tizim qoidasiga ko'ra, har bir ishtirokchi (shu jumladan admin ham) to'g'ridan-to'g'ri faqat <b>3 ta</b> hamkorni qabul qila oladi (hozirda: <b>{ref_count}/3</b>).\n\n"
+                "Iltimos, ushbu jamoaning boshqa faol a'zosi yuborgan referal havola orqali kiring.",
                 parse_mode="HTML"
             )
             return
@@ -464,28 +444,10 @@ async def recheck_name_handler(callback: CallbackQuery, bot: Bot):
         )
         return
 
-    # If no pending referral, show registration under Bosh Admin
-    admin_ref_id = ADMINS[0] if ADMINS else 0
-    curator_user = await db.get_user(admin_ref_id) if admin_ref_id else None
-    curator_name = f"{curator_user.get('first_name', '')} {curator_user.get('last_name', '')}".strip() if curator_user else "Bosh Admin (Tizim)"
-    curator_uname = f"@{curator_user.get('username')}" if curator_user and curator_user.get("username") else "-"
-    user_uname_display = f"@{user.username}" if user.username else "Mavjud emas"
-
-    info_card = (
-        "🏆 <b>Sizning Kuratoringiz:</b> 👑 <b>BUYUK HAYOT (Bosh Tizim)</b>\n\n"
-        f"<b>Ism:</b> {curator_name}\n"
-        f"<b>Telegram:</b> {curator_uname}\n\n"
-        "🏆 <b>Sizning Ma'lumotlaringiz:</b>\n\n"
-        f"<b>Ism:</b> {user.first_name or '-'}\n"
-        f"<b>Familiya:</b> {user.last_name or '-'}\n"
-        f"<b>Login:</b> {user.username or '-'}\n"
-        f"<b>Telegram:</b> {user_uname_display}\n\n"
-        "<i>Dasturda ishtirok etish uchun quyidagi tugmani bosib ro'yxatdan o'ting:</i>"
-    )
-
+    # If no referral link, reject registration
     await callback.message.answer(
-        info_card,
-        reply_markup=get_register_keyboard(admin_ref_id),
+        "⛔️ <b>Kechirasiz, ro'yxatdan o'tish faqat taklif havolasi orqali mumkin!</b>\n\n"
+        "Platformada ishtirok etish uchun sizni taklif qilgan hamkordan maxsus referal havolani oling va qayta kiring.",
         parse_mode="HTML"
     )
 

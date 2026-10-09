@@ -290,32 +290,29 @@ function detectTelegramUser() {
     } catch(e) {}
   }
 
-  // Record primary Telegram account in saved accounts
+  // 5. User identity binding
+  const primaryStored = Number(localStorage.getItem('bh_primary_account_id') || 0);
+  const activeStoredId = Number(localStorage.getItem('bh_active_account_id') || 0);
+  const savedAccounts = getSavedAccounts();
+
   if (detectedTgId && detectedUser) {
-    const primaryStored = localStorage.getItem('bh_primary_account_id');
-    if (!primaryStored || Number(primaryStored) !== detectedTgId) {
+    if (primaryStored !== detectedTgId) {
+      // New user opening Telegram WebApp: reset active account to their real identity
       localStorage.setItem('bh_primary_account_id', String(detectedTgId));
       localStorage.setItem('bh_active_account_id', String(detectedTgId));
       userState.id = detectedTgId;
+    } else if (activeStoredId && activeStoredId !== detectedTgId && savedAccounts.some(a => Number(a.id) === activeStoredId)) {
+      // Same user explicitly switched to a verified linked sub-account
+      userState.id = activeStoredId;
+    } else {
+      userState.id = detectedTgId;
+      localStorage.setItem('bh_active_account_id', String(detectedTgId));
     }
-    ensureAccountInSaved(detectedUser);
-  }
-
-  // 5. Active account resolution: prioritize user-selected active account if linked
-  const activeStoredId = localStorage.getItem('bh_active_account_id');
-  const savedAccounts = getSavedAccounts();
-  const isValidSaved = savedAccounts.some(a => Number(a.id) === Number(activeStoredId));
-
-  if (activeStoredId && !isNaN(activeStoredId) && Number(activeStoredId) > 0 && isValidSaved) {
-    userState.id = Number(activeStoredId);
-  } else if (detectedTgId) {
-    userState.id = detectedTgId;
-    localStorage.setItem('bh_active_account_id', String(userState.id));
+  } else if (activeStoredId && savedAccounts.some(a => Number(a.id) === activeStoredId)) {
+    userState.id = activeStoredId;
   } else {
-    const saved = sessionStorage.getItem('bh_user_id') || localStorage.getItem('bh_user_id');
-    if (saved && !isNaN(saved) && Number(saved) > 0) {
-      userState.id = Number(saved);
-    }
+    const saved = Number(sessionStorage.getItem('bh_user_id') || localStorage.getItem('bh_user_id') || 0);
+    userState.id = saved > 0 ? saved : 0;
   }
 
   // Populate local info from cache if available
@@ -952,14 +949,11 @@ function fetchLiveUserData() {
   detectTelegramUser();
 
   if (!userState.id) {
-    const fallbackId = Number(localStorage.getItem('bh_primary_account_id') || localStorage.getItem('bh_user_id') || sessionStorage.getItem('bh_user_id') || 0);
-    if (fallbackId > 0) {
-      userState.id = fallbackId;
-    } else {
-      userState.isNotRegistered = true;
-      renderNotRegisteredScreen();
-      return;
-    }
+    const gate = document.getElementById('auth-gatekeeper');
+    if (gate) gate.remove();
+    userState.isNotRegistered = true;
+    renderNotRegisteredScreen();
+    return;
   }
 
   // Also sync verified linked accounts from database
@@ -972,6 +966,9 @@ function fetchLiveUserData() {
   fetch(`/api/user/profile?user_id=${userState.id}&username=${unameParam}&first_name=${fnParam}&last_name=${lnParam}${adminParam}`)
     .then(res => res.json())
     .then(data => {
+      const gate = document.getElementById('auth-gatekeeper');
+      if (gate) gate.remove();
+
       // 1. Check if user is banned
       if (data.is_banned === 1 || (data.user && data.user.is_banned === 1)) {
         if (!userState.isImpersonating) {
@@ -1032,6 +1029,13 @@ function fetchLiveUserData() {
     })
     .catch(err => {
       console.warn("Could not fetch live profile from API:", err);
+      const gate = document.getElementById('auth-gatekeeper');
+      if (gate) gate.remove();
+      if (!userState.isAdmin && !userState.isImpersonating) {
+        userState.isNotRegistered = true;
+        renderNotRegisteredScreen();
+        return;
+      }
       updateUI();
     });
 
@@ -2176,7 +2180,7 @@ function loadUserTree(retryCount) {
   if (loadingOverlay) loadingOverlay.style.display = 'none';
 
   detectTelegramUser();
-  const targetUid = userState.id || Number(localStorage.getItem('bh_primary_account_id') || localStorage.getItem('bh_user_id') || 0);
+  const targetUid = userState.id || 0;
   if (!targetUid) {
     userState.isNotRegistered = true;
     renderNotRegisteredScreen();
