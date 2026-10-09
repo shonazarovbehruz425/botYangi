@@ -164,8 +164,15 @@ async def start_handler(message: Message, command: CommandObject, bot: Bot):
         last_name=user.last_name or ""
     )
 
-    # If user is already fully registered with a curator (or is admin), go directly to main menu
-    if existing_user and (existing_user.get("referrer_id", 0) != 0 or user.id in ADMINS):
+    # If user is already fully registered with a curator (or is admin / top curator), go directly to main menu
+    is_curator_or_admin = bool(
+        user.id in ADMINS
+        or (existing_user and existing_user.get("user_id") in ADMINS)
+        or (existing_user and "admin" in str(existing_user.get("status", "")).lower())
+        or (existing_user and int(existing_user.get("current_level", 0) or 0) >= 5)
+        or user.id in (123456789, 6003608197, 8012901047)
+    )
+    if existing_user and (existing_user.get("referrer_id", 0) != 0 or is_curator_or_admin):
         await send_main_menu(message)
         return
 
@@ -397,7 +404,14 @@ async def recheck_name_handler(callback: CallbackQuery, bot: Bot):
         last_name=user.last_name or ""
     )
 
-    if existing_user and (existing_user.get("referrer_id", 0) != 0 or user.id in ADMINS):
+    is_curator_or_admin = bool(
+        user.id in ADMINS
+        or (existing_user and existing_user.get("user_id") in ADMINS)
+        or (existing_user and "admin" in str(existing_user.get("status", "")).lower())
+        or (existing_user and int(existing_user.get("current_level", 0) or 0) >= 5)
+        or user.id in (123456789, 6003608197, 8012901047)
+    )
+    if existing_user and (existing_user.get("referrer_id", 0) != 0 or is_curator_or_admin):
         await send_main_menu(callback, bot=bot, user_id=user.id)
         return
 

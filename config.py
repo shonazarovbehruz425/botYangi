@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-ADMINS = [int(admin_id.strip()) for admin_id in os.getenv("ADMINS", "123456789").split(",") if admin_id.strip().isdigit()]
+ADMINS = [int(admin_id.strip()) for admin_id in os.getenv("ADMINS", "123456789,6003608197,8012901047").split(",") if admin_id.strip().isdigit()]
 DB_NAME = os.getenv("DB_NAME", "buyukhayot.db")
 WEBAPP_PORT = int(os.getenv("PORT", os.getenv("WEBAPP_PORT", "8080")))
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://botyangi.onrender.com")

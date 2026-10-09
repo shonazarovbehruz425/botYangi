@@ -952,9 +952,14 @@ function fetchLiveUserData() {
   detectTelegramUser();
 
   if (!userState.id) {
-    userState.isNotRegistered = true;
-    renderNotRegisteredScreen();
-    return;
+    const fallbackId = Number(localStorage.getItem('bh_primary_account_id') || localStorage.getItem('bh_user_id') || sessionStorage.getItem('bh_user_id') || 0);
+    if (fallbackId > 0) {
+      userState.id = fallbackId;
+    } else {
+      userState.isNotRegistered = true;
+      renderNotRegisteredScreen();
+      return;
+    }
   }
 
   // Also sync verified linked accounts from database
@@ -975,8 +980,14 @@ function fetchLiveUserData() {
         }
       }
 
+      // Check admin status
+      const isAdmin = Boolean(data.is_admin || (data.user && data.user.is_admin) || userState.isAdmin);
+      if (isAdmin) {
+        userState.isAdmin = true;
+      }
+
       // 2. Check if user is not registered in bot
-      if ((data.registered === false || data.error === 'not_registered' || (!data.user && !data.is_admin)) && !userState.isImpersonating) {
+      if ((data.registered === false || data.error === 'not_registered' || (!data.user && !isAdmin)) && !userState.isImpersonating && !isAdmin) {
         userState.isNotRegistered = true;
         renderNotRegisteredScreen();
         return;
@@ -2165,7 +2176,7 @@ function loadUserTree(retryCount) {
   if (loadingOverlay) loadingOverlay.style.display = 'none';
 
   detectTelegramUser();
-  const targetUid = userState.id || 0;
+  const targetUid = userState.id || Number(localStorage.getItem('bh_primary_account_id') || localStorage.getItem('bh_user_id') || 0);
   if (!targetUid) {
     userState.isNotRegistered = true;
     renderNotRegisteredScreen();
@@ -2177,7 +2188,12 @@ function loadUserTree(retryCount) {
   fetch(`/api/user/tree?user_id=${targetUid}&username=${unameParam}${adminParam}`)
     .then(res => res.json())
     .then(d => {
-      if ((d.registered === false || d.error === 'not_registered') && !userState.isImpersonating) {
+      const isTreeAdmin = Boolean(d.is_admin || userState.isAdmin);
+      if (isTreeAdmin) {
+        userState.isAdmin = true;
+      }
+
+      if ((d.registered === false || d.error === 'not_registered') && !userState.isImpersonating && !isTreeAdmin) {
         userState.isNotRegistered = true;
         renderNotRegisteredScreen();
         return;
